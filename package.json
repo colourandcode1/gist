@@ -1,7 +1,7 @@
 {
   "name": "research-hub",
   "version": "1.0.0",
-  "homepage": "https://colourandcode1.github.io/research-hub",
+  "homepage": "https://colourandcode1.github.io/gist",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
