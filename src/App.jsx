@@ -1,5 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Link, FileText, Video, Calendar, User, Tag, Check, ArrowRight, Clock, Copy, X, Play, Search, Plus, Save, ArrowLeft, Home, Database, Filter, TrendingUp, BarChart3, Menu } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Navigation Header Component
 const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }) => {
@@ -20,15 +27,15 @@ const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }
   ];
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <nav className="bg-background border-b border-border sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Database className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <Database className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">Research Hub</h1>
+              <h1 className="text-lg font-semibold text-foreground">Research Hub</h1>
             </div>
           </div>
 
@@ -39,51 +46,49 @@ const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }
                 (item.id === 'upload' && currentView === 'analysis');
               
               return (
-                <button
+                <Button
                   key={item.id}
+                  variant={isActive ? "secondary" : "ghost"}
+                  size="sm"
                   onClick={() => handleNavigation(item.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                  className="flex items-center gap-2"
                 >
                   <Icon className="w-4 h-4" />
                   {item.label}
-                </button>
+                </Button>
               );
             })}
+            <ThemeToggle />
           </div>
 
-          <div className="md:hidden">
-            <button
+          <div className="md:hidden flex items-center gap-2">
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-50"
             >
               <Menu className="w-5 h-5" />
-            </button>
+            </Button>
           </div>
         </div>
 
         {showMobileMenu && (
-          <div className="md:hidden border-t border-gray-200 py-2">
+          <div className="md:hidden border-t border-border py-2">
             {navItems.map(item => {
               const Icon = item.icon;
               const isActive = currentView === item.id;
               
               return (
-                <button
+                <Button
                   key={item.id}
+                  variant={isActive ? "secondary" : "ghost"}
+                  className="w-full justify-start"
                   onClick={() => handleNavigation(item.id)}
-                  className={`w-full flex items-center gap-2 px-4 py-2 text-left rounded-md text-sm font-medium transition-colors ${
-                    isActive 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4 mr-2" />
                   {item.label}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -91,8 +96,8 @@ const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }
       </div>
 
       {hasUnsavedChanges && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-2">
-          <div className="flex items-center gap-2 text-sm text-yellow-800">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-6 py-2">
+          <div className="flex items-center gap-2 text-sm text-yellow-800 dark:text-yellow-200">
             <Clock className="w-4 h-4" />
             <span>You have unsaved changes in this session</span>
           </div>
@@ -159,140 +164,149 @@ const RepositorySearchView = ({ onNavigate }) => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-background min-h-screen">
       <NavigationHeader currentView="repository" onNavigate={onNavigate} />
       
       <div className="max-w-7xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Research Repository</h1>
-            <p className="text-gray-600">Search and discover insights from all your research sessions</p>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Research Repository</h1>
+            <p className="text-muted-foreground">Search and discover insights from all your research sessions</p>
           </div>
-          <button
+          <Button
             onClick={() => onNavigate('upload')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
             New Session
-          </button>
+          </Button>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search insights, evidence, sessions, or tags..."
-              className="w-full pl-10 pr-4 py-2 text-lg border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search insights, evidence, sessions, or tags..."
+                className="w-full pl-10 text-lg"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-2">
-              <Database className="w-5 h-5 text-blue-600" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{sampleNuggets.length}</div>
-                <div className="text-sm text-gray-600">Total Insights</div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-primary" />
+                <div>
+                  <div className="text-2xl font-bold text-foreground">{sampleNuggets.length}</div>
+                  <div className="text-sm text-muted-foreground">Total Insights</div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-2">
-              <Video className="w-5 h-5 text-green-600" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">3</div>
-                <div className="text-sm text-gray-600">Sessions</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Video className="w-5 h-5 text-green-600" />
+                <div>
+                  <div className="text-2xl font-bold text-foreground">3</div>
+                  <div className="text-sm text-muted-foreground">Sessions</div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-orange-600" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">2</div>
-                <div className="text-sm text-gray-600">Pain Points</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-orange-600" />
+                <div>
+                  <div className="text-2xl font-bold text-foreground">2</div>
+                  <div className="text-sm text-muted-foreground">Pain Points</div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-2">
-              <Check className="w-5 h-5 text-emerald-600" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">1</div>
-                <div className="text-sm text-gray-600">Positive</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Check className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <div className="text-2xl font-bold text-foreground">1</div>
+                  <div className="text-sm text-muted-foreground">Positive</div>
+                </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-foreground">
               {filteredNuggets.length} insights found
             </h2>
           </div>
 
           {filteredNuggets.map(nugget => (
-            <div key={nugget.id} className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{nugget.observation}</h3>
-                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {nugget.session_date}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <User className="w-4 h-4" />
-                      {nugget.speaker}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {nugget.timestamp}
+            <Card key={nugget.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-medium text-foreground mb-2">{nugget.observation}</h3>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {nugget.session_date}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <User className="w-4 h-4" />
+                        {nugget.speaker}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {nugget.timestamp}
+                      </div>
                     </div>
                   </div>
+                  
+                  <div className="flex items-center gap-2 ml-4">
+                    <Badge variant="outline" className={getSentimentColor(nugget.sentiment)}>
+                      {nugget.sentiment}
+                    </Badge>
+                    <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                      <Video className="w-4 h-4" />
+                      Watch
+                    </Button>
+                  </div>
                 </div>
-                
-                <div className="flex items-center gap-2 ml-4">
-                  <span className={`px-2 py-1 text-xs rounded-full border ${getSentimentColor(nugget.sentiment)}`}>
-                    {nugget.sentiment}
-                  </span>
-                  <button className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors">
-                    <Video className="w-4 h-4" />
-                    Watch
-                  </button>
-                </div>
-              </div>
 
-              <div className="bg-gray-50 border-l-4 border-blue-400 p-4 mb-4">
-                <p className="text-gray-700 italic">"{nugget.evidence_text}"</p>
-              </div>
+                <div className="bg-muted border-l-4 border-primary p-4 mb-4">
+                  <p className="text-muted-foreground italic">"{nugget.evidence_text}"</p>
+                </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex flex-wrap gap-2">
-                  {nugget.tags.map(tag => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 border border-gray-200"
-                    >
-                      {tag}
-                    </span>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap gap-2">
+                    {nugget.tags.map(tag => (
+                      <Badge key={tag} variant="secondary">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                  
+                  <div className="text-sm text-muted-foreground">
+                    from {nugget.session_title}
+                  </div>
                 </div>
-                
-                <div className="text-sm text-gray-500">
-                  from {nugget.session_title}
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
 
           {filteredNuggets.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-muted-foreground">
               <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p className="text-lg font-medium mb-2">No insights found</p>
               <p className="text-sm">Try adjusting your search terms.</p>
@@ -1050,5 +1064,13 @@ const SimplifiedUpload = () => {
   );
 };
 
-export default SimplifiedUpload;
+function App() {
+  return (
+    <ThemeProvider defaultTheme="system" storageKey="research-hub-theme">
+      <SimplifiedUpload />
+    </ThemeProvider>
+  );
+}
+
+export default App;
 
