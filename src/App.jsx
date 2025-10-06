@@ -889,7 +889,6 @@ const SimplifiedUpload = () => {
 
   const canStartAnalysis = () => {
     return sessionData.title.trim() && 
-           sessionData.recordingUrl.trim() && 
            sessionData.transcriptContent.trim();
   };
 
@@ -982,7 +981,7 @@ const SimplifiedUpload = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Recording URL</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Recording URL <span className="text-muted-foreground">(optional)</span></label>
                   <div className="relative">
                     <Input
                       type="url"
@@ -1005,14 +1004,19 @@ const SimplifiedUpload = () => {
                   <div className="pt-4 border-t border-border">
                     <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
                       <span>Progress</span>
-                      <span>{[sessionData.title, sessionData.recordingUrl, sessionData.transcriptContent].filter(Boolean).length}/3</span>
+                      <span>{[sessionData.title, sessionData.transcriptContent].filter(Boolean).length}/2 required</span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div 
                         className="bg-primary h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${[sessionData.title, sessionData.recordingUrl, sessionData.transcriptContent].filter(Boolean).length * 33.33}%` }}
+                        style={{ width: `${[sessionData.title, sessionData.transcriptContent].filter(Boolean).length * 50}%` }}
                       />
                     </div>
+                    {sessionData.recordingUrl && (
+                      <div className="mt-2 text-xs text-green-600">
+                        ✓ Recording URL provided (optional)
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
