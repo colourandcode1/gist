@@ -667,6 +667,7 @@ const SimplifiedUpload = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [currentView, setCurrentView] = useState('upload');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [autoFillSuggestions, setAutoFillSuggestions] = useState({});
   const fileInputRef = useRef(null);
 
   const sessionTypes = [
@@ -695,6 +696,7 @@ const SimplifiedUpload = () => {
       setUploadMethod('');
       setShowPreview(false);
       setHasUnsavedChanges(false);
+      setAutoFillSuggestions({});
       setCurrentView('upload');
     }
   };
@@ -745,6 +747,105 @@ const SimplifiedUpload = () => {
     }
   };
 
+  // Function to analyze transcript and auto-fill session details
+  const analyzeTranscript = (transcript) => {
+    if (!transcript || transcript.trim().length === 0) return {};
+    
+    const suggestions = {};
+    
+    // Extract participant names from structured titles and content
+    const namePatterns = [
+      // From titles like "User test 2 (Kate Kinney - Baxter College)"
+      /\(([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*[-–]\s*[^)]*\)/gi,
+      // From titles like "Interview with Sarah Johnson"
+      /(?:interview|test|session|meeting)\s+(?:with\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
+      // From speaker labels like "Kate:" or "Participant Kate:"
+      /(?:participant|user|interviewee|subject)?\s*([A-Z][a-z]+)[\s:]/gi,
+      // From greetings and introductions
+      /(?:hi|hello|hey)[\s,]+([A-Z][a-z]+)/gi,
+      /(?:my name is|i'm|i am)[\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
+      /(?:this is|it's)[\s]+([A-Z][a-z]+)/gi
+    ];
+    
+    for (const pattern of namePatterns) {
+      const matches = transcript.match(pattern);
+      if (matches && matches.length > 0) {
+        // Extract the name from the match
+        const nameMatch = matches[0].match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+        if (nameMatch && nameMatch[1]) {
+          suggestions.participantName = nameMatch[1];
+          break;
+        }
+      }
+    }
+    
+    // Extract dates from titles and content
+    const datePatterns = [
+      // From titles like "2025/02/26" or "2025-02-26"
+      /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/gi,
+      // From titles like "Feb 26, 2025" or "February 26, 2025"
+      /([A-Za-z]+\s+\d{1,2},?\s+\d{4})/gi,
+      // From content like "Today is February 26, 2025"
+      /(?:today is|date is|session date)[\s:]+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/gi
+    ];
+    
+    for (const pattern of datePatterns) {
+      const matches = transcript.match(pattern);
+      if (matches && matches.length > 0) {
+        const dateStr = matches[0];
+        try {
+          // Try to parse the date
+          let parsedDate;
+          if (dateStr.includes('/') || dateStr.includes('-')) {
+            // Handle YYYY/MM/DD or YYYY-MM-DD format
+            parsedDate = new Date(dateStr.replace(/[\/\-]/g, '-'));
+          } else {
+            // Handle "Feb 26, 2025" format
+            parsedDate = new Date(dateStr);
+          }
+          
+          if (!isNaN(parsedDate.getTime())) {
+            suggestions.sessionDate = parsedDate.toISOString().split('T')[0];
+            break;
+          }
+        } catch (e) {
+          // Continue to next pattern if parsing fails
+        }
+      }
+    }
+    
+    // Detect session type based on content and title
+    const content = transcript.toLowerCase();
+    const title = transcript.split('\n')[0]?.toLowerCase() || '';
+    
+    if (content.includes('usability') || content.includes('task') || content.includes('click') || 
+        content.includes('navigate') || title.includes('user test') || title.includes('usability')) {
+      suggestions.sessionType = 'usability_test';
+    } else if (content.includes('focus group') || content.includes('group discussion')) {
+      suggestions.sessionType = 'focus_group';
+    } else if (content.includes('feedback') || content.includes('opinion') || content.includes('suggest')) {
+      suggestions.sessionType = 'feedback_session';
+    } else {
+      suggestions.sessionType = 'user_interview';
+    }
+    
+    // Extract and clean title from first line
+    const lines = transcript.split('\n').filter(line => line.trim().length > 0);
+    if (lines.length > 0) {
+      let firstLine = lines[0].trim();
+      
+      // Clean up common transcript prefixes
+      firstLine = firstLine.replace(/^(transcript|interview|session|meeting)[\s:]*/i, '');
+      
+      // If it looks like a structured title, use it
+      if (firstLine.length > 10 && firstLine.length < 200) {
+        suggestions.title = firstLine;
+      }
+    }
+    
+    return suggestions;
+  };
+
   const handleFileUpload = async (file) => {
     setIsProcessing(true);
     setUploadMethod('upload');
@@ -760,10 +861,21 @@ const SimplifiedUpload = () => {
     setTimeout(() => {
       const reader = new FileReader();
       reader.onload = (e) => {
+        const transcriptContent = e.target.result;
+        const suggestions = analyzeTranscript(transcriptContent);
+        
         setSessionData(prev => ({
           ...prev,
-          transcriptContent: e.target.result
+          transcriptContent,
+          // Only auto-fill if fields are empty
+          ...(prev.participantName === '' && suggestions.participantName && { participantName: suggestions.participantName }),
+          ...(prev.sessionType === 'user_interview' && suggestions.sessionType && { sessionType: suggestions.sessionType }),
+          ...(prev.title === '' && suggestions.title && { title: suggestions.title }),
+          ...(prev.sessionDate === new Date().toISOString().split('T')[0] && suggestions.sessionDate && { sessionDate: suggestions.sessionDate })
         }));
+        
+        // Track what suggestions were applied
+        setAutoFillSuggestions(suggestions);
         setIsProcessing(false);
       };
       reader.readAsText(file);
@@ -810,7 +922,15 @@ const SimplifiedUpload = () => {
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>Session Details</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Session Details</CardTitle>
+                  {Object.keys(autoFillSuggestions).length > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-green-600">
+                      <Check className="w-3 h-3" />
+                      <span>Auto-filled from transcript</span>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -965,6 +1085,7 @@ const SimplifiedUpload = () => {
                         onClick={() => {
                           setUploadMethod('');
                           setSessionData(prev => ({ ...prev, transcriptContent: '' }));
+                          setAutoFillSuggestions({});
                         }}
                       >
                         <X className="w-4 h-4" />
@@ -972,7 +1093,23 @@ const SimplifiedUpload = () => {
                     </div>
                     <Textarea
                       value={sessionData.transcriptContent}
-                      onChange={(e) => setSessionData(prev => ({ ...prev, transcriptContent: e.target.value }))}
+                      onChange={(e) => {
+                        const transcriptContent = e.target.value;
+                        const suggestions = analyzeTranscript(transcriptContent);
+                        
+                        setSessionData(prev => ({
+                          ...prev,
+                          transcriptContent,
+                          // Only auto-fill if fields are empty
+                          ...(prev.participantName === '' && suggestions.participantName && { participantName: suggestions.participantName }),
+                          ...(prev.sessionType === 'user_interview' && suggestions.sessionType && { sessionType: suggestions.sessionType }),
+                          ...(prev.title === '' && suggestions.title && { title: suggestions.title }),
+                          ...(prev.sessionDate === new Date().toISOString().split('T')[0] && suggestions.sessionDate && { sessionDate: suggestions.sessionDate })
+                        }));
+                        
+                        // Track what suggestions were applied
+                        setAutoFillSuggestions(suggestions);
+                      }}
                       placeholder="[00:02:15] Interviewer: Can you tell me about your experience with the navigation menu?
 
 [00:02:20] Participant: Yeah, so when I first logged in, I was really confused about where to find..."
@@ -1005,6 +1142,7 @@ const SimplifiedUpload = () => {
                           onClick={() => {
                             setUploadMethod('');
                             setSessionData(prev => ({ ...prev, transcriptContent: '' }));
+                            setAutoFillSuggestions({});
                           }}
                         >
                           <X className="w-4 h-4" />
