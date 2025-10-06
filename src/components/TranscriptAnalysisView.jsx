@@ -237,58 +237,6 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
             )}
           </div>
 
-          {selectedText && (
-            <div className="p-4 border-t border-border bg-muted/50">
-              <div className="mb-2">
-                <label className="block text-sm font-medium text-foreground mb-1">Selected Text:</label>
-                <div className="text-sm text-muted-foreground bg-card p-2 rounded border italic">
-                  "{selectedText}"
-                </div>
-              </div>
-              
-              <div className="mb-2">
-                <label className="block text-sm font-medium text-foreground mb-1">Observation/Insight:</label>
-                <textarea
-                  value={newNugget.observation}
-                  onChange={(e) => setNewNugget(prev => ({ ...prev, observation: e.target.value }))}
-                  placeholder="What did you learn from this? What's the key insight?"
-                  className="w-full p-2 text-sm border border-border rounded-md focus:ring-2 focus:ring-primary focus:border-transparent bg-card text-foreground"
-                  rows="2"
-                />
-              </div>
-
-              <div className="mb-2">
-                <label className="block text-sm font-medium text-foreground mb-1">Tags:</label>
-                <div className="flex flex-wrap gap-1">
-                  {tags.map(tag => (
-                    <button
-                      key={tag.id}
-                      onClick={() => newNugget.tags.includes(tag.id) 
-                        ? removeTagFromNugget(tag.id) 
-                        : addTagToNugget(tag.id)
-                      }
-                      className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                        newNugget.tags.includes(tag.id)
-                          ? 'bg-primary/10 border-primary text-primary'
-                          : 'bg-card border-border text-muted-foreground hover:bg-muted'
-                      }`}
-                    >
-                      {tag.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                onClick={createNugget}
-                disabled={!newNugget.observation.trim()}
-                className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed"
-              >
-                <Plus className="w-4 h-4" />
-                Create Nugget
-              </button>
-            </div>
-          )}
         </div>
 
         <div className="w-1/2 flex flex-col">
@@ -403,13 +351,84 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
               </div>
             ))}
 
-            {nuggets.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <Tag className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium mb-2">No research nuggets yet</p>
-                <p className="text-sm">Select text from the transcript to create your first insight nugget.</p>
+            {/* Empty Nugget Card Template - always visible */}
+            <div className="bg-card rounded-lg border border-border p-4 shadow-sm border-dashed border-primary/30">
+              <div className="mb-3">
+                <div className="flex items-start justify-between mb-2">
+                  <textarea
+                    value={newNugget.observation}
+                    onChange={(e) => setNewNugget(prev => ({ ...prev, observation: e.target.value }))}
+                    placeholder="What's the key insight?"
+                    className="w-full text-sm font-medium text-foreground bg-transparent border-none resize-none focus:outline-none placeholder:text-muted-foreground"
+                    rows="2"
+                  />
+                  {newNugget.timestamp && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0">
+                      <Clock className="w-3 h-3" />
+                      <span className="text-primary">
+                        {newNugget.timestamp}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="bg-muted border-l-4 border-primary p-3 mb-3">
+                  {selectedText ? (
+                    <p className="text-sm text-foreground italic">"{selectedText}"</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">Select text from the transcript to create an insight...</p>
+                  )}
+                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                    <User className="w-3 h-3" />
+                    <input
+                      type="text"
+                      value={newNugget.speaker || sessionData.participantName || 'Participant'}
+                      onChange={(e) => setNewNugget(prev => ({ ...prev, speaker: e.target.value }))}
+                      className="bg-transparent border-none text-xs text-muted-foreground focus:outline-none"
+                      placeholder="Speaker name"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {tags.map(tag => (
+                    <button
+                      key={tag.id}
+                      onClick={() => newNugget.tags.includes(tag.id) 
+                        ? removeTagFromNugget(tag.id) 
+                        : addTagToNugget(tag.id)
+                      }
+                      className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                        newNugget.tags.includes(tag.id)
+                          ? 'bg-primary/10 border-primary text-primary'
+                          : 'bg-card border-border text-muted-foreground hover:bg-muted'
+                      }`}
+                      style={newNugget.tags.includes(tag.id) ? {
+                        backgroundColor: `${tag.color}15`,
+                        color: tag.color,
+                        border: `1px solid ${tag.color}30`
+                      } : {}}
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-muted-foreground">
+                    {new Date().toLocaleString()}
+                  </div>
+                  <button
+                    onClick={createNugget}
+                    disabled={!newNugget.observation.trim() || !selectedText}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Nugget
+                  </button>
+                </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
