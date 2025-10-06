@@ -101,3 +101,92 @@ export const extractVideoId = (url) => {
   const match = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
   return match ? match[1] : null;
 };
+
+// Parse transcript into structured format for better display
+export const parseTranscript = (transcriptContent) => {
+  if (!transcriptContent || transcriptContent.trim().length === 0) {
+    return { speakers: [], dialogue: [], attendees: [] };
+  }
+
+  const lines = transcriptContent.split('\n').filter(line => line.trim().length > 0);
+  const speakers = new Set();
+  const dialogue = [];
+  const attendees = [];
+
+  // Patterns for different transcript formats
+  const timestampPattern = /\[(\d{2}:\d{2}:\d{2})\]/g;
+  const speakerPattern = /^(\[?\d{2}:\d{2}:\d{2}\]?\s*)?([A-Za-z][A-Za-z\s]+?):\s*(.*)$/;
+  const simpleSpeakerPattern = /^([A-Za-z][A-Za-z\s]+?):\s*(.*)$/;
+
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    
+    // Try to match structured speaker format with timestamp
+    let match = trimmedLine.match(speakerPattern);
+    if (match) {
+      const [, timestamp, speaker, content] = match;
+      const cleanSpeaker = speaker.trim();
+      speakers.add(cleanSpeaker);
+      
+      dialogue.push({
+        type: 'dialogue',
+        speaker: cleanSpeaker,
+        content: content.trim(),
+        timestamp: timestamp ? timestamp.replace(/[\[\]]/g, '') : null,
+        lineNumber: index
+      });
+      return;
+    }
+
+    // Try simple speaker format without timestamp
+    match = trimmedLine.match(simpleSpeakerPattern);
+    if (match) {
+      const [, speaker, content] = match;
+      const cleanSpeaker = speaker.trim();
+      speakers.add(cleanSpeaker);
+      
+      dialogue.push({
+        type: 'dialogue',
+        speaker: cleanSpeaker,
+        content: content.trim(),
+        timestamp: null,
+        lineNumber: index
+      });
+      return;
+    }
+
+    // Check if line contains only timestamps (standalone)
+    if (timestampPattern.test(trimmedLine)) {
+      dialogue.push({
+        type: 'timestamp',
+        content: trimmedLine,
+        lineNumber: index
+      });
+      return;
+    }
+
+    // Regular content line
+    dialogue.push({
+      type: 'content',
+      content: trimmedLine,
+      lineNumber: index
+    });
+  });
+
+  // Convert speakers set to array and sort
+  const speakersArray = Array.from(speakers).sort();
+  
+  // Extract attendees from speakers (exclude common non-attendee speakers)
+  const nonAttendeePatterns = ['interviewer', 'moderator', 'facilitator', 'researcher', 'note taker'];
+  attendees.push(...speakersArray.filter(speaker => 
+    !nonAttendeePatterns.some(pattern => 
+      speaker.toLowerCase().includes(pattern.toLowerCase())
+    )
+  ));
+
+  return {
+    speakers: speakersArray,
+    dialogue,
+    attendees: attendees.length > 0 ? attendees : speakersArray
+  };
+};

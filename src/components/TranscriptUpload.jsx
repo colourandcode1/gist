@@ -3,7 +3,7 @@ import { Upload, FileText, Video, Clock, Check, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { analyzeTranscript } from '@/lib/transcriptUtils';
+import { analyzeTranscript, parseTranscript } from '@/lib/transcriptUtils';
 
 const TranscriptUpload = ({ 
   uploadMethod, 
@@ -60,6 +60,83 @@ const TranscriptUpload = ({
 
   const previewTranscript = sessionData.transcriptContent ? 
     sessionData.transcriptContent.slice(0, 300) + (sessionData.transcriptContent.length > 300 ? '...' : '') : '';
+
+  // Parse transcript for structured display
+  const parsedTranscript = sessionData.transcriptContent ? parseTranscript(sessionData.transcriptContent) : null;
+
+  // Component for styled transcript preview
+  const StyledTranscriptPreview = ({ dialogue, attendees, maxItems = 5 }) => {
+    if (!dialogue || dialogue.length === 0) return null;
+
+    return (
+      <div className="space-y-4">
+        {/* Attendees Section */}
+        {attendees && attendees.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-base font-semibold text-foreground">Attendees</h4>
+            <Card className="bg-muted/30">
+              <CardContent className="p-3">
+                <ul className="space-y-1">
+                  {attendees.map((attendee, index) => (
+                    <li key={index} className="text-sm text-muted-foreground flex items-center">
+                      <span className="w-2 h-2 bg-primary/60 rounded-full mr-2 flex-shrink-0"></span>
+                      {attendee}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Transcript Section */}
+        <div className="space-y-2">
+          <h4 className="text-base font-semibold text-foreground">Transcript</h4>
+          <div className="space-y-1">
+            {dialogue.slice(0, maxItems).map((item, index) => {
+              if (item.type === 'dialogue') {
+                return (
+                  <div key={index} className="grid grid-cols-12 gap-1 py-0.5 text-xs">
+                    <div className="col-span-2">
+                      <span className="text-xs font-semibold text-primary">
+                        {item.speaker}
+                      </span>
+                    </div>
+                    <div className="col-span-10">
+                      <div className="text-xs text-foreground leading-relaxed">
+                        {item.content}
+                      </div>
+                    </div>
+                  </div>
+                );
+              } else if (item.type === 'timestamp') {
+                return (
+                  <div key={index} className="py-0.5">
+                    <span className="text-xs text-muted-foreground font-mono font-semibold">
+                      {item.content}
+                    </span>
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={index} className="py-0.5">
+                    <div className="text-xs text-foreground leading-relaxed">
+                      {item.content}
+                    </div>
+                  </div>
+                );
+              }
+            })}
+            {dialogue.length > maxItems && (
+              <div className="text-xs text-muted-foreground text-center py-2 border-t border-border/50">
+                ... and {dialogue.length - maxItems} more lines
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Card>
@@ -192,11 +269,19 @@ const TranscriptUpload = ({
             </div>
 
             {showPreview && (
-              <div className="bg-muted border border-border rounded-lg p-3">
-                <div className="text-xs text-muted-foreground mb-2">Preview (first 300 characters):</div>
-                <div className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed max-h-32 overflow-y-auto">
-                  {previewTranscript || 'No content to preview'}
-                </div>
+              <div className="bg-muted border border-border rounded-lg p-4">
+                <div className="text-xs text-muted-foreground mb-3 font-medium">Structured Preview:</div>
+                {parsedTranscript ? (
+                  <StyledTranscriptPreview 
+                    dialogue={parsedTranscript.dialogue} 
+                    attendees={parsedTranscript.attendees}
+                    maxItems={6}
+                  />
+                ) : (
+                  <div className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed max-h-32 overflow-y-auto">
+                    {previewTranscript || 'No content to preview'}
+                  </div>
+                )}
               </div>
             )}
 
