@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import NavigationHeader from './NavigationHeader';
+import TranscriptModal from './TranscriptModal';
 import { getSessions, getAllNuggets } from '@/lib/storageUtils';
 
 const RepositorySearchView = ({ onNavigate }) => {
@@ -12,6 +13,11 @@ const RepositorySearchView = ({ onNavigate }) => {
   const [savedSessions, setSavedSessions] = useState([]);
   const [allNuggets, setAllNuggets] = useState([]);
   const [activeFilters, setActiveFilters] = useState([]);
+  
+  // Modal state management
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedNugget, setSelectedNugget] = useState(null);
+  const [selectedSessionData, setSelectedSessionData] = useState(null);
 
   // Categories and tags data (matching the structure from TranscriptAnalysisView)
   const categories = [
@@ -90,6 +96,27 @@ const RepositorySearchView = ({ onNavigate }) => {
 
   const clearTagFilters = () => {
     setActiveFilters(prev => prev.filter(f => f.type !== 'tag'));
+  };
+
+  // Function to handle nugget click and open modal
+  const handleNuggetClick = (nugget) => {
+    // Find the session data for this nugget
+    const sessionData = savedSessions.find(session => session.id === nugget.session_id);
+    
+    if (sessionData) {
+      setSelectedNugget(nugget);
+      setSelectedSessionData(sessionData);
+      setIsModalOpen(true);
+    } else {
+      console.error('Session data not found for nugget:', nugget);
+    }
+  };
+
+  // Function to close modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedNugget(null);
+    setSelectedSessionData(null);
   };
 
   const filteredNuggets = allNuggets.filter(nugget => {
@@ -315,7 +342,11 @@ const RepositorySearchView = ({ onNavigate }) => {
             </div>
 
             {filteredNuggets.map(nugget => (
-            <Card key={nugget.id} className="hover:shadow-md transition-shadow">
+            <Card 
+              key={nugget.id} 
+              className="hover:shadow-md transition-shadow cursor-pointer hover:border-primary/50"
+              onClick={() => handleNuggetClick(nugget)}
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
@@ -396,6 +427,14 @@ const RepositorySearchView = ({ onNavigate }) => {
           </div>
         </div>
       </div>
+      
+      {/* Transcript Modal */}
+      <TranscriptModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        nugget={selectedNugget}
+        sessionData={selectedSessionData}
+      />
     </div>
   );
 };
