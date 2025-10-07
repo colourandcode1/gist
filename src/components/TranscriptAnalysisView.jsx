@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Video, User, Clock, Plus, Save, Database, Check, Tag } from 'lucide-react';
 import NavigationHeader from './NavigationHeader';
 import { parseTranscript } from '@/lib/transcriptUtils';
+import { saveSession } from '@/lib/storageUtils';
 import { Card, CardContent } from "@/components/ui/card";
 
 const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges }) => {
@@ -46,7 +47,9 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     setSaveStatus('');
 
     try {
+      const sessionId = `session_${Date.now()}`;
       const sessionPayload = {
+        id: sessionId,
         title: sessionData.title,
         description: '',
         session_date: sessionData.sessionDate,
@@ -57,14 +60,24 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
         recording_url: sessionData.recordingUrl,
         transcript_content: sessionData.transcriptContent,
         nuggets: nuggets.map(nugget => ({
+          id: nugget.id,
           observation: nugget.observation,
           evidence_text: nugget.evidence_text,
           speaker: nugget.speaker,
           timestamp: nugget.timestamp,
           category: nugget.category,
-          tags: nugget.tags
-        }))
+          tags: nugget.tags,
+          created_at: nugget.created_at
+        })),
+        created_at: new Date().toISOString()
       };
+
+      // Save to localStorage using utility function
+      const success = saveSession(sessionPayload);
+      
+      if (!success) {
+        throw new Error('Failed to save session');
+      }
 
       await new Promise(resolve => setTimeout(resolve, 1500));
       

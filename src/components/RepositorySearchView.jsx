@@ -1,65 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Database, Video, TrendingUp, Check, Plus, Calendar, User, Clock } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import NavigationHeader from './NavigationHeader';
+import { getSessions, getAllNuggets } from '@/lib/storageUtils';
 
 const RepositorySearchView = ({ onNavigate }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [savedSessions, setSavedSessions] = useState([]);
+  const [allNuggets, setAllNuggets] = useState([]);
 
-  const sampleNuggets = [
-    {
-      id: 1,
-      observation: "Users struggle to find profile settings in the navigation",
-      evidence_text: "I clicked around for like 2-3 minutes before I found it buried in a dropdown menu",
-      session_title: "Mobile Navigation Test - Sarah M.",
-      session_date: "2024-03-15",
-      speaker: "Participant",
-      timestamp: "00:02:20",
-      tags: ["Navigation Issues", "Mobile", "Profile Settings"],
-      sentiment: "frustrated"
-    },
-    {
-      id: 2,
-      observation: "Dashboard data visualization is highly appreciated",
-      evidence_text: "I love the data visualization - it makes it easy to understand my usage patterns at a glance",
-      session_title: "Mobile Navigation Test - Sarah M.",
-      session_date: "2024-03-15",
-      speaker: "Participant", 
-      timestamp: "00:05:12",
-      tags: ["Positive Feedback", "Dashboard", "Data Viz"],
-      sentiment: "positive"
-    },
-    {
-      id: 3,
-      observation: "Onboarding flow causes confusion about account types",
-      evidence_text: "I wasn't sure if I was signing up for a personal or business account",
-      session_title: "Onboarding Flow Review - John D.",
-      session_date: "2024-03-12",
-      speaker: "Participant",
-      timestamp: "00:01:45", 
-      tags: ["Onboarding", "Account Setup", "Confusion"],
-      sentiment: "confused"
-    }
-  ];
+  // Function to refresh data from localStorage
+  const refreshData = () => {
+    const sessions = getSessions();
+    setSavedSessions(sessions);
+    
+    const nuggets = getAllNuggets();
+    setAllNuggets(nuggets);
+  };
 
-  const filteredNuggets = sampleNuggets.filter(nugget =>
+  // Load saved sessions from localStorage on component mount
+  useEffect(() => {
+    refreshData();
+  }, []);
+
+  // Refresh data when component becomes visible (when navigating back from analysis)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  const filteredNuggets = allNuggets.filter(nugget =>
     nugget.observation.toLowerCase().includes(searchQuery.toLowerCase()) ||
     nugget.evidence_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
     nugget.session_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     nugget.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const getSentimentColor = (sentiment) => {
-    switch (sentiment) {
-      case 'positive': return 'bg-green-100 text-green-800 border-green-200';
-      case 'frustrated': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'confused': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+  const getSentimentColor = (category) => {
+    switch (category) {
+      case 'sentiment': return 'bg-green-100 text-green-800 border-green-200';
+      case 'pain_point': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'usability': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'feature': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'journey': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'performance': return 'bg-cyan-100 text-cyan-800 border-cyan-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
+
+  // Calculate statistics from actual data
+  const totalNuggets = allNuggets.length;
+  const totalSessions = savedSessions.length;
+  const painPoints = allNuggets.filter(nugget => nugget.category === 'pain_point').length;
+  const positiveNuggets = allNuggets.filter(nugget => nugget.category === 'sentiment').length;
 
   return (
     <div className="bg-background min-h-screen">
@@ -101,7 +103,7 @@ const RepositorySearchView = ({ onNavigate }) => {
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-primary" />
                 <div>
-                  <div className="text-2xl font-bold text-foreground">{sampleNuggets.length}</div>
+                  <div className="text-2xl font-bold text-foreground">{totalNuggets}</div>
                   <div className="text-sm text-muted-foreground">Total Insights</div>
                 </div>
               </div>
@@ -112,7 +114,7 @@ const RepositorySearchView = ({ onNavigate }) => {
               <div className="flex items-center gap-2">
                 <Video className="w-5 h-5 text-green-600" />
                 <div>
-                  <div className="text-2xl font-bold text-foreground">3</div>
+                  <div className="text-2xl font-bold text-foreground">{totalSessions}</div>
                   <div className="text-sm text-muted-foreground">Sessions</div>
                 </div>
               </div>
@@ -123,7 +125,7 @@ const RepositorySearchView = ({ onNavigate }) => {
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-orange-600" />
                 <div>
-                  <div className="text-2xl font-bold text-foreground">2</div>
+                  <div className="text-2xl font-bold text-foreground">{painPoints}</div>
                   <div className="text-sm text-muted-foreground">Pain Points</div>
                 </div>
               </div>
@@ -134,7 +136,7 @@ const RepositorySearchView = ({ onNavigate }) => {
               <div className="flex items-center gap-2">
                 <Check className="w-5 h-5 text-emerald-600" />
                 <div>
-                  <div className="text-2xl font-bold text-foreground">1</div>
+                  <div className="text-2xl font-bold text-foreground">{positiveNuggets}</div>
                   <div className="text-sm text-muted-foreground">Positive</div>
                 </div>
               </div>
@@ -172,13 +174,15 @@ const RepositorySearchView = ({ onNavigate }) => {
                   </div>
                   
                   <div className="flex items-center gap-2 ml-4">
-                    <Badge variant="outline" className={getSentimentColor(nugget.sentiment)}>
-                      {nugget.sentiment}
+                    <Badge variant="outline" className={getSentimentColor(nugget.category)}>
+                      {nugget.category.replace('_', ' ')}
                     </Badge>
-                    <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                      <Video className="w-4 h-4" />
-                      Watch
-                    </Button>
+                    {nugget.session_id && (
+                      <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                        <Video className="w-4 h-4" />
+                        Watch
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -206,8 +210,24 @@ const RepositorySearchView = ({ onNavigate }) => {
           {filteredNuggets.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
               <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">No insights found</p>
-              <p className="text-sm">Try adjusting your search terms.</p>
+              <p className="text-lg font-medium mb-2">
+                {allNuggets.length === 0 ? 'No insights yet' : 'No insights found'}
+              </p>
+              <p className="text-sm">
+                {allNuggets.length === 0 
+                  ? 'Create your first research session to start building insights.' 
+                  : 'Try adjusting your search terms.'
+                }
+              </p>
+              {allNuggets.length === 0 && (
+                <Button
+                  onClick={() => onNavigate('upload')}
+                  className="mt-4 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create First Session
+                </Button>
+              )}
             </div>
           )}
         </div>
