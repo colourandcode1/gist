@@ -9,21 +9,35 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
   const [nuggets, setNuggets] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
-  const [tags, setTags] = useState([
-    { id: 1, name: 'Navigation Issues', category: 'pain_point', color: '#ef4444' },
-    { id: 2, name: 'Positive Feedback', category: 'sentiment', color: '#10b981' },
-    { id: 3, name: 'Feature Request', category: 'feature', color: '#3b82f6' },
-    { id: 4, name: 'Onboarding', category: 'journey', color: '#f59e0b' }
+  // Separate categories and tags
+  const [categories] = useState([
+    { id: 'pain_point', name: 'Pain Point', color: '#ef4444', description: 'Issues or problems users encounter' },
+    { id: 'sentiment', name: 'Positive Feedback', color: '#10b981', description: 'Positive user feedback or satisfaction' },
+    { id: 'feature', name: 'Feature Request', color: '#3b82f6', description: 'User suggestions for new features' },
+    { id: 'journey', name: 'User Journey', color: '#f59e0b', description: 'Insights about user flow or process' },
+    { id: 'usability', name: 'Usability', color: '#8b5cf6', description: 'Interface or design issues' },
+    { id: 'performance', name: 'Performance', color: '#06b6d4', description: 'Speed or technical performance issues' },
+    { id: 'general', name: 'General', color: '#6b7280', description: 'General insights or observations' }
   ]);
+
+  const [tags, setTags] = useState([
+    { id: 1, name: 'Navigation', color: '#3b82f6' },
+    { id: 2, name: 'Checkout', color: '#10b981' },
+    { id: 3, name: 'Mobile', color: '#f59e0b' },
+    { id: 4, name: 'Search', color: '#8b5cf6' },
+    { id: 5, name: 'Onboarding', color: '#06b6d4' },
+    { id: 6, name: 'Pricing', color: '#ef4444' }
+  ]);
+
   const [isCreatingTag, setIsCreatingTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
-  const [newTagCategory, setNewTagCategory] = useState('general');
   const [newTagColor, setNewTagColor] = useState('#6b7280');
   const [newNugget, setNewNugget] = useState({
     observation: '',
     evidence_text: '',
     speaker: '',
     timestamp: '',
+    category: 'general',
     tags: []
   });
 
@@ -47,6 +61,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
           evidence_text: nugget.evidence_text,
           speaker: nugget.speaker,
           timestamp: nugget.timestamp,
+          category: nugget.category,
           tags: nugget.tags
         }))
       };
@@ -88,12 +103,13 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
       evidence_text: selectedText,
       speaker: newNugget.speaker || sessionData.participantName || 'Participant',
       timestamp: newNugget.timestamp,
+      category: newNugget.category,
       tags: newNugget.tags,
       created_at: new Date().toLocaleString()
     };
 
     setNuggets([...nuggets, nugget]);
-    setNewNugget({ observation: '', evidence_text: '', speaker: '', timestamp: '', tags: [] });
+    setNewNugget({ observation: '', evidence_text: '', speaker: '', timestamp: '', category: 'general', tags: [] });
     setSelectedText('');
     setHasUnsavedChanges(true);
   };
@@ -120,13 +136,11 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     const newTag = {
       id: Date.now(),
       name: newTagName.trim(),
-      category: newTagCategory,
       color: newTagColor
     };
 
     setTags(prev => [...prev, newTag]);
     setNewTagName('');
-    setNewTagCategory('general');
     setNewTagColor('#6b7280');
     setIsCreatingTag(false);
     
@@ -136,7 +150,6 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
 
   const cancelCreateTag = () => {
     setNewTagName('');
-    setNewTagCategory('general');
     setNewTagColor('#6b7280');
     setIsCreatingTag(false);
   };
@@ -358,6 +371,26 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                     )}
                   </div>
 
+                  {/* Category Badge */}
+                  <div className="mb-2">
+                    {(() => {
+                      const category = categories.find(c => c.id === nugget.category);
+                      return category ? (
+                        <span
+                          className="px-2 py-1 text-xs rounded-full font-medium"
+                          style={{ 
+                            backgroundColor: `${category.color}15`,
+                            color: category.color,
+                            border: `1px solid ${category.color}30`
+                          }}
+                        >
+                          {category.name}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+
+                  {/* Tags */}
                   <div className="flex flex-wrap gap-1 mb-2">
                     {nugget.tags.map(tagId => {
                       const tag = tags.find(t => t.id === tagId);
@@ -393,14 +426,31 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                     className="w-full text-sm font-medium text-foreground bg-transparent border-none resize-none focus:outline-none placeholder:text-muted-foreground"
                     rows="2"
                   />
-                  {newNugget.timestamp && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0">
-                      <Clock className="w-3 h-3" />
-                      <span className="text-primary">
-                        {newNugget.timestamp}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                    {newNugget.timestamp && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        <span className="text-primary">
+                          {newNugget.timestamp}
+                        </span>
+                      </div>
+                    )}
+                    {(() => {
+                      const category = categories.find(c => c.id === newNugget.category);
+                      return category ? (
+                        <span
+                          className="px-2 py-1 text-xs rounded-full font-medium"
+                          style={{ 
+                            backgroundColor: `${category.color}15`,
+                            color: category.color,
+                            border: `1px solid ${category.color}30`
+                          }}
+                        >
+                          {category.name}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
                 
                 <div className="bg-muted border-l-4 border-primary p-3 mb-3">
@@ -421,39 +471,76 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {tags.map(tag => (
-                    <button
-                      key={tag.id}
-                      onClick={() => newNugget.tags.includes(tag.id) 
-                        ? removeTagFromNugget(tag.id) 
-                        : addTagToNugget(tag.id)
-                      }
-                      className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                        newNugget.tags.includes(tag.id)
-                          ? 'bg-primary/10 border-primary text-primary'
-                          : 'bg-card border-border text-muted-foreground hover:bg-muted'
-                      }`}
-                      style={newNugget.tags.includes(tag.id) ? {
-                        backgroundColor: `${tag.color}15`,
-                        color: tag.color,
-                        border: `1px solid ${tag.color}30`
-                      } : {}}
-                    >
-                      {tag.name}
-                    </button>
-                  ))}
-                  
-                  {/* Create New Tag Button */}
-                  {!isCreatingTag && (
-                    <button
-                      onClick={() => setIsCreatingTag(true)}
-                      className="px-2 py-1 text-xs rounded-full border border-dashed border-muted-foreground text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
-                      New Tag
-                    </button>
-                  )}
+                {/* Category Selection */}
+                <div className="mb-3">
+                  <label className="text-xs font-medium text-foreground mb-2 block">Category</label>
+                  <div className="flex flex-wrap gap-1">
+                    {categories.map(category => (
+                      <button
+                        key={category.id}
+                        onClick={() => setNewNugget(prev => ({ ...prev, category: category.id }))}
+                        className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                          newNugget.category === category.id
+                            ? 'font-medium'
+                            : 'hover:bg-muted'
+                        }`}
+                        style={newNugget.category === category.id ? {
+                          backgroundColor: `${category.color}15`,
+                          color: category.color,
+                          border: `1px solid ${category.color}30`
+                        } : {
+                          backgroundColor: 'transparent',
+                          color: 'var(--muted-foreground)',
+                          border: '1px solid var(--border)'
+                        }}
+                      >
+                        {category.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tags Selection */}
+                <div className="mb-3">
+                  <label className="text-xs font-medium text-foreground mb-2 block">Tags</label>
+                  <div className="flex flex-wrap gap-1">
+                    {tags.map(tag => (
+                      <button
+                        key={tag.id}
+                        onClick={() => newNugget.tags.includes(tag.id) 
+                          ? removeTagFromNugget(tag.id) 
+                          : addTagToNugget(tag.id)
+                        }
+                        className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                          newNugget.tags.includes(tag.id)
+                            ? 'font-medium'
+                            : 'hover:bg-muted'
+                        }`}
+                        style={newNugget.tags.includes(tag.id) ? {
+                          backgroundColor: `${tag.color}15`,
+                          color: tag.color,
+                          border: `1px solid ${tag.color}30`
+                        } : {
+                          backgroundColor: 'transparent',
+                          color: 'var(--muted-foreground)',
+                          border: '1px solid var(--border)'
+                        }}
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                    
+                    {/* Create New Tag Button */}
+                    {!isCreatingTag && (
+                      <button
+                        onClick={() => setIsCreatingTag(true)}
+                        className="px-2 py-1 text-xs rounded-full border border-dashed border-muted-foreground text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        New Tag
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Create Tag Form */}
@@ -479,35 +566,16 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                         />
                       </div>
                       
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <label className="text-xs font-medium text-foreground mb-1 block">Category</label>
-                          <select
-                            value={newTagCategory}
-                            onChange={(e) => setNewTagCategory(e.target.value)}
-                            className="w-full px-2 py-1 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                          >
-                            <option value="general">General</option>
-                            <option value="pain_point">Pain Point</option>
-                            <option value="sentiment">Sentiment</option>
-                            <option value="feature">Feature</option>
-                            <option value="journey">Journey</option>
-                            <option value="usability">Usability</option>
-                            <option value="performance">Performance</option>
-                          </select>
-                        </div>
-                        
-                        <div className="flex-1">
-                          <label className="text-xs font-medium text-foreground mb-1 block">Color</label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={newTagColor}
-                              onChange={(e) => setNewTagColor(e.target.value)}
-                              className="w-8 h-6 border border-border rounded cursor-pointer"
-                            />
-                            <span className="text-xs text-muted-foreground">{newTagColor}</span>
-                          </div>
+                      <div>
+                        <label className="text-xs font-medium text-foreground mb-1 block">Color</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={newTagColor}
+                            onChange={(e) => setNewTagColor(e.target.value)}
+                            className="w-8 h-6 border border-border rounded cursor-pointer"
+                          />
+                          <span className="text-xs text-muted-foreground">{newTagColor}</span>
                         </div>
                       </div>
                       
