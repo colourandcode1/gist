@@ -70,5 +70,33 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Ensure background is always visible */
+  html, body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+  
+  /* Fallback for when CSS variables might not be loaded */
+  html:not(.light):not(.dark) {
+    background-color: #ffffff;
+    color: #000000;
+  }
+  
+  /* Prevent any black overlays from appearing unexpectedly */
+  body {
+    position: relative;
+  }
+  
+  /* Ensure search inputs work properly */
+  input[type="text"], input[type="search"] {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+  
+  /* Prevent modal backdrop from interfering with other elements */
+  .modal-backdrop {
+    pointer-events: auto;
+  }
 }
 

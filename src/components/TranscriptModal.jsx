@@ -237,10 +237,11 @@ const TranscriptModal = ({ isOpen, onClose, nugget, sessionData }) => {
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
+        style={{ zIndex: 1 }}
       />
       
       {/* Modal */}
-      <div className="relative bg-background border border-border rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] mx-4 flex flex-col">
+      <div className="relative bg-background border border-border rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] mx-4 flex flex-col" style={{ zIndex: 2 }}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex-1">

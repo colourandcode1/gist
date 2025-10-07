@@ -120,24 +120,31 @@ const RepositorySearchView = ({ onNavigate }) => {
   };
 
   const filteredNuggets = allNuggets.filter(nugget => {
-    // Text search filter
-    const matchesSearch = searchQuery === '' || 
-      nugget.observation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      nugget.evidence_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      nugget.session_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      nugget.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    try {
+      // Text search filter with proper data validation
+      const matchesSearch = searchQuery === '' || 
+        (nugget.observation && typeof nugget.observation === 'string' && nugget.observation.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (nugget.evidence_text && typeof nugget.evidence_text === 'string' && nugget.evidence_text.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (nugget.session_title && typeof nugget.session_title === 'string' && nugget.session_title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (nugget.tags && Array.isArray(nugget.tags) && nugget.tags.some(tag => 
+          tag && typeof tag === 'string' && tag.toLowerCase().includes(searchQuery.toLowerCase())
+        ));
 
-    // Category and tag filters
-    const activeCategoryFilters = activeFilters.filter(f => f.type === 'category');
-    const activeTagFilters = activeFilters.filter(f => f.type === 'tag');
-    
-    const matchesCategories = activeCategoryFilters.length === 0 || 
-      activeCategoryFilters.some(filter => nugget.category === filter.id);
-    
-    const matchesTags = activeTagFilters.length === 0 || 
-      activeTagFilters.some(filter => nugget.tags.includes(filter.id));
+      // Category and tag filters
+      const activeCategoryFilters = activeFilters.filter(f => f.type === 'category');
+      const activeTagFilters = activeFilters.filter(f => f.type === 'tag');
+      
+      const matchesCategories = activeCategoryFilters.length === 0 || 
+        activeCategoryFilters.some(filter => nugget.category === filter.id);
+      
+      const matchesTags = activeTagFilters.length === 0 || 
+        (nugget.tags && Array.isArray(nugget.tags) && activeTagFilters.some(filter => nugget.tags.includes(filter.id)));
 
-    return matchesSearch && matchesCategories && matchesTags;
+      return matchesSearch && matchesCategories && matchesTags;
+    } catch (error) {
+      console.error('Error filtering nugget:', error, nugget);
+      return false; // Exclude problematic nuggets
+    }
   });
 
   const getSentimentColor = (category) => {
@@ -334,7 +341,7 @@ const RepositorySearchView = ({ onNavigate }) => {
           </div>
 
           {/* Nuggets Content */}
-          <div className="lg:col-span-3 space-y-4">
+          <div className="lg:col-span-3 space-y-4 bg-background">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">
                 {filteredNuggets.length} insights found
@@ -402,21 +409,15 @@ const RepositorySearchView = ({ onNavigate }) => {
           ))}
 
           {filteredNuggets.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">
-                {allNuggets.length === 0 ? 'No insights yet' : 'No insights found'}
-              </p>
+            <div className="text-center py-8 text-muted-foreground bg-background">
               <p className="text-sm">
-                {allNuggets.length === 0 
-                  ? 'Create your first research session to start building insights.' 
-                  : 'Try adjusting your search terms.'
-                }
+                {allNuggets.length === 0 ? 'No insights yet' : 'No insights match your search'}
               </p>
               {allNuggets.length === 0 && (
                 <Button
                   onClick={() => onNavigate('upload')}
-                  className="mt-4 flex items-center gap-2"
+                  className="mt-3 flex items-center gap-2"
+                  size="sm"
                 >
                   <Plus className="w-4 h-4" />
                   Create First Session
