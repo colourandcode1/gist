@@ -11,6 +11,27 @@ const RepositorySearchView = ({ onNavigate }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [savedSessions, setSavedSessions] = useState([]);
   const [allNuggets, setAllNuggets] = useState([]);
+  const [activeFilters, setActiveFilters] = useState([]);
+
+  // Categories and tags data (matching the structure from TranscriptAnalysisView)
+  const categories = [
+    { id: 'pain_point', name: 'Pain Point', color: '#ef4444', description: 'Issues or problems users encounter' },
+    { id: 'sentiment', name: 'Positive Feedback', color: '#10b981', description: 'Positive user feedback or satisfaction' },
+    { id: 'feature', name: 'Feature Request', color: '#3b82f6', description: 'User suggestions for new features' },
+    { id: 'journey', name: 'User Journey', color: '#f59e0b', description: 'Insights about user flow or process' },
+    { id: 'usability', name: 'Usability', color: '#8b5cf6', description: 'Interface or design issues' },
+    { id: 'performance', name: 'Performance', color: '#06b6d4', description: 'Speed or technical performance issues' },
+    { id: 'general', name: 'General', color: '#6b7280', description: 'General insights or observations' }
+  ];
+
+  const tags = [
+    { id: 1, name: 'Navigation', color: '#3b82f6' },
+    { id: 2, name: 'Checkout', color: '#10b981' },
+    { id: 3, name: 'Mobile', color: '#f59e0b' },
+    { id: 4, name: 'Search', color: '#8b5cf6' },
+    { id: 5, name: 'Onboarding', color: '#06b6d4' },
+    { id: 6, name: 'Pricing', color: '#ef4444' }
+  ];
 
   // Function to refresh data from localStorage
   const refreshData = () => {
@@ -38,12 +59,59 @@ const RepositorySearchView = ({ onNavigate }) => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  const filteredNuggets = allNuggets.filter(nugget =>
-    nugget.observation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    nugget.evidence_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    nugget.session_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    nugget.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Filter management functions
+  const addFilter = (type, id, name, color) => {
+    const filterExists = activeFilters.some(filter => filter.type === type && filter.id === id);
+    if (!filterExists) {
+      setActiveFilters(prev => [...prev, { type, id, name, color }]);
+    }
+  };
+
+  const removeFilter = (type, id) => {
+    setActiveFilters(prev => prev.filter(filter => !(filter.type === type && filter.id === id)));
+  };
+
+  const clearAllFilters = () => {
+    setActiveFilters([]);
+  };
+
+  // Helper functions for filter counts and clearing
+  const getCategoryFilterCount = () => {
+    return activeFilters.filter(f => f.type === 'category').length;
+  };
+
+  const getTagFilterCount = () => {
+    return activeFilters.filter(f => f.type === 'tag').length;
+  };
+
+  const clearCategoryFilters = () => {
+    setActiveFilters(prev => prev.filter(f => f.type !== 'category'));
+  };
+
+  const clearTagFilters = () => {
+    setActiveFilters(prev => prev.filter(f => f.type !== 'tag'));
+  };
+
+  const filteredNuggets = allNuggets.filter(nugget => {
+    // Text search filter
+    const matchesSearch = searchQuery === '' || 
+      nugget.observation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      nugget.evidence_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      nugget.session_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      nugget.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    // Category and tag filters
+    const activeCategoryFilters = activeFilters.filter(f => f.type === 'category');
+    const activeTagFilters = activeFilters.filter(f => f.type === 'tag');
+    
+    const matchesCategories = activeCategoryFilters.length === 0 || 
+      activeCategoryFilters.some(filter => nugget.category === filter.id);
+    
+    const matchesTags = activeTagFilters.length === 0 || 
+      activeTagFilters.some(filter => nugget.tags.includes(filter.id));
+
+    return matchesSearch && matchesCategories && matchesTags;
+  });
 
   const getSentimentColor = (category) => {
     switch (category) {
@@ -97,6 +165,51 @@ const RepositorySearchView = ({ onNavigate }) => {
           </CardContent>
         </Card>
 
+        {/* Tags Filter - Full Width */}
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-foreground">
+                Tags {getTagFilterCount() > 0 && `(${getTagFilterCount()})`}
+              </h3>
+              {getTagFilterCount() > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearTagFilters}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {tags.map(tag => (
+                <button
+                  key={tag.id}
+                  onClick={() => addFilter('tag', tag.id, tag.name, tag.color)}
+                  className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                    activeFilters.some(f => f.type === 'tag' && f.id === tag.id)
+                      ? 'font-medium'
+                      : 'hover:bg-muted'
+                  }`}
+                  style={activeFilters.some(f => f.type === 'tag' && f.id === tag.id) ? {
+                    backgroundColor: `${tag.color}15`,
+                    color: tag.color,
+                    border: `1px solid ${tag.color}30`
+                  } : {
+                    backgroundColor: 'transparent',
+                    color: 'var(--muted-foreground)',
+                    border: '1px solid var(--border)'
+                  }}
+                >
+                  {tag.name}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
@@ -144,14 +257,64 @@ const RepositorySearchView = ({ onNavigate }) => {
           </Card>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">
-              {filteredNuggets.length} insights found
-            </h2>
+        {/* Main Content Area with Sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Categories Sidebar */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-6">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-foreground">
+                    Categories {getCategoryFilterCount() > 0 && `(${getCategoryFilterCount()})`}
+                  </h3>
+                  {getCategoryFilterCount() > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearCategoryFilters}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {categories.map(category => (
+                    <button
+                      key={category.id}
+                      onClick={() => addFilter('category', category.id, category.name, category.color)}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-colors ${
+                        activeFilters.some(f => f.type === 'category' && f.id === category.id)
+                          ? 'font-medium'
+                          : 'hover:bg-muted'
+                      }`}
+                      style={activeFilters.some(f => f.type === 'category' && f.id === category.id) ? {
+                        backgroundColor: `${category.color}15`,
+                        color: category.color,
+                        border: `1px solid ${category.color}30`
+                      } : {
+                        backgroundColor: 'transparent',
+                        color: 'var(--muted-foreground)',
+                        border: '1px solid var(--border)'
+                      }}
+                    >
+                      {category.name}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {filteredNuggets.map(nugget => (
+          {/* Nuggets Content */}
+          <div className="lg:col-span-3 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                {filteredNuggets.length} insights found
+              </h2>
+            </div>
+
+            {filteredNuggets.map(nugget => (
             <Card key={nugget.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -230,6 +393,7 @@ const RepositorySearchView = ({ onNavigate }) => {
               )}
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>
