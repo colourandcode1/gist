@@ -9,12 +9,16 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
   const [nuggets, setNuggets] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
-  const [tags] = useState([
+  const [tags, setTags] = useState([
     { id: 1, name: 'Navigation Issues', category: 'pain_point', color: '#ef4444' },
     { id: 2, name: 'Positive Feedback', category: 'sentiment', color: '#10b981' },
     { id: 3, name: 'Feature Request', category: 'feature', color: '#3b82f6' },
     { id: 4, name: 'Onboarding', category: 'journey', color: '#f59e0b' }
   ]);
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagCategory, setNewTagCategory] = useState('general');
+  const [newTagColor, setNewTagColor] = useState('#6b7280');
   const [newNugget, setNewNugget] = useState({
     observation: '',
     evidence_text: '',
@@ -108,6 +112,33 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
       ...prev,
       tags: prev.tags.filter(id => id !== tagId)
     }));
+  };
+
+  const createNewTag = () => {
+    if (!newTagName.trim()) return;
+
+    const newTag = {
+      id: Date.now(),
+      name: newTagName.trim(),
+      category: newTagCategory,
+      color: newTagColor
+    };
+
+    setTags(prev => [...prev, newTag]);
+    setNewTagName('');
+    setNewTagCategory('general');
+    setNewTagColor('#6b7280');
+    setIsCreatingTag(false);
+    
+    // Automatically add the new tag to the current nugget
+    addTagToNugget(newTag.id);
+  };
+
+  const cancelCreateTag = () => {
+    setNewTagName('');
+    setNewTagCategory('general');
+    setNewTagColor('#6b7280');
+    setIsCreatingTag(false);
   };
 
   const createTimestampUrl = (baseUrl, timestamp) => {
@@ -412,7 +443,93 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                       {tag.name}
                     </button>
                   ))}
+                  
+                  {/* Create New Tag Button */}
+                  {!isCreatingTag && (
+                    <button
+                      onClick={() => setIsCreatingTag(true)}
+                      className="px-2 py-1 text-xs rounded-full border border-dashed border-muted-foreground text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      New Tag
+                    </button>
+                  )}
                 </div>
+
+                {/* Create Tag Form */}
+                {isCreatingTag && (
+                  <div className="bg-muted/30 border border-border rounded-lg p-3 mb-3">
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium text-foreground mb-1 block">Tag Name</label>
+                        <input
+                          type="text"
+                          value={newTagName}
+                          onChange={(e) => setNewTagName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newTagName.trim()) {
+                              createNewTag();
+                            } else if (e.key === 'Escape') {
+                              cancelCreateTag();
+                            }
+                          }}
+                          placeholder="Enter tag name..."
+                          className="w-full px-2 py-1 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          autoFocus
+                        />
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="text-xs font-medium text-foreground mb-1 block">Category</label>
+                          <select
+                            value={newTagCategory}
+                            onChange={(e) => setNewTagCategory(e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          >
+                            <option value="general">General</option>
+                            <option value="pain_point">Pain Point</option>
+                            <option value="sentiment">Sentiment</option>
+                            <option value="feature">Feature</option>
+                            <option value="journey">Journey</option>
+                            <option value="usability">Usability</option>
+                            <option value="performance">Performance</option>
+                          </select>
+                        </div>
+                        
+                        <div className="flex-1">
+                          <label className="text-xs font-medium text-foreground mb-1 block">Color</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={newTagColor}
+                              onChange={(e) => setNewTagColor(e.target.value)}
+                              className="w-8 h-6 border border-border rounded cursor-pointer"
+                            />
+                            <span className="text-xs text-muted-foreground">{newTagColor}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={createNewTag}
+                          disabled={!newTagName.trim()}
+                          className="flex items-center gap-1 px-3 py-1 bg-primary text-primary-foreground text-xs rounded hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Create Tag
+                        </button>
+                        <button
+                          onClick={cancelCreateTag}
+                          className="px-3 py-1 bg-secondary text-secondary-foreground text-xs rounded hover:bg-secondary/90 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <div className="text-xs text-muted-foreground">
