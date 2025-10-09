@@ -101,11 +101,23 @@
   
   /* Sentiment analysis highlighting styles */
   .sentiment-positive {
-    @apply bg-green-200 dark:bg-green-900 px-1 py-0.5 rounded-sm;
+    @apply bg-green-200 dark:bg-green-900 px-1 py-0.5 rounded-sm cursor-pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .sentiment-positive:hover {
+    @apply ring-2 ring-green-400 dark:ring-green-500;
+    transform: scale(1.02);
   }
   
   .sentiment-negative {
-    @apply bg-red-200 dark:bg-red-900 px-1 py-0.5 rounded-sm;
+    @apply bg-red-200 dark:bg-red-900 px-1 py-0.5 rounded-sm cursor-pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .sentiment-negative:hover {
+    @apply ring-2 ring-red-400 dark:ring-red-500;
+    transform: scale(1.02);
   }
 }
 

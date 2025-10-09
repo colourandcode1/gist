@@ -3,8 +3,9 @@ import { Video, User, Clock, Plus, Save, Database, Check, Tag, Sparkles } from '
 import NavigationHeader from './NavigationHeader';
 import { parseTranscript } from '@/lib/transcriptUtils';
 import { saveSession } from '@/lib/storageUtils';
-import { highlightSentimentWords } from '@/lib/sentimentUtils';
+import { highlightSentimentWords, extractSentenceFromText } from '@/lib/sentimentUtils';
 import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 
 const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges }) => {
   const [selectedText, setSelectedText] = useState('');
@@ -105,6 +106,52 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
       const timestampMatch = selection.match(/\[(\d{2}:\d{2}:\d{2})\]/);
       if (timestampMatch) {
         setNewNugget(prev => ({ ...prev, timestamp: timestampMatch[1] }));
+      }
+    }
+  };
+
+  const handleSentimentWordClick = (event) => {
+    const clickedElement = event.target;
+    
+    // Check if the clicked element is a sentiment word
+    if (clickedElement.getAttribute('data-sentiment-word') === 'true') {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      const clickedWord = clickedElement.textContent;
+      
+      // Find the parent dialogue item or content area
+      let parentElement = clickedElement.parentElement;
+      let dialogueContent = '';
+      
+      // Look for the dialogue content in the parent structure
+      while (parentElement && !dialogueContent) {
+        if (parentElement.classList.contains('text-sm') && parentElement.textContent) {
+          dialogueContent = parentElement.textContent;
+          break;
+        }
+        parentElement = parentElement.parentElement;
+      }
+      
+      if (dialogueContent) {
+        // Extract the full sentence containing the clicked word
+        const sentence = extractSentenceFromText(dialogueContent, clickedWord);
+        
+        if (sentence) {
+          setSelectedText(sentence);
+          
+          // Extract timestamp if present in the sentence
+          const timestampMatch = sentence.match(/\[(\d{2}:\d{2}:\d{2})\]/);
+          if (timestampMatch) {
+            setNewNugget(prev => ({ ...prev, timestamp: timestampMatch[1] }));
+          }
+          
+          // Scroll to the nugget creation form
+          const nuggetForm = document.querySelector('.bg-card.rounded-lg.border.border-border.p-4.shadow-sm.border-dashed');
+          if (nuggetForm) {
+            nuggetForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
       }
     }
   };
@@ -268,17 +315,14 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-4">
                 <h2 className="text-lg font-semibold text-foreground">{sessionData.title}</h2>
-                <button
-                  onClick={() => setShowSentiment(!showSentiment)}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                    showSentiment 
-                      ? 'bg-primary text-primary-foreground border-primary' 
-                      : 'bg-background text-muted-foreground border-border hover:bg-muted'
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Sentiment Analysis
-                </button>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Sentiment Analysis</span>
+                  <Switch
+                    checked={showSentiment}
+                    onCheckedChange={setShowSentiment}
+                  />
+                </div>
               </div>
               {sessionData.recordingUrl && (
                 <a 
@@ -299,7 +343,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
           
           <div className="flex-1 p-4 overflow-y-auto">
             {parsedTranscript ? (
-              <div onMouseUp={handleTextSelection}>
+              <div onMouseUp={handleTextSelection} onClick={handleSentimentWordClick}>
                 <StyledTranscriptDisplay 
                   dialogue={parsedTranscript.dialogue} 
                   attendees={parsedTranscript.attendees}
@@ -310,6 +354,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
               <div 
                 className="whitespace-pre-line text-sm leading-relaxed select-text text-foreground"
                 onMouseUp={handleTextSelection}
+                onClick={handleSentimentWordClick}
                 dangerouslySetInnerHTML={{
                   __html: showSentiment ? highlightSentimentWords(sessionData.transcriptContent, true) : sessionData.transcriptContent
                 }}

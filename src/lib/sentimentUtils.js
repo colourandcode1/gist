@@ -128,16 +128,56 @@ export const highlightSentimentWords = (text, showSentiment = false) => {
   // Highlight positive words
   positiveWords.forEach(word => {
     const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-    highlightedText = highlightedText.replace(regex, `<span class="sentiment-positive">${word}</span>`);
+    highlightedText = highlightedText.replace(regex, `<span class="sentiment-positive cursor-pointer" data-sentiment-word="true" data-sentiment-type="positive">${word}</span>`);
   });
   
   // Highlight negative words
   negativeWords.forEach(word => {
     const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-    highlightedText = highlightedText.replace(regex, `<span class="sentiment-negative">${word}</span>`);
+    highlightedText = highlightedText.replace(regex, `<span class="sentiment-negative cursor-pointer" data-sentiment-word="true" data-sentiment-type="negative">${word}</span>`);
   });
   
   return highlightedText;
+};
+
+// Function to extract the full sentence containing a clicked word
+export const extractSentenceFromText = (text, clickedWord) => {
+  if (!text || !clickedWord) return '';
+  
+  // Find the position of the clicked word in the text
+  const wordIndex = text.toLowerCase().indexOf(clickedWord.toLowerCase());
+  if (wordIndex === -1) return '';
+  
+  // Find sentence boundaries around the word
+  let sentenceStart = 0;
+  let sentenceEnd = text.length;
+  
+  // Look backwards for sentence start
+  for (let i = wordIndex - 1; i >= 0; i--) {
+    const char = text[i];
+    if (char === '.' || char === '!' || char === '?') {
+      sentenceStart = i + 1;
+      break;
+    }
+  }
+  
+  // Look forwards for sentence end
+  for (let i = wordIndex; i < text.length; i++) {
+    const char = text[i];
+    if (char === '.' || char === '!' || char === '?') {
+      sentenceEnd = i + 1;
+      break;
+    }
+  }
+  
+  // Extract the sentence and clean it up
+  let sentence = text.slice(sentenceStart, sentenceEnd).trim();
+  
+  // Remove any leading/trailing whitespace and clean up
+  sentence = sentence.replace(/^\s*[:\-]\s*/, ''); // Remove leading colons or dashes
+  sentence = sentence.replace(/\s+/g, ' '); // Normalize whitespace
+  
+  return sentence;
 };
 
 // Export dictionary for future customization features
