@@ -26,7 +26,7 @@ const SessionDetailsForm = ({
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+          <label className="block text-sm font-medium text-secondary-text mb-1">Title</label>
           <Input
             type="text"
             value={sessionData.title}
@@ -37,7 +37,7 @@ const SessionDetailsForm = ({
 
         <div className="grid grid-cols-1 gap-3">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Date</label>
+            <label className="block text-sm font-medium text-secondary-text mb-1">Date</label>
             <Input
               type="date"
               value={sessionData.sessionDate}
@@ -47,7 +47,7 @@ const SessionDetailsForm = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">Type</label>
+          <label className="block text-sm font-medium text-secondary-text mb-2">Type</label>
           <div className="grid grid-cols-2 gap-2">
             {sessionTypes.map(type => (
               <Button
@@ -64,7 +64,7 @@ const SessionDetailsForm = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Participant</label>
+          <label className="block text-sm font-medium text-secondary-text mb-1">Participant</label>
           <Input
             type="text"
             value={sessionData.participantName}
@@ -74,7 +74,7 @@ const SessionDetailsForm = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Recording URL <span className="text-muted-foreground">(optional)</span></label>
+          <label className="block text-sm font-medium text-secondary-text mb-1">Recording URL <span className="text-muted-foreground">(optional)</span></label>
           <div className="relative">
             <Input
               type="url"

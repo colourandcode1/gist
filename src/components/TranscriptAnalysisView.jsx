@@ -307,7 +307,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                 return (
                   <div key={index} className="grid grid-cols-12 gap-2 py-1 hover:bg-muted/30 transition-colors rounded px-1">
                     <div className="col-span-2">
-                      <span className="text-sm font-semibold text-primary">
+                      <span className="text-sm font-semibold text-secondary-text">
                         {item.speaker}
                       </span>
                     </div>
@@ -326,7 +326,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
               } else if (item.type === 'timestamp') {
                 return (
                   <div key={index} className="py-1">
-                    <span className="text-xs text-muted-foreground font-mono font-semibold">
+                    <span className="text-xs text-secondary-text font-mono font-semibold">
                       {item.content}
                     </span>
                   </div>
@@ -611,7 +611,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
 
                 {/* Category Selection */}
                 <div className="mb-3">
-                  <label className="text-xs font-medium text-foreground mb-2 block">Category</label>
+                  <label className="text-xs font-medium text-secondary-text mb-2 block">Category</label>
                   <div className="flex flex-wrap gap-1">
                     {categories.map(category => (
                       <button
@@ -640,7 +640,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
 
                 {/* Tags Selection */}
                 <div className="mb-3">
-                  <label className="text-xs font-medium text-foreground mb-2 block">Tags</label>
+                  <label className="text-xs font-medium text-secondary-text mb-2 block">Tags</label>
                   <div className="flex flex-wrap gap-1">
                     {tags.map(tag => (
                       <button
@@ -686,7 +686,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                   <div className="bg-muted/30 border border-border rounded-lg p-3 mb-3">
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs font-medium text-foreground mb-1 block">Tag Name</label>
+                        <label className="text-xs font-medium text-secondary-text mb-1 block">Tag Name</label>
                         <input
                           type="text"
                           value={newTagName}
@@ -705,7 +705,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                       </div>
                       
                       <div>
-                        <label className="text-xs font-medium text-foreground mb-1 block">Color</label>
+                        <label className="text-xs font-medium text-secondary-text mb-1 block">Color</label>
                         <div className="flex items-center gap-2">
                           <input
                             type="color"
