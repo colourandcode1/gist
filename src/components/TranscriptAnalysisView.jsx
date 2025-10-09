@@ -15,21 +15,22 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
   // Add document-level click handler for click-away functionality
   useEffect(() => {
     const handleDocumentClick = (event) => {
-      // Check if click is outside the transcript area or nugget form
-      const transcriptArea = event.target.closest('.transcript-area');
-      const nuggetForm = event.target.closest('.nugget-form');
       const sentimentWord = event.target.closest('[data-sentiment-word="true"]');
+      const nuggetForm = event.target.closest('.nugget-form');
       
       // Don't clear if clicking on sentiment words (let handleSentimentWordClick handle it)
       if (sentimentWord) {
         return;
       }
       
-      // Clear selection if clicking outside both transcript and nugget areas
-      if (!transcriptArea && !nuggetForm) {
-        setSelectedText('');
-        setSelectedSentenceInfo(null);
+      // Don't clear if clicking on nugget form
+      if (nuggetForm) {
+        return;
       }
+      
+      // Clear selection for any other click (including clicks on other sentences in transcript)
+      setSelectedText('');
+      setSelectedSentenceInfo(null);
     };
 
     // Add event listener to document
