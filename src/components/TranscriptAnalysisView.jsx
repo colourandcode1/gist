@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Video, User, Clock, Plus, Save, Database, Check, Tag } from 'lucide-react';
+import { Video, User, Clock, Plus, Save, Database, Check, Tag, Sparkles } from 'lucide-react';
 import NavigationHeader from './NavigationHeader';
 import { parseTranscript } from '@/lib/transcriptUtils';
 import { saveSession } from '@/lib/storageUtils';
+import { highlightSentimentWords } from '@/lib/sentimentUtils';
 import { Card, CardContent } from "@/components/ui/card";
 
 const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges }) => {
@@ -10,6 +11,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
   const [nuggets, setNuggets] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
+  const [showSentiment, setShowSentiment] = useState(false);
   // Separate categories and tags
   const [categories] = useState([
     { id: 'pain_point', name: 'Pain Point', color: '#ef4444', description: 'Issues or problems users encounter' },
@@ -178,7 +180,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
   const parsedTranscript = sessionData.transcriptContent ? parseTranscript(sessionData.transcriptContent) : null;
 
   // Component for styled transcript display
-  const StyledTranscriptDisplay = ({ dialogue, attendees }) => {
+  const StyledTranscriptDisplay = ({ dialogue, attendees, showSentiment }) => {
     if (!dialogue || dialogue.length === 0) return null;
 
     return (
@@ -216,9 +218,12 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                       </span>
                     </div>
                     <div className="col-span-10">
-                      <div className="text-sm text-foreground leading-relaxed select-text">
-                        {item.content}
-                      </div>
+                      <div 
+                        className="text-sm text-foreground leading-relaxed select-text"
+                        dangerouslySetInnerHTML={{
+                          __html: showSentiment ? highlightSentimentWords(item.content, true) : item.content
+                        }}
+                      />
                     </div>
                   </div>
                 );
@@ -233,9 +238,12 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
               } else {
                 return (
                   <div key={index} className="py-1">
-                    <div className="text-sm text-foreground leading-relaxed select-text">
-                      {item.content}
-                    </div>
+                    <div 
+                      className="text-sm text-foreground leading-relaxed select-text"
+                      dangerouslySetInnerHTML={{
+                        __html: showSentiment ? highlightSentimentWords(item.content, true) : item.content
+                      }}
+                    />
                   </div>
                 );
               }
@@ -258,7 +266,20 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
         <div className="w-1/2 bg-card border-r border-border flex flex-col">
           <div className="p-4 border-b border-border">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-foreground">{sessionData.title}</h2>
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-semibold text-foreground">{sessionData.title}</h2>
+                <button
+                  onClick={() => setShowSentiment(!showSentiment)}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                    showSentiment 
+                      ? 'bg-primary text-primary-foreground border-primary' 
+                      : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Sentiment Analysis
+                </button>
+              </div>
               {sessionData.recordingUrl && (
                 <a 
                   href={sessionData.recordingUrl}
@@ -282,15 +303,17 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                 <StyledTranscriptDisplay 
                   dialogue={parsedTranscript.dialogue} 
                   attendees={parsedTranscript.attendees}
+                  showSentiment={showSentiment}
                 />
               </div>
             ) : (
               <div 
                 className="whitespace-pre-line text-sm leading-relaxed select-text text-foreground"
                 onMouseUp={handleTextSelection}
-              >
-                {sessionData.transcriptContent}
-              </div>
+                dangerouslySetInnerHTML={{
+                  __html: showSentiment ? highlightSentimentWords(sessionData.transcriptContent, true) : sessionData.transcriptContent
+                }}
+              />
             )}
           </div>
 

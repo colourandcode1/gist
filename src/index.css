@@ -98,5 +98,14 @@
   .modal-backdrop {
     pointer-events: auto;
   }
+  
+  /* Sentiment analysis highlighting styles */
+  .sentiment-positive {
+    @apply bg-green-200 dark:bg-green-900 px-1 py-0.5 rounded-sm;
+  }
+  
+  .sentiment-negative {
+    @apply bg-red-200 dark:bg-red-900 px-1 py-0.5 rounded-sm;
+  }
 }
 
