@@ -180,6 +180,34 @@ export const extractSentenceFromText = (text, clickedWord) => {
   return sentence;
 };
 
+// Function to highlight a selected sentence while preserving sentiment word highlighting
+export const highlightSelectedSentence = (text, selectedSentence, showSentiment = false) => {
+  if (!text || !selectedSentence) {
+    return text;
+  }
+  
+  // Find the sentence in the ORIGINAL text first (before sentiment highlighting)
+  const sentenceIndex = text.indexOf(selectedSentence);
+  
+  if (sentenceIndex === -1) {
+    return showSentiment ? highlightSentimentWords(text, true) : text;
+  }
+  
+  // Split the text into parts: before sentence, sentence, after sentence
+  const beforeSentence = text.substring(0, sentenceIndex);
+  const afterSentence = text.substring(sentenceIndex + selectedSentence.length);
+  
+  // Apply sentiment highlighting to each part separately
+  const highlightedBefore = showSentiment ? highlightSentimentWords(beforeSentence, true) : beforeSentence;
+  const highlightedSentence = showSentiment ? highlightSentimentWords(selectedSentence, true) : selectedSentence;
+  const highlightedAfter = showSentiment ? highlightSentimentWords(afterSentence, true) : afterSentence;
+  
+  // Wrap the sentence with sentence-selected class
+  const sentenceWithHighlight = `<span class="sentence-selected">${highlightedSentence}</span>`;
+  
+  return highlightedBefore + sentenceWithHighlight + highlightedAfter;
+};
+
 // Export dictionary for future customization features
 export const getSentimentDictionary = () => sentimentDictionary;
 

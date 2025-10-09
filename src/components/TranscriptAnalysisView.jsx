@@ -1,15 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Video, User, Clock, Plus, Save, Database, Check, Tag, Sparkles } from 'lucide-react';
 import NavigationHeader from './NavigationHeader';
 import { parseTranscript } from '@/lib/transcriptUtils';
 import { saveSession } from '@/lib/storageUtils';
-import { highlightSentimentWords, extractSentenceFromText } from '@/lib/sentimentUtils';
+import { highlightSentimentWords, extractSentenceFromText, highlightSelectedSentence } from '@/lib/sentimentUtils';
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 
 const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges }) => {
   const [selectedText, setSelectedText] = useState('');
+  const [selectedSentenceInfo, setSelectedSentenceInfo] = useState(null);
   const [nuggets, setNuggets] = useState([]);
+
+  // Add document-level click handler for click-away functionality
+  useEffect(() => {
+    const handleDocumentClick = (event) => {
+      // Check if click is outside the transcript area or nugget form
+      const transcriptArea = event.target.closest('.transcript-area');
+      const nuggetForm = event.target.closest('.nugget-form');
+      const sentimentWord = event.target.closest('[data-sentiment-word="true"]');
+      
+      // Don't clear if clicking on sentiment words (let handleSentimentWordClick handle it)
+      if (sentimentWord) {
+        return;
+      }
+      
+      // Clear selection if clicking outside both transcript and nugget areas
+      if (!transcriptArea && !nuggetForm) {
+        setSelectedText('');
+        setSelectedSentenceInfo(null);
+      }
+    };
+
+    // Add event listener to document
+    document.addEventListener('click', handleDocumentClick);
+
+    // Cleanup function to remove event listener
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, []);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [showSentiment, setShowSentiment] = useState(false);
@@ -103,6 +133,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     const selection = window.getSelection().toString();
     if (selection.trim()) {
       setSelectedText(selection);
+      setSelectedSentenceInfo(null); // Clear sentence highlighting when manually selecting text
       const timestampMatch = selection.match(/\[(\d{2}:\d{2}:\d{2})\]/);
       if (timestampMatch) {
         setNewNugget(prev => ({ ...prev, timestamp: timestampMatch[1] }));
@@ -123,11 +154,13 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
       // Find the parent dialogue item or content area
       let parentElement = clickedElement.parentElement;
       let dialogueContent = '';
+      let dialogueElement = null;
       
       // Look for the dialogue content in the parent structure
       while (parentElement && !dialogueContent) {
         if (parentElement.classList.contains('text-sm') && parentElement.textContent) {
           dialogueContent = parentElement.textContent;
+          dialogueElement = parentElement;
           break;
         }
         parentElement = parentElement.parentElement;
@@ -139,6 +172,13 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
         
         if (sentence) {
           setSelectedText(sentence);
+          
+          // Store sentence info for highlighting
+          setSelectedSentenceInfo({
+            sentence: sentence,
+            dialogueContent: dialogueContent,
+            dialogueElement: dialogueElement
+          });
           
           // Extract timestamp if present in the sentence
           const timestampMatch = sentence.match(/\[(\d{2}:\d{2}:\d{2})\]/);
@@ -173,6 +213,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     setNuggets([...nuggets, nugget]);
     setNewNugget({ observation: '', evidence_text: '', speaker: '', timestamp: '', category: 'general', tags: [] });
     setSelectedText('');
+    setSelectedSentenceInfo(null); // Clear sentence highlighting after nugget creation
     setHasUnsavedChanges(true);
   };
 
@@ -257,6 +298,11 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
           <div className="space-y-2">
             {dialogue.map((item, index) => {
               if (item.type === 'dialogue') {
+                // Check if this dialogue item contains the selected sentence
+                const shouldHighlightSentence = selectedSentenceInfo && 
+                  selectedSentenceInfo.dialogueContent === item.content;
+                
+                
                 return (
                   <div key={index} className="grid grid-cols-12 gap-2 py-1 hover:bg-muted/30 transition-colors rounded px-1">
                     <div className="col-span-2">
@@ -268,7 +314,9 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                       <div 
                         className="text-sm text-foreground leading-relaxed select-text"
                         dangerouslySetInnerHTML={{
-                          __html: showSentiment ? highlightSentimentWords(item.content, true) : item.content
+                          __html: shouldHighlightSentence 
+                            ? highlightSelectedSentence(item.content, selectedSentenceInfo.sentence, showSentiment)
+                            : (showSentiment ? highlightSentimentWords(item.content, true) : item.content)
                         }}
                       />
                     </div>
@@ -283,12 +331,18 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                   </div>
                 );
               } else {
+                // Check if this content item contains the selected sentence
+                const shouldHighlightSentence = selectedSentenceInfo && 
+                  selectedSentenceInfo.dialogueContent === item.content;
+                
                 return (
                   <div key={index} className="py-1">
                     <div 
                       className="text-sm text-foreground leading-relaxed select-text"
                       dangerouslySetInnerHTML={{
-                        __html: showSentiment ? highlightSentimentWords(item.content, true) : item.content
+                        __html: shouldHighlightSentence 
+                          ? highlightSelectedSentence(item.content, selectedSentenceInfo.sentence, showSentiment)
+                          : (showSentiment ? highlightSentimentWords(item.content, true) : item.content)
                       }}
                     />
                   </div>
@@ -341,7 +395,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
             </div>
           </div>
           
-          <div className="flex-1 p-4 overflow-y-auto">
+          <div className="flex-1 p-4 overflow-y-auto transcript-area">
             {parsedTranscript ? (
               <div onMouseUp={handleTextSelection} onClick={handleSentimentWordClick}>
                 <StyledTranscriptDisplay 
@@ -356,7 +410,9 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                 onMouseUp={handleTextSelection}
                 onClick={handleSentimentWordClick}
                 dangerouslySetInnerHTML={{
-                  __html: showSentiment ? highlightSentimentWords(sessionData.transcriptContent, true) : sessionData.transcriptContent
+                  __html: selectedSentenceInfo && selectedSentenceInfo.dialogueContent === sessionData.transcriptContent
+                    ? highlightSelectedSentence(sessionData.transcriptContent, selectedSentenceInfo.sentence, showSentiment)
+                    : (showSentiment ? highlightSentimentWords(sessionData.transcriptContent, true) : sessionData.transcriptContent)
                 }}
               />
             )}
@@ -497,7 +553,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
             ))}
 
             {/* Empty Nugget Card Template - always visible */}
-            <div className="bg-card rounded-lg border border-border p-4 shadow-sm border-dashed border-primary/30">
+            <div className="bg-card rounded-lg border border-border p-4 shadow-sm border-dashed border-primary/30 nugget-form">
               <div className="mb-3">
                 <div className="flex items-start justify-between mb-2">
                   <textarea

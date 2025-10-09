@@ -119,5 +119,17 @@
     @apply ring-2 ring-red-400 dark:ring-red-500;
     transform: scale(1.02);
   }
+  
+  /* Sentence selection highlighting */
+  .sentence-selected {
+    @apply bg-blue-100 dark:bg-blue-900/30 px-1 py-0.5 rounded-sm;
+    transition: all 0.2s ease;
+  }
+  
+  /* Ensure sentiment words remain visible over sentence highlighting */
+  .sentence-selected .sentiment-positive,
+  .sentence-selected .sentiment-negative {
+    @apply relative z-10;
+  }
 }
 
