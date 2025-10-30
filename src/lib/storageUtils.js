@@ -38,6 +38,64 @@ export const getAllNuggets = () => {
   }
 };
 
+export const updateNuggetCategoryTags = (sessionId, nuggetId, newCategory, newTags) => {
+  try {
+    const sessions = getSessions();
+    let updated = false;
+
+    const updatedSessions = sessions.map(session => {
+      if (session.id !== sessionId) return session;
+
+      const updatedNuggets = session.nuggets.map(nugget => {
+        if (nugget.id !== nuggetId) return nugget;
+        updated = true;
+        return {
+          ...nugget,
+          category: newCategory ?? nugget.category,
+          tags: Array.isArray(newTags) ? newTags : nugget.tags
+        };
+      });
+
+      return { ...session, nuggets: updatedNuggets };
+    });
+
+    if (!updated) return false;
+
+    localStorage.setItem('researchSessions', JSON.stringify(updatedSessions));
+    return true;
+  } catch (error) {
+    console.error('Error updating nugget:', error);
+    return false;
+  }
+};
+
+export const updateNuggetFields = (sessionId, nuggetId, fields) => {
+  try {
+    const sessions = getSessions();
+    let updated = false;
+
+    const updatedSessions = sessions.map(session => {
+      if (session.id !== sessionId) return session;
+
+      const updatedNuggets = session.nuggets.map(nugget => {
+        if (nugget.id !== nuggetId) return nugget;
+        updated = true;
+        return { ...nugget, ...fields };
+      });
+
+      return { ...session, nuggets: updatedNuggets };
+    });
+
+    if (!updated) return false;
+
+    localStorage.setItem('researchSessions', JSON.stringify(updatedSessions));
+    return true;
+  } catch (error) {
+    console.error('Error updating nugget fields:', error);
+    return false;
+  }
+};
+
 export const clearAllData = () => {
   try {
     localStorage.removeItem('researchSessions');

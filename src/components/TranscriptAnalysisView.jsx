@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Video, User, Clock, Plus, Save, Database, Check, Tag, Sparkles } from 'lucide-react';
 import NavigationHeader from './NavigationHeader';
 import { parseTranscript } from '@/lib/transcriptUtils';
-import { saveSession } from '@/lib/storageUtils';
+import { saveSession, updateNuggetFields } from '@/lib/storageUtils';
 import { highlightSentimentWords, extractSentenceFromText, highlightSelectedSentence } from '@/lib/sentimentUtils';
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 
-const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges }) => {
+const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges, prefill }) => {
   const [selectedText, setSelectedText] = useState('');
   const [selectedSentenceInfo, setSelectedSentenceInfo] = useState(null);
   const [nuggets, setNuggets] = useState([]);
+  const [editingExisting, setEditingExisting] = useState(false);
+  const [editingIds, setEditingIds] = useState({ sessionId: null, nuggetId: null });
 
   // Add document-level click handler for click-away functionality
   useEffect(() => {
@@ -76,6 +78,81 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     tags: []
   });
 
+  // Pre-fill state when coming from repository edit flow
+  useEffect(() => {
+    if (prefill) {
+      setEditingExisting(Boolean(prefill.nuggetId && prefill.sessionId));
+      if (prefill.nuggetId && prefill.sessionId) {
+        setEditingIds({ sessionId: prefill.sessionId, nuggetId: prefill.nuggetId });
+      } else {
+        setEditingIds({ sessionId: null, nuggetId: null });
+      }
+      const rawEvidence = prefill.selectedText || '';
+      const evidence = rawEvidence.replace(/^\s*"|"\s*$/g, '').trim();
+      setSelectedText(evidence);
+
+      // Try to locate the specific dialogue content containing the evidence
+      let matchedDialogueContent = sessionData.transcriptContent;
+      try {
+        const parsed = sessionData.transcriptContent ? parseTranscript(sessionData.transcriptContent) : null;
+        if (parsed && Array.isArray(parsed.dialogue)) {
+          const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+          const normEvidence = normalize(evidence);
+          let found = parsed.dialogue.find(item => typeof item.content === 'string' && item.content.includes(evidence));
+          if (!found) {
+            found = parsed.dialogue.find(item => typeof item.content === 'string' && normalize(item.content).includes(normEvidence));
+          }
+          if (found) {
+            matchedDialogueContent = found.content;
+          }
+        }
+      } catch (_) {
+        // fall back to full transcript content
+      }
+
+      setSelectedSentenceInfo({
+        sentence: evidence,
+        dialogueContent: matchedDialogueContent,
+        dialogueElement: null,
+      });
+      setNewNugget(prev => ({
+        ...prev,
+        observation: prefill.observation || prev.observation,
+        speaker: sessionData.participantName || prev.speaker,
+        timestamp: prefill.timestamp || prev.timestamp,
+        category: prefill.category || prev.category,
+        tags: Array.isArray(prefill.tags) ? prefill.tags : prev.tags,
+        evidence_text: evidence,
+      }));
+
+      // Re-apply selection shortly after mount to account for render timing
+      const timeoutId = setTimeout(() => {
+        setSelectedText(prev => prev || evidence);
+        setSelectedSentenceInfo(prev => prev || {
+          sentence: evidence,
+          dialogueContent: matchedDialogueContent,
+          dialogueElement: null,
+        });
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [prefill, sessionData]);
+
+  const saveExistingNugget = () => {
+    if (!editingExisting || !editingIds.sessionId || !editingIds.nuggetId) return;
+    const ok = updateNuggetFields(editingIds.sessionId, editingIds.nuggetId, {
+      observation: newNugget.observation,
+      evidence_text: selectedText,
+      speaker: newNugget.speaker || sessionData.participantName || 'Participant',
+      timestamp: newNugget.timestamp,
+      category: newNugget.category,
+      tags: newNugget.tags,
+    });
+    if (ok) {
+      onNavigate('repository');
+    }
+  };
+
   const handleSaveSession = async () => {
     setIsSaving(true);
     setSaveStatus('');
@@ -127,6 +204,10 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
       setSaveStatus('error');
     } finally {
       setIsSaving(false);
+      // If this analysis was opened from repository for editing, navigate back automatically
+      if (prefill) {
+        setTimeout(() => onNavigate('repository'), 800);
+      }
     }
   };
 
@@ -741,14 +822,25 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                   <div className="text-xs text-muted-foreground">
                     {new Date().toLocaleString()}
                   </div>
-                  <button
-                    onClick={createNugget}
-                    disabled={!newNugget.observation.trim() || !selectedText}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Create Nugget
-                  </button>
+                  {editingExisting ? (
+                    <button
+                      onClick={saveExistingNugget}
+                      disabled={!newNugget.observation.trim() || !selectedText}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Changes
+                    </button>
+                  ) : (
+                    <button
+                      onClick={createNugget}
+                      disabled={!newNugget.observation.trim() || !selectedText}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Nugget
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

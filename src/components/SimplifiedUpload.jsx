@@ -23,6 +23,7 @@ const SimplifiedUpload = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [currentView, setCurrentView] = useState('upload');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [analysisPrefill, setAnalysisPrefill] = useState(null);
   const [autoFillSuggestions, setAutoFillSuggestions] = useState({});
   const fileInputRef = useRef(null);
 
@@ -37,9 +38,11 @@ const SimplifiedUpload = () => {
     setCurrentView('analysis');
   };
 
-  const handleNavigate = (view) => {
+  const handleNavigate = (viewOrPayload) => {
+    const view = typeof viewOrPayload === 'string' ? viewOrPayload : viewOrPayload?.view;
     if (view === 'repository') {
       setCurrentView('repository');
+      setAnalysisPrefill(null);
     } else if (view === 'upload') {
       setSessionData({
         title: '',
@@ -54,6 +57,18 @@ const SimplifiedUpload = () => {
       setHasUnsavedChanges(false);
       setAutoFillSuggestions({});
       setCurrentView('upload');
+      setAnalysisPrefill(null);
+    } else if (view === 'analysis') {
+      const payload = typeof viewOrPayload === 'object' ? viewOrPayload : null;
+      if (payload?.session) {
+        setSessionData(payload.session);
+      }
+      if (payload?.prefill) {
+        setAnalysisPrefill(payload.prefill);
+      } else {
+        setAnalysisPrefill(null);
+      }
+      setCurrentView('analysis');
     }
   };
 
@@ -74,6 +89,7 @@ const SimplifiedUpload = () => {
         onNavigate={handleNavigate}
         hasUnsavedChanges={hasUnsavedChanges}
         setHasUnsavedChanges={setHasUnsavedChanges}
+        prefill={analysisPrefill}
       />
     );
   }

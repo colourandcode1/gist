@@ -19,6 +19,8 @@ const RepositorySearchView = ({ onNavigate }) => {
   const [selectedNugget, setSelectedNugget] = useState(null);
   const [selectedSessionData, setSelectedSessionData] = useState(null);
 
+  // no inline edit state
+
   // Categories and tags data (matching the structure from TranscriptAnalysisView)
   const categories = [
     { id: 'pain_point', name: 'Pain Point', color: '#ef4444', description: 'Issues or problems users encounter' },
@@ -96,6 +98,31 @@ const RepositorySearchView = ({ onNavigate }) => {
 
   const clearTagFilters = () => {
     setActiveFilters(prev => prev.filter(f => f.type !== 'tag'));
+  };
+
+  const handleEditInAnalysis = () => {
+    if (!selectedNugget || !selectedSessionData) return;
+    // Navigate to analysis view with prefill context
+    onNavigate({
+      view: 'analysis',
+      session: {
+        title: selectedSessionData.title,
+        sessionDate: selectedSessionData.session_date,
+        participantName: selectedSessionData.participant_info?.name || '',
+        recordingUrl: selectedSessionData.recording_url || '',
+        transcriptContent: selectedSessionData.transcript_content || '',
+        sessionType: selectedSessionData.session_type || 'user_interview'
+      },
+      prefill: {
+        nuggetId: selectedNugget.id,
+        sessionId: selectedNugget.session_id,
+        observation: selectedNugget.observation || '',
+        selectedText: selectedNugget.evidence_text || '',
+        timestamp: selectedNugget.timestamp || '',
+        category: selectedNugget.category || 'general',
+        tags: selectedNugget.tags || []
+      }
+    });
   };
 
   // Function to handle nugget click and open modal
@@ -391,6 +418,8 @@ const RepositorySearchView = ({ onNavigate }) => {
                   <p className="text-muted-foreground italic">"{nugget.evidence_text}"</p>
                 </div>
 
+                {/* inline edit removed */}
+
                 <div className="flex items-center justify-between">
                   <div className="flex flex-wrap gap-2">
                     {nugget.tags.map(tag => (
@@ -435,6 +464,7 @@ const RepositorySearchView = ({ onNavigate }) => {
         onClose={handleCloseModal}
         nugget={selectedNugget}
         sessionData={selectedSessionData}
+        onEditInAnalysis={handleEditInAnalysis}
       />
     </div>
   );

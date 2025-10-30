@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { X, Video, User, Clock, Calendar } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { parseTranscript } from '@/lib/transcriptUtils';
-
-const TranscriptModal = ({ isOpen, onClose, nugget, sessionData }) => {
+const TranscriptModal = ({ isOpen, onClose, nugget, sessionData, onEditInAnalysis }) => {
   const transcriptRef = useRef(null);
   const [highlightedElement, setHighlightedElement] = useState(null);
+
+  // no edit controls here; we only provide a button to jump to analysis
 
   // Parse transcript for structured display
   const parsedTranscript = sessionData?.transcript_content ? parseTranscript(sessionData.transcript_content) : null;
@@ -270,16 +271,34 @@ const TranscriptModal = ({ isOpen, onClose, nugget, sessionData }) => {
               )}
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="flex-shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                if (typeof onEditInAnalysis === 'function') onEditInAnalysis();
+              }}
+            >
+              Edit in Analysis
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="flex-shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
+        {/* Nugget quick info */}
+        <div className="px-6 pt-4 pb-2 border-b border-border">
+          <div className="mb-3">
+            <div className="text-sm text-muted-foreground">Insight</div>
+            <div className="text-foreground">{nugget.observation}</div>
+          </div>
+        </div>
 
         {/* Transcript Content */}
         <div className="flex-1 overflow-y-auto p-6">
