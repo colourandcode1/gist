@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Video, User, Clock, Calendar } from 'lucide-react';
+import { X, Video, User, Clock, Calendar, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { parseTranscript } from '@/lib/transcriptUtils';
-const TranscriptModal = ({ isOpen, onClose, nugget, sessionData, onEditInAnalysis }) => {
+const TranscriptModal = ({ isOpen, onClose, nugget, sessionData, onEditInAnalysis, onDelete, onNavigate }) => {
   const transcriptRef = useRef(null);
   const [highlightedElement, setHighlightedElement] = useState(null);
 
@@ -194,6 +194,25 @@ const TranscriptModal = ({ isOpen, onClose, nugget, sessionData, onEditInAnalysi
 
   if (!isOpen || !nugget || !sessionData) return null;
 
+  // Handler to navigate to analysis view with full transcript
+  const handleViewFullTranscript = () => {
+    if (!onNavigate || !sessionData) return;
+    
+    // Map session data from modal format to analysis format
+    onNavigate({
+      view: 'analysis',
+      session: {
+        title: sessionData.title,
+        sessionDate: sessionData.session_date,
+        participantName: sessionData.participant_info?.name || '',
+        recordingUrl: sessionData.recording_url || '',
+        transcriptContent: sessionData.transcript_content || '',
+        sessionType: sessionData.session_type || 'user_interview'
+      },
+      prefill: null // No nugget pre-filled when viewing full transcript
+    });
+  };
+
   // Component for full transcript display (simplified format)
   const FullTranscriptDisplay = ({ dialogue }) => {
     if (!dialogue || dialogue.length === 0) return null;
@@ -246,7 +265,11 @@ const TranscriptModal = ({ isOpen, onClose, nugget, sessionData, onEditInAnalysi
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex-1">
-            <h2 className="text-xl font-semibold text-foreground mb-2">
+            <h2 
+              className="text-xl font-semibold text-foreground mb-2 cursor-pointer hover:text-primary transition-colors"
+              onClick={handleViewFullTranscript}
+              title="Click to view full transcript in analysis page"
+            >
               {sessionData.title}
             </h2>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -281,6 +304,19 @@ const TranscriptModal = ({ isOpen, onClose, nugget, sessionData, onEditInAnalysi
             >
               Edit in Analysis
             </Button>
+            {onDelete && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (typeof onDelete === 'function') onDelete();
+                }}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

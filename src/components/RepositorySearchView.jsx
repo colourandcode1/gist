@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import NavigationHeader from './NavigationHeader';
 import TranscriptModal from './TranscriptModal';
-import { getSessions, getAllNuggets } from '@/lib/storageUtils';
+import { getSessions, getAllNuggets, deleteNugget } from '@/lib/storageUtils';
 
 const RepositorySearchView = ({ onNavigate }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,6 +144,26 @@ const RepositorySearchView = ({ onNavigate }) => {
     setIsModalOpen(false);
     setSelectedNugget(null);
     setSelectedSessionData(null);
+  };
+
+  // Function to handle nugget deletion
+  const handleDeleteNugget = () => {
+    if (!selectedNugget) return;
+
+    const confirmed = window.confirm('Are you sure you want to delete this insight?');
+    if (!confirmed) return;
+
+    const success = deleteNugget(selectedNugget.session_id, selectedNugget.id);
+    
+    if (success) {
+      // Refresh data to update the UI
+      refreshData();
+      // Close the modal after deletion
+      handleCloseModal();
+    } else {
+      console.error('Failed to delete nugget');
+      alert('Failed to delete insight. Please try again.');
+    }
   };
 
   const filteredNuggets = allNuggets.filter(nugget => {
@@ -465,6 +485,8 @@ const RepositorySearchView = ({ onNavigate }) => {
         nugget={selectedNugget}
         sessionData={selectedSessionData}
         onEditInAnalysis={handleEditInAnalysis}
+        onDelete={handleDeleteNugget}
+        onNavigate={onNavigate}
       />
     </div>
   );
