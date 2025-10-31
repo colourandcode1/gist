@@ -96,6 +96,35 @@ export const updateNuggetFields = (sessionId, nuggetId, fields) => {
   }
 };
 
+export const deleteNugget = (sessionId, nuggetId) => {
+  try {
+    const sessions = getSessions();
+    let updated = false;
+
+    const updatedSessions = sessions.map(session => {
+      if (session.id !== sessionId) return session;
+
+      const originalLength = session.nuggets.length;
+      const updatedNuggets = session.nuggets.filter(nugget => nugget.id !== nuggetId);
+      
+      if (updatedNuggets.length < originalLength) {
+        updated = true;
+        return { ...session, nuggets: updatedNuggets };
+      }
+      
+      return session;
+    });
+
+    if (!updated) return false;
+
+    localStorage.setItem('researchSessions', JSON.stringify(updatedSessions));
+    return true;
+  } catch (error) {
+    console.error('Error deleting nugget:', error);
+    return false;
+  }
+};
+
 export const clearAllData = () => {
   try {
     localStorage.removeItem('researchSessions');

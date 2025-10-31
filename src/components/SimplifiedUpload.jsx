@@ -21,7 +21,7 @@ const SimplifiedUpload = () => {
   const [dragActive, setDragActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [currentView, setCurrentView] = useState('upload');
+  const [currentView, setCurrentView] = useState('repository');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [analysisPrefill, setAnalysisPrefill] = useState(null);
   const [autoFillSuggestions, setAutoFillSuggestions] = useState({});
@@ -114,8 +114,13 @@ const SimplifiedUpload = () => {
     setDragActive(false);
     
     const files = e.dataTransfer.files;
-    if (files && files[0]) {
-      handleFileUpload(files[0]);
+    if (files && files[0] && fileInputRef.current) {
+      // Create a new FileList-like object and trigger the file input's onChange
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(files[0]);
+      fileInputRef.current.files = dataTransfer.files;
+      const changeEvent = new Event('change', { bubbles: true });
+      fileInputRef.current.dispatchEvent(changeEvent);
     }
   };
 
