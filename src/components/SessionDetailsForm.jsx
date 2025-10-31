@@ -3,7 +3,7 @@ import { Video, Check } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { extractVideoId } from '@/lib/transcriptUtils';
+import { isGoogleDriveUrl, extractDriveFileId } from '@/lib/videoUtils';
 
 const SessionDetailsForm = ({ 
   sessionData, 
@@ -85,10 +85,10 @@ const SessionDetailsForm = ({
             />
             <Video className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           </div>
-          {sessionData.recordingUrl && extractVideoId(sessionData.recordingUrl) && (
+          {sessionData.recordingUrl && isGoogleDriveUrl(sessionData.recordingUrl) && extractDriveFileId(sessionData.recordingUrl) && (
             <div className="mt-1 flex items-center gap-1 text-xs text-green-600">
               <Check className="w-3 h-3" />
-              <span>Video linked</span>
+              <span>Google Drive video linked</span>
             </div>
           )}
         </div>

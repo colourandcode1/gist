@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Video, User, Clock, Plus, Save, Database, Check, Tag, Sparkles } from 'lucide-react';
+import { Video, User, Clock, Plus, Save, Database, Check, Tag, Sparkles, X, Maximize2 } from 'lucide-react';
 import NavigationHeader from './NavigationHeader';
 import { parseTranscript } from '@/lib/transcriptUtils';
 import { saveSession, updateNuggetFields } from '@/lib/storageUtils';
 import { highlightSentimentWords, extractSentenceFromText, highlightSelectedSentence } from '@/lib/sentimentUtils';
+import { createTimestampedUrl } from '@/lib/videoUtils';
+import VideoPlayer from './VideoPlayer';
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 
 const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges, prefill }) => {
   const [selectedText, setSelectedText] = useState('');
@@ -46,6 +49,8 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [showSentiment, setShowSentiment] = useState(false);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  const [currentVideoTimestamp, setCurrentVideoTimestamp] = useState(null);
   // Separate categories and tags
   const [categories] = useState([
     { id: 'pain_point', name: 'Pain Point', color: '#ef4444', description: 'Issues or problems users encounter' },
@@ -339,12 +344,6 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     setIsCreatingTag(false);
   };
 
-  const createTimestampUrl = (baseUrl, timestamp) => {
-    if (!baseUrl || !timestamp) return baseUrl;
-    const [minutes, seconds] = timestamp.split(':').slice(1);
-    const totalSeconds = parseInt(minutes) * 60 + parseInt(seconds);
-    return `${baseUrl}#t=${totalSeconds}s`;
-  };
 
   // Parse transcript for structured display
   const parsedTranscript = sessionData.transcriptContent ? parseTranscript(sessionData.transcriptContent) : null;
@@ -446,7 +445,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
       />
       
       <div className="flex h-[calc(100vh-64px)]">
-        <div className="w-1/2 bg-card border-r border-border flex flex-col">
+        <div className={`${showVideoPlayer ? 'w-1/3' : 'w-1/2'} bg-card border-r border-border flex flex-col transition-all duration-300`}>
           <div className="p-4 border-b border-border">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-4">
@@ -460,22 +459,55 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                   />
                 </div>
               </div>
-              {sessionData.recordingUrl && (
-                <a 
-                  href={sessionData.recordingUrl}
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-primary hover:text-primary/80"
-                >
-                  <Video className="w-4 h-4" />
-                  View Recording
-                </a>
-              )}
+              <div className="flex items-center gap-2">
+                {sessionData.recordingUrl && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowVideoPlayer(!showVideoPlayer)}
+                      className="flex items-center gap-2"
+                    >
+                      {showVideoPlayer ? (
+                        <>
+                          <X className="w-4 h-4" />
+                          Hide Video
+                        </>
+                      ) : (
+                        <>
+                          <Video className="w-4 h-4" />
+                          Show Video
+                        </>
+                      )}
+                    </Button>
+                    <a 
+                      href={sessionData.recordingUrl}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-primary hover:text-primary/80 text-sm"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                      Open in New Tab
+                    </a>
+                  </>
+                )}
+              </div>
             </div>
             <div className="text-sm text-muted-foreground">
               {sessionData.sessionDate} • {sessionData.participantName}
             </div>
           </div>
+
+          {showVideoPlayer && sessionData.recordingUrl && (
+            <div className="p-4 border-b border-border bg-muted/30" data-video-player>
+              <VideoPlayer
+                key={currentVideoTimestamp || 'default'} // Force re-render when timestamp changes
+                videoUrl={sessionData.recordingUrl}
+                timestamp={currentVideoTimestamp}
+                className="w-full"
+              />
+            </div>
+          )}
           
           <div className="flex-1 p-4 overflow-y-auto transcript-area">
             {parsedTranscript ? (
@@ -502,7 +534,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
 
         </div>
 
-        <div className="w-1/2 flex flex-col">
+        <div className={`${showVideoPlayer ? 'w-2/3' : 'w-1/2'} flex flex-col transition-all duration-300`}>
           <div className="p-4 border-b border-border bg-card">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold text-foreground">Research Nuggets ({nuggets.length})</h2>
@@ -568,14 +600,28 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                     {nugget.timestamp && (
                       <div className="flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0">
                         <Clock className="w-3 h-3" />
-                        <a 
-                          href={createTimestampUrl(sessionData.recordingUrl, nugget.timestamp)}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => {
+                            if (showVideoPlayer) {
+                              // Update video player with new timestamp
+                              setCurrentVideoTimestamp(nugget.timestamp);
+                              // Scroll to video player if it's visible
+                              setTimeout(() => {
+                                const videoPlayer = document.querySelector('[data-video-player]');
+                                if (videoPlayer) {
+                                  videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }
+                              }, 100);
+                            } else {
+                              // Open in new tab with timestamp
+                              window.open(createTimestampedUrl(sessionData.recordingUrl, nugget.timestamp), '_blank');
+                            }
+                          }}
                           className="text-primary hover:text-primary/80"
+                          title={showVideoPlayer ? 'Jump to timestamp in video' : 'Open video at timestamp'}
                         >
                           {nugget.timestamp}
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>

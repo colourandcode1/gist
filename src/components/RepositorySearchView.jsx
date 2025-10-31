@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Database, Video, TrendingUp, Check, Plus, Calendar, User, Clock } from 'lucide-react';
+import { Search, Database, Video, TrendingUp, Check, Plus, Calendar, User, Clock, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import NavigationHeader from './NavigationHeader';
 import TranscriptModal from './TranscriptModal';
+import VideoPlayer from './VideoPlayer';
+import { createTimestampedUrl } from '@/lib/videoUtils';
 import { getSessions, getAllNuggets, deleteNugget } from '@/lib/storageUtils';
 
 const RepositorySearchView = ({ onNavigate }) => {
@@ -18,6 +20,11 @@ const RepositorySearchView = ({ onNavigate }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNugget, setSelectedNugget] = useState(null);
   const [selectedSessionData, setSelectedSessionData] = useState(null);
+  
+  // Video modal state management
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [videoNugget, setVideoNugget] = useState(null);
+  const [videoSessionData, setVideoSessionData] = useState(null);
 
   // no inline edit state
 
@@ -137,6 +144,32 @@ const RepositorySearchView = ({ onNavigate }) => {
     } else {
       console.error('Session data not found for nugget:', nugget);
     }
+  };
+
+  // Function to handle watch button click and open video modal
+  const handleWatchClick = (nugget, event) => {
+    event.stopPropagation(); // Prevent triggering nugget card click
+    const sessionData = savedSessions.find(session => session.id === nugget.session_id);
+    
+    if (sessionData && sessionData.recording_url) {
+      setVideoNugget(nugget);
+      setVideoSessionData(sessionData);
+      setIsVideoModalOpen(true);
+    } else {
+      // Fallback: open in new tab if no video URL or modal not possible
+      if (sessionData?.recording_url && nugget.timestamp) {
+        window.open(createTimestampedUrl(sessionData.recording_url, nugget.timestamp), '_blank');
+      } else if (sessionData?.recording_url) {
+        window.open(sessionData.recording_url, '_blank');
+      }
+    }
+  };
+
+  // Function to close video modal
+  const handleCloseVideoModal = () => {
+    setIsVideoModalOpen(false);
+    setVideoNugget(null);
+    setVideoSessionData(null);
   };
 
   // Function to close modal
@@ -440,7 +473,12 @@ const RepositorySearchView = ({ onNavigate }) => {
                       {nugget.category.replace('_', ' ')}
                     </Badge>
                     {nugget.session_id && (
-                      <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="flex items-center gap-1"
+                        onClick={(e) => handleWatchClick(nugget, e)}
+                      >
                         <Video className="w-4 h-4" />
                         Watch
                       </Button>
@@ -502,6 +540,73 @@ const RepositorySearchView = ({ onNavigate }) => {
         onDelete={handleDeleteNugget}
         onNavigate={onNavigate}
       />
+
+      {/* Video Modal */}
+      {isVideoModalOpen && videoSessionData && videoNugget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={handleCloseVideoModal}
+            style={{ zIndex: 1 }}
+          />
+          
+          {/* Modal */}
+          <div className="relative bg-background border border-border rounded-lg shadow-lg w-full max-w-5xl max-h-[90vh] mx-4 flex flex-col" style={{ zIndex: 2 }}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-foreground mb-2">
+                  {videoSessionData.title}
+                </h2>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {videoSessionData.session_date}
+                  </div>
+                  {videoNugget.timestamp && (
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      Timestamp: {videoNugget.timestamp}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleCloseVideoModal}
+                className="flex-shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Video Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {videoSessionData.recording_url ? (
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-4">{videoNugget.observation}</h3>
+                  <VideoPlayer
+                    videoUrl={videoSessionData.recording_url}
+                    timestamp={videoNugget.timestamp || null}
+                    className="w-full mb-4"
+                  />
+                  {videoNugget.evidence_text && (
+                    <div className="bg-muted border-l-4 border-primary p-4 mt-4">
+                      <p className="text-sm text-foreground italic">"{videoNugget.evidence_text}"</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No recording URL available for this session</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
