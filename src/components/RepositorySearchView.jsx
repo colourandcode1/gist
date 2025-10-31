@@ -268,7 +268,14 @@ const RepositorySearchView = ({ onNavigate }) => {
               {tags.map(tag => (
                 <button
                   key={tag.id}
-                  onClick={() => addFilter('tag', tag.id, tag.name, tag.color)}
+                  onClick={() => {
+                    const filterExists = activeFilters.some(f => f.type === 'tag' && f.id === tag.id);
+                    if (filterExists) {
+                      removeFilter('tag', tag.id);
+                    } else {
+                      addFilter('tag', tag.id, tag.name, tag.color);
+                    }
+                  }}
                   className={`px-3 py-1 text-sm rounded-full border transition-colors ${
                     activeFilters.some(f => f.type === 'tag' && f.id === tag.id)
                       ? 'font-medium'
@@ -363,7 +370,14 @@ const RepositorySearchView = ({ onNavigate }) => {
                   {categories.map(category => (
                     <button
                       key={category.id}
-                      onClick={() => addFilter('category', category.id, category.name, category.color)}
+                      onClick={() => {
+                        const filterExists = activeFilters.some(f => f.type === 'category' && f.id === category.id);
+                        if (filterExists) {
+                          removeFilter('category', category.id);
+                        } else {
+                          addFilter('category', category.id, category.name, category.color);
+                        }
+                      }}
                       className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-colors ${
                         activeFilters.some(f => f.type === 'category' && f.id === category.id)
                           ? 'font-medium'

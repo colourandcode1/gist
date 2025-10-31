@@ -697,7 +697,10 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
                     {categories.map(category => (
                       <button
                         key={category.id}
-                        onClick={() => setNewNugget(prev => ({ ...prev, category: category.id }))}
+                        onClick={() => setNewNugget(prev => ({ 
+                          ...prev, 
+                          category: prev.category === category.id ? 'general' : category.id 
+                        }))}
                         className={`px-2 py-1 text-xs rounded-full border transition-colors ${
                           newNugget.category === category.id
                             ? 'font-medium'
