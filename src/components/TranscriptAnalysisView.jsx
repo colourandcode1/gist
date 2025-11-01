@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Video, User, Clock, Plus, Save, Database, Check, Tag, Sparkles, X, Maximize2 } from 'lucide-react';
 import NavigationHeader from './NavigationHeader';
-import { parseTranscript } from '@/lib/transcriptUtils';
+import { parseTranscript, findNearestTimestampBeforeText } from '@/lib/transcriptUtils';
 import { saveSession, updateNuggetFields } from '@/lib/storageUtils';
 import { highlightSentimentWords, extractSentenceFromText, highlightSelectedSentence } from '@/lib/sentimentUtils';
 import { createTimestampedUrl } from '@/lib/videoUtils';
@@ -286,12 +286,38 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
   const createNugget = () => {
     if (!newNugget.observation.trim() || !selectedText) return;
 
+    // Auto-detect timestamp if not already set
+    let finalTimestamp = newNugget.timestamp;
+    if (!finalTimestamp && sessionData.transcriptContent && selectedText) {
+      // DIAGNOSTIC LOGGING
+      console.log('=== TIMESTAMP DETECTION DEBUG ===');
+      console.log('1. selectedText (raw):', JSON.stringify(selectedText));
+      console.log('1. selectedText length:', selectedText.length);
+      console.log('1. selectedText first 50 chars:', selectedText.substring(0, 50));
+      console.log('1. selectedText contains HTML entities:', /&[#\w]+;/.test(selectedText));
+      console.log('2. transcriptContent exists:', !!sessionData.transcriptContent);
+      console.log('2. transcriptContent length:', sessionData.transcriptContent?.length || 0);
+      console.log('2. transcriptContent first 200 chars:', sessionData.transcriptContent?.substring(0, 200) || 'N/A');
+      
+      const detected = findNearestTimestampBeforeText(
+        sessionData.transcriptContent,
+        selectedText
+      );
+      
+      console.log('3. Detection result:', detected);
+      console.log('=== END TIMESTAMP DETECTION DEBUG ===');
+      
+      if (detected) {
+        finalTimestamp = detected;
+      }
+    }
+
     const nugget = {
       id: Date.now(),
       observation: newNugget.observation,
       evidence_text: selectedText,
       speaker: newNugget.speaker || sessionData.participantName || 'Participant',
-      timestamp: newNugget.timestamp,
+      timestamp: finalTimestamp, // Use detected timestamp if available
       category: newNugget.category,
       tags: newNugget.tags,
       created_at: new Date().toLocaleString()

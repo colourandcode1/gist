@@ -190,3 +190,85 @@ export const parseTranscript = (transcriptContent) => {
     attendees: attendees.length > 0 ? attendees : speakersArray
   };
 };
+
+/**
+ * Find the nearest timestamp before a given evidence text in a transcript
+ * Simple, elegant approach: direct text search + backwards timestamp lookup
+ * @param {string} transcriptContent - The raw transcript text
+ * @param {string} evidenceText - The quote/evidence text to search for
+ * @returns {string|null} Timestamp in HH:MM:SS format, or null if not found
+ */
+export const findNearestTimestampBeforeText = (transcriptContent, evidenceText) => {
+  try {
+    // Validate inputs
+    if (!transcriptContent || !transcriptContent.trim()) {
+      return null;
+    }
+    if (!evidenceText || !evidenceText.trim()) {
+      return null;
+    }
+
+    // Normalize text for matching: lowercase, collapse whitespace, remove quotes
+    const normalizeText = (text) => {
+      return text
+        .toLowerCase()
+        .replace(/^\s*["']|["']\s*$/g, '') // Remove surrounding quotes
+        .replace(/\s+/g, ' ') // Collapse whitespace
+        .trim();
+    };
+
+    const normalizedEvidence = normalizeText(evidenceText);
+    if (!normalizedEvidence) {
+      return null;
+    }
+
+    // Split transcript into lines
+    const transcriptLines = transcriptContent.split('\n');
+    
+    // Find the first line containing a substantial chunk of the evidence text
+    // Use first 50 chars or first 20 words, whichever is shorter
+    const evidenceChunk = normalizedEvidence.length > 50 
+      ? normalizedEvidence.substring(0, 50)
+      : normalizedEvidence.split(/\s+/).slice(0, 20).join(' ');
+    
+    let foundLineIndex = -1;
+    
+    // Search for evidence text in transcript lines
+    for (let i = 0; i < transcriptLines.length; i++) {
+      const normalizedLine = normalizeText(transcriptLines[i]);
+      
+      // Direct substring match - if evidence chunk appears in line, or line appears in evidence
+      if (normalizedLine.includes(evidenceChunk) || normalizedEvidence.includes(normalizedLine) || normalizedLine.includes(normalizedEvidence)) {
+        foundLineIndex = i;
+        break;
+      }
+    }
+
+    // If not found, return null
+    if (foundLineIndex === -1) {
+      return null;
+    }
+
+    // Search backwards from found line for timestamp
+    // Look up to 200 lines backwards (should cover most cases)
+    // Start from line BEFORE the evidence (foundLineIndex - 1) to get the nearest timestamp BEFORE the quote
+    const startSearchIndex = Math.max(0, foundLineIndex - 200);
+    const timestampPattern = /\[?(\d{2}:\d{2}:\d{2})\]?/;
+    
+    for (let i = foundLineIndex - 1; i >= startSearchIndex; i--) {
+      const line = transcriptLines[i];
+      const match = line.match(timestampPattern);
+      
+      if (match && match[1]) {
+        // Return timestamp as-is in HH:MM:SS format
+        return match[1];
+      }
+    }
+
+    // No timestamp found
+    return null;
+  } catch (error) {
+    console.error('[DETECTION] Error finding nearest timestamp:', error);
+    return null;
+  }
+};

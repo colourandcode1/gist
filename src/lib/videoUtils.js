@@ -42,30 +42,46 @@ export const extractDriveFileId = (url) => {
 
 /**
  * Convert timestamp from HH:MM:SS format to Google Drive's ?t=XmYs format
+ * Always uses XmYs format (includes minutes even when 0) to prevent ambiguity
  * @param {string} timestamp - Timestamp in HH:MM:SS format
- * @returns {string|null} Timestamp in XmYs format (e.g., "1m25s") or null if invalid
+ * @returns {string|null} Timestamp in XmYs format (e.g., "0m40s", "1m25s") or null if invalid
  */
 export const convertTimestampToDriveFormat = (timestamp) => {
   if (!timestamp || typeof timestamp !== 'string') return null;
   
+  console.log('[TIMESTAMP_CONVERSION] Input timestamp:', timestamp);
+  
   // Parse HH:MM:SS format
   const parts = timestamp.split(':');
-  if (parts.length !== 3) return null;
+  if (parts.length !== 3) {
+    console.log('[TIMESTAMP_CONVERSION] Invalid format - expected HH:MM:SS, got', parts.length, 'parts');
+    return null;
+  }
   
   const hours = parseInt(parts[0], 10);
   const minutes = parseInt(parts[1], 10);
   const seconds = parseInt(parts[2], 10);
   
-  if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return null;
+  console.log('[TIMESTAMP_CONVERSION] Parsed values:', { hours, minutes, seconds });
+  
+  if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) {
+    console.log('[TIMESTAMP_CONVERSION] Invalid numeric values');
+    return null;
+  }
   
   // Convert to total minutes and seconds
   const totalMinutes = hours * 60 + minutes;
   const totalSeconds = seconds;
+  const totalSecondsOnly = hours * 3600 + minutes * 60 + seconds;
   
-  // Format as XmYs (e.g., "1m25s" or "0m5s")
-  if (totalMinutes === 0 && totalSeconds === 0) return '0s';
-  if (totalMinutes === 0) return `${totalSeconds}s`;
-  if (totalSeconds === 0) return `${totalMinutes}m`;
+  console.log('[TIMESTAMP_CONVERSION] Conversion:', {
+    totalMinutes,
+    totalSeconds,
+    totalSecondsOnly,
+    googleDriveFormat: `${totalMinutes}m${totalSeconds}s`
+  });
+  
+  // Always use XmYs format (e.g., "0m40s" not "40s") to prevent ambiguity
   return `${totalMinutes}m${totalSeconds}s`;
 };
 
