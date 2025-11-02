@@ -99,3 +99,7 @@ src/
 
 This project is licensed under the MIT License.
 
+## Firebase Configuration
+
+This application uses Firebase Authentication and Firestore for user management and data storage. See `FIREBASE_SETUP.md` for setup instructions.
+
