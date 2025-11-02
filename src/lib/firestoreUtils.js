@@ -50,6 +50,11 @@ export const getSessions = async (userId, teamId = null, excludeTranscriptConten
       return [];
     }
 
+    // Add timeout to prevent hanging on permission errors
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timeout - check Firestore security rules')), 10000)
+    );
+
     let q;
     if (teamId) {
       // Get sessions for specific team
@@ -69,7 +74,10 @@ export const getSessions = async (userId, teamId = null, excludeTranscriptConten
       );
     }
 
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await Promise.race([
+      getDocs(q),
+      timeoutPromise
+    ]);
     const sessions = [];
 
     querySnapshot.forEach((doc) => {

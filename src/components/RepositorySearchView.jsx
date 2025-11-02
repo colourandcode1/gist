@@ -56,12 +56,14 @@ const RepositorySearchView = ({ onNavigate }) => {
       setAllNuggets([]);
       
       // Show user-friendly error if it's a permission issue
-      if (error.code === 'permission-denied' || error.code === 7) {
-        alert('Permission denied. Please check your Firestore security rules. See FIRESTORE_RULES.md or browser console for details.');
+      if (error.code === 'permission-denied' || error.code === 7 || error.message?.includes('Permission denied')) {
+        alert('❌ Firestore Permission Denied\n\nYour security rules are blocking read access.\n\nGo to Firebase Console → Firestore Database → Rules\n\nMake sure you have these rules:\n\nmatch /sessions/{sessionId} {\n  allow read: if request.auth != null && resource.data.userId == request.auth.uid;\n}\n\nSee FIRESTORE_RULES.md for complete rules.');
       } else if (error.code === 'failed-precondition') {
         console.warn('Firestore index may be missing. Check Firebase Console.');
+      } else if (error.message?.includes('timeout')) {
+        alert('⏱️ Request Timeout\n\nFirestore is taking too long to respond. This usually means:\n1. Security rules are blocking access\n2. Network connection issue\n\nCheck your Firestore security rules in Firebase Console.');
       } else {
-        alert(`Error loading data: ${error.message}. Check browser console for details.`);
+        alert(`❌ Error loading data: ${error.message}\n\nCheck browser console for details.`);
       }
     } finally {
       setIsLoading(false);
