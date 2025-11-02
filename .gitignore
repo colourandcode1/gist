@@ -8,6 +8,10 @@ yarn-error.log*
 dist/
 build/
 
+# Firebase
+.firebase/
+.firebaserc.local
+
 # Environment variables
 .env
 .env.local

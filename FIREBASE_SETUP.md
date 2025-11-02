@@ -106,9 +106,73 @@ Existing localStorage data is not automatically migrated. Users will start with 
 2. Create a migration script to import it into Firestore
 3. Assign data to the correct userId
 
+## Firebase Hosting Setup
+
+This application uses Firebase Hosting for deployment. Follow these steps to set up hosting:
+
+### 1. Install Firebase CLI
+
+```bash
+npm install -g firebase-tools
+```
+
+Or use the local version:
+```bash
+npm install
+```
+
+### 2. Login to Firebase
+
+```bash
+firebase login
+```
+
+This will open your browser to authenticate with your Google account.
+
+### 3. Initialize Firebase Hosting (if not already done)
+
+The project already has `firebase.json` and `.firebaserc` configured. If you need to initialize from scratch:
+
+```bash
+firebase init hosting
+```
+
+When prompted:
+- Use existing project: Yes, select `gist-aa4c1`
+- Public directory: `dist`
+- Configure as single-page app: Yes
+- Set up automatic builds with GitHub: No (optional)
+
+### 4. Deploy
+
+```bash
+npm run deploy
+```
+
+Or manually:
+```bash
+npm run build
+firebase deploy --only hosting
+```
+
+### 5. View Your Site
+
+After deployment, your app will be available at:
+- `https://gist-aa4c1.web.app`
+- `https://gist-aa4c1.firebaseapp.com`
+
+You can also set up a custom domain in Firebase Console > Hosting > Add custom domain.
+
+### Environment Variables
+
+Firebase Hosting uses environment variables from your `.env` file during the build process. Make sure your `.env` file is properly configured (see step 4 above).
+
+**Note:** For CI/CD deployments, you can use GitHub Actions with Firebase secrets, or configure environment variables in your CI system.
+
 ## Next Steps
 
 - Teams functionality can be added later without data migration
 - Google SSO can be enabled by adding the provider in Firebase Console
 - Additional authentication providers can be added as needed
+- Custom domain setup in Firebase Hosting
 

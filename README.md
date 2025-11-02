@@ -37,6 +37,7 @@ npm run dev
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
+- `npm run deploy` - Build and deploy to Firebase Hosting
 
 ## Usage
 
@@ -98,6 +99,29 @@ src/
 ## License
 
 This project is licensed under the MIT License.
+
+## Deployment
+
+This application is deployed on Firebase Hosting. See `FIREBASE_SETUP.md` for deployment instructions.
+
+### Deploy to Firebase Hosting
+
+1. Install Firebase CLI globally (if not already installed):
+   ```bash
+   npm install -g firebase-tools
+   ```
+
+2. Login to Firebase:
+   ```bash
+   firebase login
+   ```
+
+3. Build and deploy:
+   ```bash
+   npm run deploy
+   ```
+
+The app will be available at `https://gist-aa4c1.web.app` and `https://gist-aa4c1.firebaseapp.com`
 
 ## Firebase Configuration
 
