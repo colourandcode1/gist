@@ -97,6 +97,14 @@ export const getSessions = async (userId, teamId = null, excludeTranscriptConten
     return sessions;
   } catch (error) {
     console.error('Error loading sessions:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    
+    // Re-throw permission errors so they can be handled by the caller
+    if (error.code === 'permission-denied' || error.code === 7) {
+      throw error;
+    }
+    
     // If error is due to missing index, log helpful message and show alert
     if (error.code === 'failed-precondition') {
       console.warn('Firestore index may be missing. Check Firebase Console for index creation prompts.');

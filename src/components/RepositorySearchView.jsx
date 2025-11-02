@@ -21,6 +21,7 @@ const RepositorySearchView = ({ onNavigate }) => {
   const [allNuggets, setAllNuggets] = useState([]);
   const [activeFilters, setActiveFilters] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Modal state management
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,13 +35,37 @@ const RepositorySearchView = ({ onNavigate }) => {
 
   // Function to refresh data from Firestore
   const refreshData = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
     
-    const sessions = await getSessions(currentUser.uid);
-    setSavedSessions(sessions);
-    
-    const nuggets = await getAllNuggets(currentUser.uid);
-    setAllNuggets(nuggets);
+    setIsLoading(true);
+    try {
+      const sessions = await getSessions(currentUser.uid);
+      setSavedSessions(sessions || []);
+      
+      const nuggets = await getAllNuggets(currentUser.uid);
+      setAllNuggets(nuggets || []);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      // Set empty arrays on error so the UI doesn't hang
+      setSavedSessions([]);
+      setAllNuggets([]);
+      
+      // Show user-friendly error if it's a permission issue
+      if (error.code === 'permission-denied' || error.code === 7) {
+        alert('Permission denied. Please check your Firestore security rules. See FIRESTORE_RULES.md or browser console for details.');
+      } else if (error.code === 'failed-precondition') {
+        console.warn('Firestore index may be missing. Check Firebase Console.');
+      } else {
+        alert(`Error loading data: ${error.message}. Check browser console for details.`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Load saved sessions from Firestore on component mount and when refreshKey changes
@@ -306,15 +331,24 @@ const RepositorySearchView = ({ onNavigate }) => {
           getTagFilterCount={getTagFilterCount}
         />
 
-        <StatisticsCards
-          totalNuggets={totalNuggets}
-          totalSessions={totalSessions}
-          painPoints={painPoints}
-          positiveNuggets={positiveNuggets}
-        />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+              <p className="text-muted-foreground">Loading sessions...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <StatisticsCards
+              totalNuggets={totalNuggets}
+              totalSessions={totalSessions}
+              painPoints={painPoints}
+              positiveNuggets={positiveNuggets}
+            />
 
-        {/* Main Content Area with Sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Main Content Area with Sidebar */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <CategoryFilters
             activeFilters={activeFilters}
             addFilter={addFilter}
@@ -359,6 +393,8 @@ const RepositorySearchView = ({ onNavigate }) => {
             )}
           </div>
         </div>
+        </>
+        )}
       </div>
       
       {/* Transcript Modal */}
