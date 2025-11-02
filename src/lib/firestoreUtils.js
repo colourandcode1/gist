@@ -32,10 +32,13 @@ export const saveSession = async (sessionData, userId) => {
     };
 
     const docRef = await addDoc(collection(db, 'sessions'), sessionPayload);
+    console.log('Session created successfully with ID:', docRef.id);
     return { success: true, id: docRef.id };
   } catch (error) {
     console.error('Error saving session:', error);
-    return { success: false, error: error.message };
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    return { success: false, error: error.message || 'Unknown error occurred' };
   }
 };
 

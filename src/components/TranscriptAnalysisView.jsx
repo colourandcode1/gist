@@ -135,10 +135,12 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
       const result = await saveSession(sessionPayload, currentUser.uid);
       
       if (!result.success) {
+        console.error('Save session failed:', result.error);
+        setSaveStatus('error');
         throw new Error(result.error || 'Failed to save session');
       }
 
-      console.log('Saving session:', sessionPayload);
+      console.log('Session saved successfully:', result);
       
       setSaveStatus('saved');
       setHasUnsavedChanges(false);
@@ -152,8 +154,14 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
       setTimeout(() => setSaveStatus(''), 5000);
       
     } catch (error) {
-      console.error('Save failed:', error);
+      console.error('Save failed with error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       setSaveStatus('error');
+      alert(`Failed to save session: ${error.message}. Please check the browser console for details.`);
     } finally {
       setIsSaving(false);
     }
