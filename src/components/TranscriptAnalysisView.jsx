@@ -1,27 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { Video, User, Clock, Plus, Save, Database, Check, Tag, Sparkles, X, Maximize2 } from 'lucide-react';
+import { Video, Plus, Save, Database, Check, Sparkles, X, Maximize2 } from 'lucide-react';
 import NavigationHeader from './NavigationHeader';
-import { parseTranscript, findNearestTimestampBeforeText } from '@/lib/transcriptUtils';
+import { parseTranscript } from '@/lib/transcriptUtils';
 import { saveSession, updateNuggetFields } from '@/lib/storageUtils';
 import { highlightSentimentWords, extractSentenceFromText, highlightSelectedSentence } from '@/lib/sentimentUtils';
-import { createTimestampedUrl } from '@/lib/videoUtils';
 import VideoPlayer from './VideoPlayer';
-import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import StyledTranscriptDisplay from './StyledTranscriptDisplay';
+import NuggetCard from './NuggetCard';
+import NuggetForm from './NuggetForm';
+import { useNuggetManagement } from '@/hooks/useNuggetManagement';
+import { CATEGORIES } from '@/lib/constants';
 
 const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges, prefill }) => {
-  const [selectedText, setSelectedText] = useState('');
-  const [selectedSentenceInfo, setSelectedSentenceInfo] = useState(null);
-  const [nuggets, setNuggets] = useState([]);
-  const [editingExisting, setEditingExisting] = useState(false);
-  const [editingIds, setEditingIds] = useState({ sessionId: null, nuggetId: null });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
+  const [showSentiment, setShowSentiment] = useState(false);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  const [currentVideoTimestamp, setCurrentVideoTimestamp] = useState(null);
+
+  const {
+    selectedText,
+    setSelectedText,
+    selectedSentenceInfo,
+    setSelectedSentenceInfo,
+    nuggets,
+    setNuggets,
+    editingExisting,
+    setEditingExisting,
+    editingIds,
+    tags,
+    setTags,
+    isCreatingTag,
+    setIsCreatingTag,
+    newTagName,
+    setNewTagName,
+    newTagColor,
+    setNewTagColor,
+    newNugget,
+    setNewNugget,
+    createNugget
+  } = useNuggetManagement(sessionData, prefill, setHasUnsavedChanges);
 
   // Add document-level click handler for click-away functionality
   useEffect(() => {
     const handleDocumentClick = (event) => {
       const sentimentWord = event.target.closest('[data-sentiment-word="true"]');
       const nuggetForm = event.target.closest('.nugget-form');
+      const transcriptArea = event.target.closest('.transcript-area');
       
       // Don't clear if clicking on sentiment words (let handleSentimentWordClick handle it)
       if (sentimentWord) {
@@ -33,115 +60,27 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
         return;
       }
       
+      // Don't clear if user is selecting text in transcript area
+      if (transcriptArea && window.getSelection().toString().trim()) {
+        return;
+      }
+      
       // Clear selection for any other click (including clicks on other sentences in transcript)
       setSelectedText('');
       setSelectedSentenceInfo(null);
     };
 
-    // Add event listener to document
-    document.addEventListener('click', handleDocumentClick);
+    // Add event listener to document with a slight delay to allow text selection to complete
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleDocumentClick);
+    }, 0);
 
     // Cleanup function to remove event listener
     return () => {
+      clearTimeout(timeoutId);
       document.removeEventListener('click', handleDocumentClick);
     };
-  }, []);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('');
-  const [showSentiment, setShowSentiment] = useState(false);
-  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
-  const [currentVideoTimestamp, setCurrentVideoTimestamp] = useState(null);
-  // Separate categories and tags
-  const [categories] = useState([
-    { id: 'pain_point', name: 'Pain Point', color: '#ef4444', description: 'Issues or problems users encounter' },
-    { id: 'sentiment', name: 'Positive Feedback', color: '#10b981', description: 'Positive user feedback or satisfaction' },
-    { id: 'feature', name: 'Feature Request', color: '#3b82f6', description: 'User suggestions for new features' },
-    { id: 'journey', name: 'User Journey', color: '#f59e0b', description: 'Insights about user flow or process' },
-    { id: 'usability', name: 'Usability', color: '#8b5cf6', description: 'Interface or design issues' },
-    { id: 'performance', name: 'Performance', color: '#06b6d4', description: 'Speed or technical performance issues' },
-    { id: 'general', name: 'General', color: '#6b7280', description: 'General insights or observations' }
-  ]);
-
-  const [tags, setTags] = useState([
-    { id: 1, name: 'Navigation', color: '#3b82f6' },
-    { id: 2, name: 'Checkout', color: '#10b981' },
-    { id: 3, name: 'Mobile', color: '#f59e0b' },
-    { id: 4, name: 'Search', color: '#8b5cf6' },
-    { id: 5, name: 'Onboarding', color: '#06b6d4' },
-    { id: 6, name: 'Pricing', color: '#ef4444' }
-  ]);
-
-  const [isCreatingTag, setIsCreatingTag] = useState(false);
-  const [newTagName, setNewTagName] = useState('');
-  const [newTagColor, setNewTagColor] = useState('#6b7280');
-  const [newNugget, setNewNugget] = useState({
-    observation: '',
-    evidence_text: '',
-    speaker: '',
-    timestamp: '',
-    category: 'general',
-    tags: []
-  });
-
-  // Pre-fill state when coming from repository edit flow
-  useEffect(() => {
-    if (prefill) {
-      setEditingExisting(Boolean(prefill.nuggetId && prefill.sessionId));
-      if (prefill.nuggetId && prefill.sessionId) {
-        setEditingIds({ sessionId: prefill.sessionId, nuggetId: prefill.nuggetId });
-      } else {
-        setEditingIds({ sessionId: null, nuggetId: null });
-      }
-      const rawEvidence = prefill.selectedText || '';
-      const evidence = rawEvidence.replace(/^\s*"|"\s*$/g, '').trim();
-      setSelectedText(evidence);
-
-      // Try to locate the specific dialogue content containing the evidence
-      let matchedDialogueContent = sessionData.transcriptContent;
-      try {
-        const parsed = sessionData.transcriptContent ? parseTranscript(sessionData.transcriptContent) : null;
-        if (parsed && Array.isArray(parsed.dialogue)) {
-          const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-          const normEvidence = normalize(evidence);
-          let found = parsed.dialogue.find(item => typeof item.content === 'string' && item.content.includes(evidence));
-          if (!found) {
-            found = parsed.dialogue.find(item => typeof item.content === 'string' && normalize(item.content).includes(normEvidence));
-          }
-          if (found) {
-            matchedDialogueContent = found.content;
-          }
-        }
-      } catch (_) {
-        // fall back to full transcript content
-      }
-
-      setSelectedSentenceInfo({
-        sentence: evidence,
-        dialogueContent: matchedDialogueContent,
-        dialogueElement: null,
-      });
-      setNewNugget(prev => ({
-        ...prev,
-        observation: prefill.observation || prev.observation,
-        speaker: sessionData.participantName || prev.speaker,
-        timestamp: prefill.timestamp || prev.timestamp,
-        category: prefill.category || prev.category,
-        tags: Array.isArray(prefill.tags) ? prefill.tags : prev.tags,
-        evidence_text: evidence,
-      }));
-
-      // Re-apply selection shortly after mount to account for render timing
-      const timeoutId = setTimeout(() => {
-        setSelectedText(prev => prev || evidence);
-        setSelectedSentenceInfo(prev => prev || {
-          sentence: evidence,
-          dialogueContent: matchedDialogueContent,
-          dialogueElement: null,
-        });
-      }, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [prefill, sessionData]);
+  }, [setSelectedText, setSelectedSentenceInfo]);
 
   const saveExistingNugget = () => {
     if (!editingExisting || !editingIds.sessionId || !editingIds.nuggetId) return;
@@ -217,15 +156,19 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
   };
 
   const handleTextSelection = () => {
-    const selection = window.getSelection().toString();
-    if (selection.trim()) {
-      setSelectedText(selection);
-      setSelectedSentenceInfo(null); // Clear sentence highlighting when manually selecting text
-      const timestampMatch = selection.match(/\[(\d{2}:\d{2}:\d{2})\]/);
-      if (timestampMatch) {
-        setNewNugget(prev => ({ ...prev, timestamp: timestampMatch[1] }));
+    // Use a small delay to ensure the selection is fully captured
+    setTimeout(() => {
+      const selection = window.getSelection().toString();
+      if (selection.trim()) {
+        setSelectedText(selection);
+        setNewNugget(prev => ({ ...prev, evidence_text: selection.trim() }));
+        setSelectedSentenceInfo(null); // Clear sentence highlighting when manually selecting text
+        const timestampMatch = selection.match(/\[(\d{2}:\d{2}:\d{2})\]/);
+        if (timestampMatch) {
+          setNewNugget(prev => ({ ...prev, timestamp: timestampMatch[1], evidence_text: selection.trim() }));
+        }
       }
-    }
+    }, 10);
   };
 
   const handleSentimentWordClick = (event) => {
@@ -258,19 +201,21 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
         const sentence = extractSentenceFromText(dialogueContent, clickedWord);
         
         if (sentence) {
-          setSelectedText(sentence);
+          const trimmedSentence = sentence.trim();
+          setSelectedText(trimmedSentence);
+          setNewNugget(prev => ({ ...prev, evidence_text: trimmedSentence }));
           
           // Store sentence info for highlighting
           setSelectedSentenceInfo({
-            sentence: sentence,
+            sentence: trimmedSentence,
             dialogueContent: dialogueContent,
             dialogueElement: dialogueElement
           });
           
           // Extract timestamp if present in the sentence
-          const timestampMatch = sentence.match(/\[(\d{2}:\d{2}:\d{2})\]/);
+          const timestampMatch = trimmedSentence.match(/\[(\d{2}:\d{2}:\d{2})\]/);
           if (timestampMatch) {
-            setNewNugget(prev => ({ ...prev, timestamp: timestampMatch[1] }));
+            setNewNugget(prev => ({ ...prev, timestamp: timestampMatch[1], evidence_text: trimmedSentence }));
           }
           
           // Scroll to the nugget creation form
@@ -283,184 +228,8 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     }
   };
 
-  const createNugget = () => {
-    if (!newNugget.observation.trim() || !selectedText) return;
-
-    // Auto-detect timestamp if not already set
-    let finalTimestamp = newNugget.timestamp;
-    if (!finalTimestamp && sessionData.transcriptContent && selectedText) {
-      // DIAGNOSTIC LOGGING
-      console.log('=== TIMESTAMP DETECTION DEBUG ===');
-      console.log('1. selectedText (raw):', JSON.stringify(selectedText));
-      console.log('1. selectedText length:', selectedText.length);
-      console.log('1. selectedText first 50 chars:', selectedText.substring(0, 50));
-      console.log('1. selectedText contains HTML entities:', /&[#\w]+;/.test(selectedText));
-      console.log('2. transcriptContent exists:', !!sessionData.transcriptContent);
-      console.log('2. transcriptContent length:', sessionData.transcriptContent?.length || 0);
-      console.log('2. transcriptContent first 200 chars:', sessionData.transcriptContent?.substring(0, 200) || 'N/A');
-      
-      const detected = findNearestTimestampBeforeText(
-        sessionData.transcriptContent,
-        selectedText
-      );
-      
-      console.log('3. Detection result:', detected);
-      console.log('=== END TIMESTAMP DETECTION DEBUG ===');
-      
-      if (detected) {
-        finalTimestamp = detected;
-      }
-    }
-
-    const nugget = {
-      id: Date.now(),
-      observation: newNugget.observation,
-      evidence_text: selectedText,
-      speaker: newNugget.speaker || sessionData.participantName || 'Participant',
-      timestamp: finalTimestamp, // Use detected timestamp if available
-      category: newNugget.category,
-      tags: newNugget.tags,
-      created_at: new Date().toLocaleString()
-    };
-
-    setNuggets([...nuggets, nugget]);
-    setNewNugget({ observation: '', evidence_text: '', speaker: '', timestamp: '', category: 'general', tags: [] });
-    setSelectedText('');
-    setSelectedSentenceInfo(null); // Clear sentence highlighting after nugget creation
-    setHasUnsavedChanges(true);
-  };
-
-  const addTagToNugget = (tagId) => {
-    if (!newNugget.tags.includes(tagId)) {
-      setNewNugget(prev => ({
-        ...prev,
-        tags: [...prev.tags, tagId]
-      }));
-    }
-  };
-
-  const removeTagFromNugget = (tagId) => {
-    setNewNugget(prev => ({
-      ...prev,
-      tags: prev.tags.filter(id => id !== tagId)
-    }));
-  };
-
-  const createNewTag = () => {
-    if (!newTagName.trim()) return;
-
-    const newTag = {
-      id: Date.now(),
-      name: newTagName.trim(),
-      color: newTagColor
-    };
-
-    setTags(prev => [...prev, newTag]);
-    setNewTagName('');
-    setNewTagColor('#6b7280');
-    setIsCreatingTag(false);
-    
-    // Automatically add the new tag to the current nugget
-    addTagToNugget(newTag.id);
-  };
-
-  const cancelCreateTag = () => {
-    setNewTagName('');
-    setNewTagColor('#6b7280');
-    setIsCreatingTag(false);
-  };
-
-
   // Parse transcript for structured display
   const parsedTranscript = sessionData.transcriptContent ? parseTranscript(sessionData.transcriptContent) : null;
-
-  // Component for styled transcript display
-  const StyledTranscriptDisplay = ({ dialogue, attendees, showSentiment }) => {
-    if (!dialogue || dialogue.length === 0) return null;
-
-    return (
-      <div className="space-y-6">
-        {/* Attendees Section */}
-        {attendees && attendees.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-foreground">Attendees</h3>
-            <Card className="bg-muted/30">
-              <CardContent className="p-4">
-                <ul className="space-y-2">
-                  {attendees.map((attendee, index) => (
-                    <li key={index} className="text-sm text-muted-foreground flex items-center">
-                      <span className="w-2 h-2 bg-primary/60 rounded-full mr-3 flex-shrink-0"></span>
-                      {attendee}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Transcript Section */}
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-foreground">Transcript</h3>
-          <div className="space-y-2">
-            {dialogue.map((item, index) => {
-              if (item.type === 'dialogue') {
-                // Check if this dialogue item contains the selected sentence
-                const shouldHighlightSentence = selectedSentenceInfo && 
-                  selectedSentenceInfo.dialogueContent === item.content;
-                
-                
-                return (
-                  <div key={index} className="grid grid-cols-12 gap-2 py-1 hover:bg-muted/30 transition-colors rounded px-1">
-                    <div className="col-span-2">
-                      <span className="text-sm font-semibold text-secondary-text">
-                        {item.speaker}
-                      </span>
-                    </div>
-                    <div className="col-span-10">
-                      <div 
-                        className="text-sm text-foreground leading-relaxed select-text"
-                        dangerouslySetInnerHTML={{
-                          __html: shouldHighlightSentence 
-                            ? highlightSelectedSentence(item.content, selectedSentenceInfo.sentence, showSentiment)
-                            : (showSentiment ? highlightSentimentWords(item.content, true) : item.content)
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              } else if (item.type === 'timestamp') {
-                return (
-                  <div key={index} className="py-1">
-                    <span className="text-xs text-secondary-text font-mono font-semibold">
-                      {item.content}
-                    </span>
-                  </div>
-                );
-              } else {
-                // Check if this content item contains the selected sentence
-                const shouldHighlightSentence = selectedSentenceInfo && 
-                  selectedSentenceInfo.dialogueContent === item.content;
-                
-                return (
-                  <div key={index} className="py-1">
-                    <div 
-                      className="text-sm text-foreground leading-relaxed select-text"
-                      dangerouslySetInnerHTML={{
-                        __html: shouldHighlightSentence 
-                          ? highlightSelectedSentence(item.content, selectedSentenceInfo.sentence, showSentiment)
-                          : (showSentiment ? highlightSentimentWords(item.content, true) : item.content)
-                      }}
-                    />
-                  </div>
-                );
-              }
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="bg-background min-h-screen">
@@ -537,18 +306,34 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
           
           <div className="flex-1 p-4 overflow-y-auto transcript-area">
             {parsedTranscript ? (
-              <div onMouseUp={handleTextSelection} onClick={handleSentimentWordClick}>
+              <div 
+                onMouseUp={(e) => {
+                  e.stopPropagation();
+                  handleTextSelection();
+                }} 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSentimentWordClick(e);
+                }}
+              >
                 <StyledTranscriptDisplay 
                   dialogue={parsedTranscript.dialogue} 
                   attendees={parsedTranscript.attendees}
                   showSentiment={showSentiment}
+                  selectedSentenceInfo={selectedSentenceInfo}
                 />
               </div>
             ) : (
               <div 
                 className="whitespace-pre-line text-sm leading-relaxed select-text text-foreground"
-                onMouseUp={handleTextSelection}
-                onClick={handleSentimentWordClick}
+                onMouseUp={(e) => {
+                  e.stopPropagation();
+                  handleTextSelection();
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSentimentWordClick(e);
+                }}
                 dangerouslySetInnerHTML={{
                   __html: selectedSentenceInfo && selectedSentenceInfo.dialogueContent === sessionData.transcriptContent
                     ? highlightSelectedSentence(sessionData.transcriptContent, selectedSentenceInfo.sentence, showSentiment)
@@ -557,7 +342,6 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
               />
             )}
           </div>
-
         </div>
 
         <div className={`${showVideoPlayer ? 'w-2/3' : 'w-1/2'} flex flex-col transition-all duration-300`}>
@@ -619,306 +403,34 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background">
             {nuggets.map(nugget => (
-              <div key={nugget.id} className="bg-card rounded-lg border border-border p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="mb-3">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium text-foreground text-sm leading-tight">{nugget.observation}</h3>
-                    {nugget.timestamp && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0">
-                        <Clock className="w-3 h-3" />
-                        <button
-                          onClick={() => {
-                            if (showVideoPlayer) {
-                              // Update video player with new timestamp
-                              setCurrentVideoTimestamp(nugget.timestamp);
-                              // Scroll to video player if it's visible
-                              setTimeout(() => {
-                                const videoPlayer = document.querySelector('[data-video-player]');
-                                if (videoPlayer) {
-                                  videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                }
-                              }, 100);
-                            } else {
-                              // Open in new tab with timestamp
-                              window.open(createTimestampedUrl(sessionData.recordingUrl, nugget.timestamp), '_blank');
-                            }
-                          }}
-                          className="text-primary hover:text-primary/80"
-                          title={showVideoPlayer ? 'Jump to timestamp in video' : 'Open video at timestamp'}
-                        >
-                          {nugget.timestamp}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="bg-muted border-l-4 border-primary p-3 mb-3">
-                    <p className="text-sm text-foreground italic">"{nugget.evidence_text}"</p>
-                    {nugget.speaker && (
-                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                        <User className="w-3 h-3" />
-                        {nugget.speaker}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Category Badge */}
-                  <div className="mb-2">
-                    {(() => {
-                      const category = categories.find(c => c.id === nugget.category);
-                      return category ? (
-                        <span
-                          className="px-2 py-1 text-xs rounded-full font-medium"
-                          style={{ 
-                            backgroundColor: `${category.color}15`,
-                            color: category.color,
-                            border: `1px solid ${category.color}30`
-                          }}
-                        >
-                          {category.name}
-                        </span>
-                      ) : null;
-                    })()}
-                  </div>
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {nugget.tags.map(tagId => {
-                      const tag = tags.find(t => t.id === tagId);
-                      return tag ? (
-                        <span
-                          key={tagId}
-                          className="px-2 py-1 text-xs rounded-full"
-                          style={{ 
-                            backgroundColor: `${tag.color}15`,
-                            color: tag.color,
-                            border: `1px solid ${tag.color}30`
-                          }}
-                        >
-                          {tag.name}
-                        </span>
-                      ) : null;
-                    })}
-                  </div>
-
-                  <div className="text-xs text-muted-foreground">{nugget.created_at}</div>
-                </div>
-              </div>
+              <NuggetCard
+                key={nugget.id}
+                nugget={nugget}
+                tags={tags}
+                sessionData={sessionData}
+                showVideoPlayer={showVideoPlayer}
+                setCurrentVideoTimestamp={setCurrentVideoTimestamp}
+              />
             ))}
 
-            {/* Empty Nugget Card Template - always visible */}
-            <div className="bg-card rounded-lg border border-border p-4 shadow-sm border-dashed border-primary/30 nugget-form">
-              <div className="mb-3">
-                <div className="flex items-start justify-between mb-2">
-                  <textarea
-                    value={newNugget.observation}
-                    onChange={(e) => setNewNugget(prev => ({ ...prev, observation: e.target.value }))}
-                    placeholder="What's the key insight?"
-                    className="w-full text-sm font-medium text-foreground bg-transparent border-none resize-none focus:outline-none placeholder:text-muted-foreground"
-                    rows="2"
-                  />
-                  <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                    {newNugget.timestamp && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        <span className="text-primary">
-                          {newNugget.timestamp}
-                        </span>
-                      </div>
-                    )}
-                    {(() => {
-                      const category = categories.find(c => c.id === newNugget.category);
-                      return category ? (
-                        <span
-                          className="px-2 py-1 text-xs rounded-full font-medium"
-                          style={{ 
-                            backgroundColor: `${category.color}15`,
-                            color: category.color,
-                            border: `1px solid ${category.color}30`
-                          }}
-                        >
-                          {category.name}
-                        </span>
-                      ) : null;
-                    })()}
-                  </div>
-                </div>
-                
-                <div className="bg-muted border-l-4 border-primary p-3 mb-3">
-                  {selectedText ? (
-                    <p className="text-sm text-foreground italic">"{selectedText}"</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">Select text from the transcript to create an insight...</p>
-                  )}
-                  <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                    <User className="w-3 h-3" />
-                    <input
-                      type="text"
-                      value={newNugget.speaker || sessionData.participantName || 'Participant'}
-                      onChange={(e) => setNewNugget(prev => ({ ...prev, speaker: e.target.value }))}
-                      className="bg-transparent border-none text-xs text-muted-foreground focus:outline-none"
-                      placeholder="Speaker name"
-                    />
-                  </div>
-                </div>
-
-                {/* Category Selection */}
-                <div className="mb-3">
-                  <label className="text-xs font-medium text-secondary-text mb-2 block">Category</label>
-                  <div className="flex flex-wrap gap-1">
-                    {categories.map(category => (
-                      <button
-                        key={category.id}
-                        onClick={() => setNewNugget(prev => ({ 
-                          ...prev, 
-                          category: prev.category === category.id ? 'general' : category.id 
-                        }))}
-                        className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                          newNugget.category === category.id
-                            ? 'font-medium'
-                            : 'hover:bg-muted'
-                        }`}
-                        style={newNugget.category === category.id ? {
-                          backgroundColor: `${category.color}15`,
-                          color: category.color,
-                          border: `1px solid ${category.color}30`
-                        } : {
-                          backgroundColor: 'transparent',
-                          color: 'var(--muted-foreground)',
-                          border: '1px solid var(--border)'
-                        }}
-                      >
-                        {category.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tags Selection */}
-                <div className="mb-3">
-                  <label className="text-xs font-medium text-secondary-text mb-2 block">Tags</label>
-                  <div className="flex flex-wrap gap-1">
-                    {tags.map(tag => (
-                      <button
-                        key={tag.id}
-                        onClick={() => newNugget.tags.includes(tag.id) 
-                          ? removeTagFromNugget(tag.id) 
-                          : addTagToNugget(tag.id)
-                        }
-                        className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                          newNugget.tags.includes(tag.id)
-                            ? 'font-medium'
-                            : 'hover:bg-muted'
-                        }`}
-                        style={newNugget.tags.includes(tag.id) ? {
-                          backgroundColor: `${tag.color}15`,
-                          color: tag.color,
-                          border: `1px solid ${tag.color}30`
-                        } : {
-                          backgroundColor: 'transparent',
-                          color: 'var(--muted-foreground)',
-                          border: '1px solid var(--border)'
-                        }}
-                      >
-                        {tag.name}
-                      </button>
-                    ))}
-                    
-                    {/* Create New Tag Button */}
-                    {!isCreatingTag && (
-                      <button
-                        onClick={() => setIsCreatingTag(true)}
-                        className="px-2 py-1 text-xs rounded-full border border-dashed border-muted-foreground text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center gap-1"
-                      >
-                        <Plus className="w-3 h-3" />
-                        New Tag
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Create Tag Form */}
-                {isCreatingTag && (
-                  <div className="bg-muted/30 border border-border rounded-lg p-3 mb-3">
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs font-medium text-secondary-text mb-1 block">Tag Name</label>
-                        <input
-                          type="text"
-                          value={newTagName}
-                          onChange={(e) => setNewTagName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && newTagName.trim()) {
-                              createNewTag();
-                            } else if (e.key === 'Escape') {
-                              cancelCreateTag();
-                            }
-                          }}
-                          placeholder="Enter tag name..."
-                          className="w-full px-2 py-1 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                          autoFocus
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="text-xs font-medium text-secondary-text mb-1 block">Color</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={newTagColor}
-                            onChange={(e) => setNewTagColor(e.target.value)}
-                            className="w-8 h-6 border border-border rounded cursor-pointer"
-                          />
-                          <span className="text-xs text-muted-foreground">{newTagColor}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <button
-                          onClick={createNewTag}
-                          disabled={!newTagName.trim()}
-                          className="flex items-center gap-1 px-3 py-1 bg-primary text-primary-foreground text-xs rounded hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Create Tag
-                        </button>
-                        <button
-                          onClick={cancelCreateTag}
-                          className="px-3 py-1 bg-secondary text-secondary-foreground text-xs rounded hover:bg-secondary/90 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-muted-foreground">
-                    {new Date().toLocaleString()}
-                  </div>
-                  {editingExisting ? (
-                    <button
-                      onClick={saveExistingNugget}
-                      disabled={!newNugget.observation.trim() || !selectedText}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Save className="w-4 h-4" />
-                      Save Changes
-                    </button>
-                  ) : (
-                    <button
-                      onClick={createNugget}
-                      disabled={!newNugget.observation.trim() || !selectedText}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create Nugget
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+            <NuggetForm
+              selectedText={selectedText}
+              newNugget={newNugget}
+              setNewNugget={setNewNugget}
+              categories={CATEGORIES}
+              tags={tags}
+              setTags={setTags}
+              isCreatingTag={isCreatingTag}
+              setIsCreatingTag={setIsCreatingTag}
+              newTagName={newTagName}
+              setNewTagName={setNewTagName}
+              newTagColor={newTagColor}
+              setNewTagColor={setNewTagColor}
+              editingExisting={editingExisting}
+              onCreateNugget={createNugget}
+              onSaveExisting={saveExistingNugget}
+              sessionData={sessionData}
+            />
           </div>
         </div>
       </div>

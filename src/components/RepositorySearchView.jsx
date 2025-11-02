@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Database, Video, TrendingUp, Check, Plus, Calendar, User, Clock, X } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import NavigationHeader from './NavigationHeader';
 import TranscriptModal from './TranscriptModal';
-import VideoPlayer from './VideoPlayer';
+import VideoModal from './VideoModal';
+import RepositoryNuggetCard from './RepositoryNuggetCard';
+import StatisticsCards from './StatisticsCards';
+import TagFilters from './TagFilters';
+import CategoryFilters from './CategoryFilters';
 import { createTimestampedUrl } from '@/lib/videoUtils';
 import { getSessions, getAllNuggets, deleteNugget } from '@/lib/storageUtils';
 
@@ -25,28 +28,6 @@ const RepositorySearchView = ({ onNavigate }) => {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [videoNugget, setVideoNugget] = useState(null);
   const [videoSessionData, setVideoSessionData] = useState(null);
-
-  // no inline edit state
-
-  // Categories and tags data (matching the structure from TranscriptAnalysisView)
-  const categories = [
-    { id: 'pain_point', name: 'Pain Point', color: '#ef4444', description: 'Issues or problems users encounter' },
-    { id: 'sentiment', name: 'Positive Feedback', color: '#10b981', description: 'Positive user feedback or satisfaction' },
-    { id: 'feature', name: 'Feature Request', color: '#3b82f6', description: 'User suggestions for new features' },
-    { id: 'journey', name: 'User Journey', color: '#f59e0b', description: 'Insights about user flow or process' },
-    { id: 'usability', name: 'Usability', color: '#8b5cf6', description: 'Interface or design issues' },
-    { id: 'performance', name: 'Performance', color: '#06b6d4', description: 'Speed or technical performance issues' },
-    { id: 'general', name: 'General', color: '#6b7280', description: 'General insights or observations' }
-  ];
-
-  const tags = [
-    { id: 1, name: 'Navigation', color: '#3b82f6' },
-    { id: 2, name: 'Checkout', color: '#10b981' },
-    { id: 3, name: 'Mobile', color: '#f59e0b' },
-    { id: 4, name: 'Search', color: '#8b5cf6' },
-    { id: 5, name: 'Onboarding', color: '#06b6d4' },
-    { id: 6, name: 'Pricing', color: '#ef4444' }
-  ];
 
   // Function to refresh data from localStorage
   const refreshData = () => {
@@ -149,7 +130,18 @@ const RepositorySearchView = ({ onNavigate }) => {
   // Function to handle watch button click and open video modal
   const handleWatchClick = (nugget, event) => {
     event.stopPropagation(); // Prevent triggering nugget card click
+    
+    if (!nugget.session_id) {
+      console.error('Nugget missing session_id:', nugget);
+      return;
+    }
+    
     const sessionData = savedSessions.find(session => session.id === nugget.session_id);
+    
+    if (!sessionData) {
+      console.error('Session not found for nugget:', nugget.session_id);
+      return;
+    }
     
     if (sessionData && sessionData.recording_url) {
       setVideoNugget(nugget);
@@ -218,7 +210,14 @@ const RepositorySearchView = ({ onNavigate }) => {
         activeCategoryFilters.some(filter => nugget.category === filter.id);
       
       const matchesTags = activeTagFilters.length === 0 || 
-        (nugget.tags && Array.isArray(nugget.tags) && activeTagFilters.some(filter => nugget.tags.includes(filter.id)));
+        (nugget.tags && Array.isArray(nugget.tags) && activeTagFilters.some(filter => {
+          // Handle both tag IDs (numbers) and tag strings
+          return nugget.tags.some(tag => 
+            typeof tag === 'number' ? tag === filter.id : 
+            typeof tag === 'string' ? tag.toString() === filter.id.toString() || tag.toLowerCase().includes(filter.name?.toLowerCase() || '') :
+            false
+          );
+        }));
 
       return matchesSearch && matchesCategories && matchesTags;
     } catch (error) {
@@ -226,18 +225,6 @@ const RepositorySearchView = ({ onNavigate }) => {
       return false; // Exclude problematic nuggets
     }
   });
-
-  const getSentimentColor = (category) => {
-    switch (category) {
-      case 'sentiment': return 'bg-green-100 text-green-800 border-green-200';
-      case 'pain_point': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'usability': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'feature': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'journey': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'performance': return 'bg-cyan-100 text-cyan-800 border-cyan-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
 
   // Calculate statistics from actual data
   const totalNuggets = allNuggets.length;
@@ -279,160 +266,30 @@ const RepositorySearchView = ({ onNavigate }) => {
           </CardContent>
         </Card>
 
-        {/* Tags Filter - Full Width */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-foreground">
-                Tags {getTagFilterCount() > 0 && `(${getTagFilterCount()})`}
-              </h3>
-              {getTagFilterCount() > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearTagFilters}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  Clear All
-                </Button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {tags.map(tag => (
-                <button
-                  key={tag.id}
-                  onClick={() => {
-                    const filterExists = activeFilters.some(f => f.type === 'tag' && f.id === tag.id);
-                    if (filterExists) {
-                      removeFilter('tag', tag.id);
-                    } else {
-                      addFilter('tag', tag.id, tag.name, tag.color);
-                    }
-                  }}
-                  className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                    activeFilters.some(f => f.type === 'tag' && f.id === tag.id)
-                      ? 'font-medium'
-                      : 'hover:bg-muted'
-                  }`}
-                  style={activeFilters.some(f => f.type === 'tag' && f.id === tag.id) ? {
-                    backgroundColor: `${tag.color}15`,
-                    color: tag.color,
-                    border: `1px solid ${tag.color}30`
-                  } : {
-                    backgroundColor: 'transparent',
-                    color: 'var(--muted-foreground)',
-                    border: '1px solid var(--border)'
-                  }}
-                >
-                  {tag.name}
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <TagFilters
+          activeFilters={activeFilters}
+          addFilter={addFilter}
+          removeFilter={removeFilter}
+          clearTagFilters={clearTagFilters}
+          getTagFilterCount={getTagFilterCount}
+        />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-primary" />
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{totalNuggets}</div>
-                  <div className="text-sm text-muted-foreground">Total Insights</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Video className="w-5 h-5 text-green-600" />
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{totalSessions}</div>
-                  <div className="text-sm text-muted-foreground">Sessions</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-orange-600" />
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{painPoints}</div>
-                  <div className="text-sm text-muted-foreground">Pain Points</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Check className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{positiveNuggets}</div>
-                  <div className="text-sm text-muted-foreground">Positive</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <StatisticsCards
+          totalNuggets={totalNuggets}
+          totalSessions={totalSessions}
+          painPoints={painPoints}
+          positiveNuggets={positiveNuggets}
+        />
 
         {/* Main Content Area with Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Categories Sidebar */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-6">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-medium text-foreground">
-                    Categories {getCategoryFilterCount() > 0 && `(${getCategoryFilterCount()})`}
-                  </h3>
-                  {getCategoryFilterCount() > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearCategoryFilters}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      Clear All
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {categories.map(category => (
-                    <button
-                      key={category.id}
-                      onClick={() => {
-                        const filterExists = activeFilters.some(f => f.type === 'category' && f.id === category.id);
-                        if (filterExists) {
-                          removeFilter('category', category.id);
-                        } else {
-                          addFilter('category', category.id, category.name, category.color);
-                        }
-                      }}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-colors ${
-                        activeFilters.some(f => f.type === 'category' && f.id === category.id)
-                          ? 'font-medium'
-                          : 'hover:bg-muted'
-                      }`}
-                      style={activeFilters.some(f => f.type === 'category' && f.id === category.id) ? {
-                        backgroundColor: `${category.color}15`,
-                        color: category.color,
-                        border: `1px solid ${category.color}30`
-                      } : {
-                        backgroundColor: 'transparent',
-                        color: 'var(--muted-foreground)',
-                        border: '1px solid var(--border)'
-                      }}
-                    >
-                      {category.name}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <CategoryFilters
+            activeFilters={activeFilters}
+            addFilter={addFilter}
+            removeFilter={removeFilter}
+            clearCategoryFilters={clearCategoryFilters}
+            getCategoryFilterCount={getCategoryFilterCount}
+          />
 
           {/* Nuggets Content */}
           <div className="lg:col-span-3 space-y-4 bg-background">
@@ -443,89 +300,31 @@ const RepositorySearchView = ({ onNavigate }) => {
             </div>
 
             {filteredNuggets.map(nugget => (
-            <Card 
-              key={nugget.id} 
-              className="hover:shadow-md transition-shadow cursor-pointer hover:border-primary/50"
-              onClick={() => handleNuggetClick(nugget)}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-foreground mb-2">{nugget.observation}</h3>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {nugget.session_date}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <User className="w-4 h-4" />
-                        {nugget.speaker}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {nugget.timestamp}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 ml-4">
-                    <Badge variant="outline" className={getSentimentColor(nugget.category)}>
-                      {nugget.category.replace('_', ' ')}
-                    </Badge>
-                    {nugget.session_id && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="flex items-center gap-1"
-                        onClick={(e) => handleWatchClick(nugget, e)}
-                      >
-                        <Video className="w-4 h-4" />
-                        Watch
-                      </Button>
-                    )}
-                  </div>
-                </div>
+              <RepositoryNuggetCard
+                key={nugget.id}
+                nugget={nugget}
+                onNuggetClick={handleNuggetClick}
+                onWatchClick={handleWatchClick}
+              />
+            ))}
 
-                <div className="bg-muted border-l-4 border-primary p-4 mb-4">
-                  <p className="text-muted-foreground italic">"{nugget.evidence_text}"</p>
-                </div>
-
-                {/* inline edit removed */}
-
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-2">
-                    {nugget.tags.map(tag => (
-                      <Badge key={tag} variant="secondary">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                  
-                  <div className="text-sm text-muted-foreground">
-                    from {nugget.session_title}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          {filteredNuggets.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground bg-background">
-              <p className="text-sm">
-                {allNuggets.length === 0 ? 'No insights yet' : 'No insights match your search'}
-              </p>
-              {allNuggets.length === 0 && (
-                <Button
-                  onClick={() => onNavigate('upload')}
-                  className="mt-3 flex items-center gap-2"
-                  size="sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create First Session
-                </Button>
-              )}
-            </div>
-          )}
+            {filteredNuggets.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground bg-background">
+                <p className="text-sm">
+                  {allNuggets.length === 0 ? 'No insights yet' : 'No insights match your search'}
+                </p>
+                {allNuggets.length === 0 && (
+                  <Button
+                    onClick={() => onNavigate('upload')}
+                    className="mt-3 flex items-center gap-2"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create First Session
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -542,71 +341,12 @@ const RepositorySearchView = ({ onNavigate }) => {
       />
 
       {/* Video Modal */}
-      {isVideoModalOpen && videoSessionData && videoNugget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={handleCloseVideoModal}
-            style={{ zIndex: 1 }}
-          />
-          
-          {/* Modal */}
-          <div className="relative bg-background border border-border rounded-lg shadow-lg w-full max-w-5xl max-h-[90vh] mx-4 flex flex-col" style={{ zIndex: 2 }}>
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <div className="flex-1">
-                <h2 className="text-xl font-semibold text-foreground mb-2">
-                  {videoSessionData.title}
-                </h2>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {videoSessionData.session_date}
-                  </div>
-                  {videoNugget.timestamp && (
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      Timestamp: {videoNugget.timestamp}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleCloseVideoModal}
-                className="flex-shrink-0"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {/* Video Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {videoSessionData.recording_url ? (
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-4">{videoNugget.observation}</h3>
-                  <VideoPlayer
-                    videoUrl={videoSessionData.recording_url}
-                    timestamp={videoNugget.timestamp || null}
-                    className="w-full mb-4"
-                  />
-                  {videoNugget.evidence_text && (
-                    <div className="bg-muted border-l-4 border-primary p-4 mt-4">
-                      <p className="text-sm text-foreground italic">"{videoNugget.evidence_text}"</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No recording URL available for this session</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <VideoModal
+        isOpen={isVideoModalOpen}
+        onClose={handleCloseVideoModal}
+        videoSessionData={videoSessionData}
+        videoNugget={videoNugget}
+      />
     </div>
   );
 };
