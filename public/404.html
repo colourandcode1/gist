@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Research Hub</title>
+    <script>
+      // GitHub Pages SPA redirect
+      // Redirect to index.html so React Router can handle routing
+      var path = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      
+      // If we're not already at index.html, redirect there
+      if (!path.endsWith('/index.html') && !path.endsWith('/')) {
+        var basePath = '/gist';
+        var redirect = basePath + '/index.html' + search + hash;
+        window.location.replace(redirect);
+      } else {
+        // If we're at index.html, load the app
+        window.location.replace('/gist/index.html' + search + hash);
+      }
+    </script>
+  </head>
+  <body>
+    <div>Loading...</div>
+  </body>
+</html>
+
