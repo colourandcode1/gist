@@ -11,13 +11,16 @@ import StatisticsCards from './StatisticsCards';
 import TagFilters from './TagFilters';
 import CategoryFilters from './CategoryFilters';
 import { createTimestampedUrl } from '@/lib/videoUtils';
-import { getSessions, getAllNuggets, deleteNugget } from '@/lib/storageUtils';
+import { getSessions, getAllNuggets, deleteNugget, getSessionById } from '@/lib/firestoreUtils';
+import { useAuth } from '@/contexts/AuthContext';
 
 const RepositorySearchView = ({ onNavigate }) => {
+  const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [savedSessions, setSavedSessions] = useState([]);
   const [allNuggets, setAllNuggets] = useState([]);
   const [activeFilters, setActiveFilters] = useState([]);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   // Modal state management
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,18 +32,30 @@ const RepositorySearchView = ({ onNavigate }) => {
   const [videoNugget, setVideoNugget] = useState(null);
   const [videoSessionData, setVideoSessionData] = useState(null);
 
-  // Function to refresh data from localStorage
-  const refreshData = () => {
-    const sessions = getSessions();
+  // Function to refresh data from Firestore
+  const refreshData = async () => {
+    if (!currentUser) return;
+    
+    const sessions = await getSessions(currentUser.uid);
     setSavedSessions(sessions);
     
-    const nuggets = getAllNuggets();
+    const nuggets = await getAllNuggets(currentUser.uid);
     setAllNuggets(nuggets);
   };
 
-  // Load saved sessions from localStorage on component mount
+  // Load saved sessions from Firestore on component mount and when refreshKey changes
   useEffect(() => {
     refreshData();
+  }, [currentUser, refreshKey]);
+
+  // Refresh when component becomes visible (useful when navigating back from other views)
+  useEffect(() => {
+    const handleFocus = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   // Refresh data when component becomes visible (when navigating back from analysis)
@@ -53,7 +68,7 @@ const RepositorySearchView = ({ onNavigate }) => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+  }, [currentUser]);
 
   // Filter management functions
   const addFilter = (type, id, name, color) => {
@@ -88,18 +103,28 @@ const RepositorySearchView = ({ onNavigate }) => {
     setActiveFilters(prev => prev.filter(f => f.type !== 'tag'));
   };
 
-  const handleEditInAnalysis = () => {
+  const handleEditInAnalysis = async () => {
     if (!selectedNugget || !selectedSessionData) return;
+    
+    // Ensure we have the full session data with transcript_content
+    let sessionData = selectedSessionData;
+    if (!sessionData.transcript_content && sessionData._hasTranscript) {
+      const fullSession = await getSessionById(selectedNugget.session_id);
+      if (fullSession) {
+        sessionData = fullSession;
+      }
+    }
+    
     // Navigate to analysis view with prefill context
     onNavigate({
       view: 'analysis',
       session: {
-        title: selectedSessionData.title,
-        sessionDate: selectedSessionData.session_date,
-        participantName: selectedSessionData.participant_info?.name || '',
-        recordingUrl: selectedSessionData.recording_url || '',
-        transcriptContent: selectedSessionData.transcript_content || '',
-        sessionType: selectedSessionData.session_type || 'user_interview'
+        title: sessionData.title,
+        sessionDate: sessionData.session_date,
+        participantName: sessionData.participant_info?.name || '',
+        recordingUrl: sessionData.recording_url || '',
+        transcriptContent: sessionData.transcript_content || '',
+        sessionType: sessionData.session_type || 'user_interview'
       },
       prefill: {
         nuggetId: selectedNugget.id,
@@ -114,11 +139,18 @@ const RepositorySearchView = ({ onNavigate }) => {
   };
 
   // Function to handle nugget click and open modal
-  const handleNuggetClick = (nugget) => {
-    // Find the session data for this nugget
-    const sessionData = savedSessions.find(session => session.id === nugget.session_id);
+  const handleNuggetClick = async (nugget) => {
+    // Find the session data for this nugget (may not have transcript_content)
+    let sessionData = savedSessions.find(session => session.id === nugget.session_id);
     
     if (sessionData) {
+      // If transcript_content is missing, fetch the full session
+      if (!sessionData.transcript_content && sessionData._hasTranscript) {
+        const fullSession = await getSessionById(nugget.session_id);
+        if (fullSession) {
+          sessionData = fullSession;
+        }
+      }
       setSelectedNugget(nugget);
       setSelectedSessionData(sessionData);
       setIsModalOpen(true);
@@ -172,21 +204,21 @@ const RepositorySearchView = ({ onNavigate }) => {
   };
 
   // Function to handle nugget deletion
-  const handleDeleteNugget = () => {
-    if (!selectedNugget) return;
+  const handleDeleteNugget = async () => {
+    if (!selectedNugget || !currentUser) return;
 
     const confirmed = window.confirm('Are you sure you want to delete this insight?');
     if (!confirmed) return;
 
-    const success = deleteNugget(selectedNugget.session_id, selectedNugget.id);
+    const result = await deleteNugget(selectedNugget.session_id, selectedNugget.id, currentUser.uid);
     
-    if (success) {
+    if (result.success) {
       // Refresh data to update the UI
-      refreshData();
+      await refreshData();
       // Close the modal after deletion
       handleCloseModal();
     } else {
-      console.error('Failed to delete nugget');
+      console.error('Failed to delete nugget:', result.error);
       alert('Failed to delete insight. Please try again.');
     }
   };

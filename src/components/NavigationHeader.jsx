@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Database, Plus, Clock, Menu } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import UserMenu from "@/components/UserMenu";
 
 const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -57,10 +58,12 @@ const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }
               );
             })}
             <ThemeToggle />
+            <UserMenu />
           </div>
 
           <div className="md:hidden flex items-center gap-2">
             <ThemeToggle />
+            <UserMenu />
             <Button
               variant="ghost"
               size="icon"

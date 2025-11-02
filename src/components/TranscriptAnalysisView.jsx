@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Video, Plus, Save, Database, Check, Sparkles, X, Maximize2 } from 'lucide-react';
 import NavigationHeader from './NavigationHeader';
 import { parseTranscript } from '@/lib/transcriptUtils';
-import { saveSession, updateNuggetFields } from '@/lib/storageUtils';
+import { saveSession, updateNuggetFields } from '@/lib/firestoreUtils';
+import { useAuth } from '@/contexts/AuthContext';
 import { highlightSentimentWords, extractSentenceFromText, highlightSelectedSentence } from '@/lib/sentimentUtils';
 import VideoPlayer from './VideoPlayer';
 import { Switch } from "@/components/ui/switch";
@@ -14,6 +15,7 @@ import { useNuggetManagement } from '@/hooks/useNuggetManagement';
 import { CATEGORIES } from '@/lib/constants';
 
 const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges, prefill }) => {
+  const { currentUser } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [showSentiment, setShowSentiment] = useState(false);
@@ -82,29 +84,32 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     };
   }, [setSelectedText, setSelectedSentenceInfo]);
 
-  const saveExistingNugget = () => {
-    if (!editingExisting || !editingIds.sessionId || !editingIds.nuggetId) return;
-    const ok = updateNuggetFields(editingIds.sessionId, editingIds.nuggetId, {
+  const saveExistingNugget = async () => {
+    if (!editingExisting || !editingIds.sessionId || !editingIds.nuggetId || !currentUser) return;
+    const result = await updateNuggetFields(editingIds.sessionId, editingIds.nuggetId, {
       observation: newNugget.observation,
       evidence_text: selectedText,
       speaker: newNugget.speaker || sessionData.participantName || 'Participant',
       timestamp: newNugget.timestamp,
       category: newNugget.category,
       tags: newNugget.tags,
-    });
-    if (ok) {
+    }, currentUser.uid);
+    if (result.success) {
       onNavigate('repository');
     }
   };
 
   const handleSaveSession = async () => {
+    if (!currentUser) {
+      setSaveStatus('error');
+      return;
+    }
+
     setIsSaving(true);
     setSaveStatus('');
 
     try {
-      const sessionId = `session_${Date.now()}`;
       const sessionPayload = {
-        id: sessionId,
         title: sessionData.title,
         description: '',
         session_date: sessionData.sessionDate,
@@ -123,23 +128,26 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
           category: nugget.category,
           tags: nugget.tags,
           created_at: nugget.created_at
-        })),
-        created_at: new Date().toISOString()
+        }))
       };
 
-      // Save to localStorage using utility function
-      const success = saveSession(sessionPayload);
+      // Save to Firestore using utility function
+      const result = await saveSession(sessionPayload, currentUser.uid);
       
-      if (!success) {
-        throw new Error('Failed to save session');
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save session');
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       console.log('Saving session:', sessionPayload);
       
       setSaveStatus('saved');
       setHasUnsavedChanges(false);
+      
+      // Navigate to repository after successful save (delay to show success message)
+      setTimeout(() => {
+        console.log('Navigating to repository...');
+        onNavigate('repository');
+      }, 1500);
       
       setTimeout(() => setSaveStatus(''), 5000);
       
@@ -148,10 +156,6 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
       setSaveStatus('error');
     } finally {
       setIsSaving(false);
-      // If this analysis was opened from repository for editing, navigate back automatically
-      if (prefill) {
-        setTimeout(() => onNavigate('repository'), 800);
-      }
     }
   };
 
