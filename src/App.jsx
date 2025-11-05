@@ -7,12 +7,14 @@ import SimplifiedUpload from "@/components/SimplifiedUpload";
 import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
 import ProfilePage from "@/pages/ProfilePage";
+import LandingPage from "@/pages/LandingPage";
 
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="research-hub-theme">
       <AuthProvider>
         <Routes>
+          <Route path="/landing" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route
