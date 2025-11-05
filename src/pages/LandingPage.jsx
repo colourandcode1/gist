@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, Workflow, Flag, Users, BarChart3 } from 'lucide-react';
+import { ArrowRight, Check, Workflow, Flag, Users, BarChart3, Lock, Play, FileSearch, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -93,72 +93,48 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Main Feature Showcase */}
-      <section className="container mx-auto px-6 py-16">
-        <div className="max-w-4xl mx-auto text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">
-            Powering the world&apos;s best product teams.
-          </h2>
-          <p className="text-muted-foreground">
-            From next-gen startups to established enterprises.
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-center items-center gap-8 opacity-60">
-          <div className="text-2xl font-semibold">Mercury</div>
-          <div className="text-2xl font-semibold">Watershed</div>
-          <div className="text-2xl font-semibold">Retool</div>
-          <div className="text-2xl font-semibold">Descript</div>
-          <div className="text-2xl font-semibold">Perplexity</div>
-          <div className="text-2xl font-semibold">Monzo</div>
-          <div className="text-2xl font-semibold">Ramp</div>
-          <div className="text-2xl font-semibold">Raycast</div>
-          <div className="text-2xl font-semibold">Arc</div>
-        </div>
-      </section>
-
-      {/* Detailed Features */}
+      {/* Features Section */}
       <section className="container mx-auto px-6 py-16">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold mb-4">
-              Tailor made for post-modern product teams
+              {landingContent.featuresSection.title}
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Gist is built on the habits that make the best product teams successful: staying focused, moving quickly, and always aiming for high-quality work.
-            </p>
+            {landingContent.featuresSection.subtitle && (
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                {landingContent.featuresSection.subtitle}
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16">
-            <div>
-              <h3 className="text-2xl font-semibold mb-4">Reusable templates</h3>
-              <p className="text-muted-foreground mb-4">
-                Draft lightning-fast documents with our Smart Instructions and Templates.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-2xl font-semibold mb-4">Simplify your stack</h3>
-              <p className="text-muted-foreground mb-4">
-                No more Confluence, SharePoint, or Microsoft Word.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-2xl font-semibold mb-4">Access controls</h3>
-              <p className="text-muted-foreground mb-4">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-2xl font-semibold mb-4">Task chat</h3>
-              <p className="text-muted-foreground mb-4">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do eiusmod.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-2xl font-semibold mb-4">Cycle analysis</h3>
-              <p className="text-muted-foreground mb-4">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do eiusmod.
-              </p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            {landingContent.featuresSection.features.map((feature, index) => {
+              const iconMap = {
+                Lock,
+                BarChart3,
+                Play,
+                Users,
+                FileSearch,
+                Download
+              };
+              const IconComponent = iconMap[feature.icon] || Lock;
+              
+              return (
+                <div key={index} className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                    <IconComponent className="h-6 w-6 text-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold mb-2">
+                      {feature.title}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -172,13 +148,12 @@ const LandingPage = () => {
       <section id="pricing" className="container mx-auto px-6 py-16">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Pricing</h2>
-            <p className="text-muted-foreground">
-              Use Gist for free with your whole team. Upgrade to enable unlimited issues, enhanced security controls, and additional features.
-            </p>
-            <div className="mt-4">
-              <span className="text-sm text-muted-foreground">Billed annually</span>
-            </div>
+            <h2 className="text-3xl font-bold mb-4">{landingContent.pricing.header}</h2>
+            {landingContent.pricing.note && (
+              <div className="mt-4">
+                <span className="text-sm text-muted-foreground">{landingContent.pricing.note}</span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -192,7 +167,12 @@ const LandingPage = () => {
                       <span className="text-muted-foreground ml-2">{tier.period}</span>
                     )}
                   </div>
-                  <CardDescription className="mt-2">{tier.description}</CardDescription>
+                  {tier.userRange && (
+                    <CardDescription className="mt-2">{tier.userRange}</CardDescription>
+                  )}
+                  {tier.description && (
+                    <CardDescription className="mt-2">{tier.description}</CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-3">
@@ -246,11 +226,11 @@ const LandingPage = () => {
       <section className="container mx-auto px-6 py-16">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-4">
-            Gist starts now. Your future won&apos;t wait.
+            Ready to Take Control of Your Research Data?
           </h2>
           <Link to="/signup">
             <Button size="lg" className="mt-6">
-              Get started with 7 days free
+              Start Free Trial
             </Button>
           </Link>
         </div>
