@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ArrowRight, Play } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import NavigationHeader from './NavigationHeader';
@@ -8,13 +9,17 @@ import SessionDetailsForm from './SessionDetailsForm';
 import TranscriptUpload from './TranscriptUpload';
 
 const SimplifiedUpload = () => {
+  const [searchParams] = useSearchParams();
+  const projectIdFromUrl = searchParams.get('projectId');
+
   const [sessionData, setSessionData] = useState({
     title: '',
     sessionDate: new Date().toISOString().split('T')[0],
     participantName: '',
     recordingUrl: '',
     transcriptContent: '',
-    sessionType: 'user_interview'
+    sessionType: 'user_interview',
+    projectId: projectIdFromUrl || null
   });
 
   const [uploadMethod, setUploadMethod] = useState('');
@@ -50,7 +55,8 @@ const SimplifiedUpload = () => {
         participantName: '',
         recordingUrl: '',
         transcriptContent: '',
-        sessionType: 'user_interview'
+        sessionType: 'user_interview',
+        projectId: projectIdFromUrl || null
       });
       setUploadMethod('');
       setShowPreview(false);

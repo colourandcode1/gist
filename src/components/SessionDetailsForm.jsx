@@ -1,9 +1,11 @@
-import React from 'react';
-import { Video, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Video, Check, FolderOpen } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { isGoogleDriveUrl, extractDriveFileId } from '@/lib/videoUtils';
+import { getProjects } from '@/lib/firestoreUtils';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SessionDetailsForm = ({ 
   sessionData, 
@@ -11,6 +13,31 @@ const SessionDetailsForm = ({
   sessionTypes, 
   autoFillSuggestions 
 }) => {
+  const { currentUser } = useAuth();
+  const [projects, setProjects] = useState([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadProjects();
+    }
+  }, [currentUser]);
+
+  const loadProjects = async () => {
+    if (!currentUser) return;
+    setIsLoadingProjects(true);
+    try {
+      const activeProjects = await getProjects(currentUser.uid);
+      // Filter to only active projects
+      const filtered = activeProjects.filter(p => p.status === 'active');
+      setProjects(filtered);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -71,6 +98,146 @@ const SessionDetailsForm = ({
             onChange={(e) => setSessionData(prev => ({ ...prev, participantName: e.target.value }))}
             placeholder="Sarah M."
           />
+        </div>
+
+        {/* Participant Context Section */}
+        <div className="pt-2 border-t border-border">
+          <label className="block text-sm font-medium text-secondary-text mb-3">
+            Participant Context <span className="text-muted-foreground">(optional)</span>
+          </label>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Company Name</label>
+              <Input
+                type="text"
+                value={sessionData.participantContext?.companyName || ''}
+                onChange={(e) => setSessionData(prev => ({
+                  ...prev,
+                  participantContext: {
+                    ...prev.participantContext,
+                    companyName: e.target.value
+                  }
+                }))}
+                placeholder="Acme Corp"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Company Size</label>
+                <select
+                  value={sessionData.participantContext?.companySize || ''}
+                  onChange={(e) => setSessionData(prev => ({
+                    ...prev,
+                    participantContext: {
+                      ...prev.participantContext,
+                      companySize: e.target.value || null
+                    }
+                  }))}
+                  className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
+                >
+                  <option value="">Select size</option>
+                  <option value="smb">SMB</option>
+                  <option value="mid_market">Mid-Market</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">User Type</label>
+                <select
+                  value={sessionData.participantContext?.userType || ''}
+                  onChange={(e) => setSessionData(prev => ({
+                    ...prev,
+                    participantContext: {
+                      ...prev.participantContext,
+                      userType: e.target.value || null
+                    }
+                  }))}
+                  className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
+                >
+                  <option value="">Select type</option>
+                  <option value="admin">Admin</option>
+                  <option value="end_user">End User</option>
+                  <option value="decision_maker">Decision Maker</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">User Role/Title</label>
+              <Input
+                type="text"
+                value={sessionData.participantContext?.userRole || ''}
+                onChange={(e) => setSessionData(prev => ({
+                  ...prev,
+                  participantContext: {
+                    ...prev.participantContext,
+                    userRole: e.target.value
+                  }
+                }))}
+                placeholder="Product Manager"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Industry</label>
+                <Input
+                  type="text"
+                  value={sessionData.participantContext?.industry || ''}
+                  onChange={(e) => setSessionData(prev => ({
+                    ...prev,
+                    participantContext: {
+                      ...prev.participantContext,
+                      industry: e.target.value
+                    }
+                  }))}
+                  placeholder="Technology"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Product Tenure</label>
+                <select
+                  value={sessionData.participantContext?.productTenure || ''}
+                  onChange={(e) => setSessionData(prev => ({
+                    ...prev,
+                    participantContext: {
+                      ...prev.participantContext,
+                      productTenure: e.target.value || null
+                    }
+                  }))}
+                  className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
+                >
+                  <option value="">Select tenure</option>
+                  <option value="new">New</option>
+                  <option value="regular">Regular</option>
+                  <option value="power_user">Power User</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-secondary-text mb-1">Project <span className="text-muted-foreground">(optional)</span></label>
+          <select
+            value={sessionData.projectId || ''}
+            onChange={(e) => setSessionData(prev => ({ ...prev, projectId: e.target.value || null }))}
+            className="w-full h-10 px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            disabled={isLoadingProjects}
+          >
+            <option value="">No project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+          {isLoadingProjects && (
+            <p className="mt-1 text-xs text-muted-foreground">Loading projects...</p>
+          )}
         </div>
 
         <div>

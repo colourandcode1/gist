@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, User, Clock, Video } from 'lucide-react';
+import { Calendar, User, Clock, Video, Target, Building2, FolderOpen } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { CATEGORIES } from '@/lib/constants';
 /**
  * Component for displaying a nugget card in the repository view
  */
-const RepositoryNuggetCard = ({ nugget, onNuggetClick, onWatchClick }) => {
+const RepositoryNuggetCard = ({ nugget, session, project, onNuggetClick, onWatchClick, onAddToProblemSpace }) => {
   const getSentimentColor = (category) => {
     switch (category) {
       case 'sentiment': return 'bg-green-100 text-green-800 border-green-200';
@@ -19,6 +19,42 @@ const RepositoryNuggetCard = ({ nugget, onNuggetClick, onWatchClick }) => {
       case 'performance': return 'bg-cyan-100 text-cyan-800 border-cyan-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const getParticipantContextBadge = () => {
+    if (!session?.participantContext) return null;
+    
+    const { companySize, userType, userRole, industry } = session.participantContext;
+    const parts = [];
+    
+    if (companySize) {
+      const sizeLabels = {
+        'smb': 'SMB',
+        'mid_market': 'Mid-Market',
+        'enterprise': 'Enterprise'
+      };
+      parts.push(sizeLabels[companySize] || companySize);
+    }
+    
+    if (userType) {
+      const typeLabels = {
+        'admin': 'Admin',
+        'end_user': 'End User',
+        'decision_maker': 'Decision Maker'
+      };
+      parts.push(typeLabels[userType] || userType);
+    } else if (userRole) {
+      parts.push(userRole);
+    }
+    
+    if (parts.length === 0) return null;
+    
+    return (
+      <Badge variant="outline" className="flex items-center gap-1 text-xs">
+        <Building2 className="w-3 h-3" />
+        {parts.join(' • ')}
+      </Badge>
+    );
   };
 
   return (
@@ -46,10 +82,31 @@ const RepositoryNuggetCard = ({ nugget, onNuggetClick, onWatchClick }) => {
             </div>
           </div>
           
-          <div className="flex items-center gap-2 ml-4">
+          <div className="flex items-center gap-2 ml-4 flex-wrap">
             <Badge variant="outline" className={getSentimentColor(nugget.category)}>
               {nugget.category.replace('_', ' ')}
             </Badge>
+            {getParticipantContextBadge()}
+            {project && (
+              <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                <FolderOpen className="w-3 h-3" />
+                {project.name}
+              </Badge>
+            )}
+            {onAddToProblemSpace && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex items-center gap-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToProblemSpace();
+                }}
+                title="Add to Problem Space"
+              >
+                <Target className="w-4 h-4" />
+              </Button>
+            )}
             {nugget.session_id && (
               <Button 
                 variant="ghost" 

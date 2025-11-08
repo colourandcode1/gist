@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, CheckSquare, Square, Target } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import NavigationHeader from './NavigationHeader';
 import TranscriptModal from './TranscriptModal';
 import VideoModal from './VideoModal';
@@ -10,8 +11,10 @@ import RepositoryNuggetCard from './RepositoryNuggetCard';
 import StatisticsCards from './StatisticsCards';
 import TagFilters from './TagFilters';
 import CategoryFilters from './CategoryFilters';
+import AdvancedFilters from './AdvancedFilters';
+import RepositoryAnalytics from './RepositoryAnalytics';
 import { createTimestampedUrl } from '@/lib/videoUtils';
-import { getSessions, getAllNuggets, deleteNugget, getSessionById } from '@/lib/firestoreUtils';
+import { getSessions, getAllNuggets, deleteNugget, getSessionById, getProjects } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
 const RepositorySearchView = ({ onNavigate }) => {
@@ -22,6 +25,9 @@ const RepositorySearchView = ({ onNavigate }) => {
   const [activeFilters, setActiveFilters] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedNuggets, setSelectedNuggets] = useState(new Set());
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [projects, setProjects] = useState([]);
   
   // Modal state management
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,11 +48,14 @@ const RepositorySearchView = ({ onNavigate }) => {
     
     setIsLoading(true);
     try {
-      const sessions = await getSessions(currentUser.uid);
+      const [sessions, nuggets, projectsData] = await Promise.all([
+        getSessions(currentUser.uid),
+        getAllNuggets(currentUser.uid),
+        getProjects(currentUser.uid)
+      ]);
       setSavedSessions(sessions || []);
-      
-      const nuggets = await getAllNuggets(currentUser.uid);
       setAllNuggets(nuggets || []);
+      setProjects(projectsData || []);
     } catch (error) {
       console.error('Error refreshing data:', error);
       console.error('Error code:', error.code);
@@ -128,6 +137,73 @@ const RepositorySearchView = ({ onNavigate }) => {
 
   const clearTagFilters = () => {
     setActiveFilters(prev => prev.filter(f => f.type !== 'tag'));
+  };
+
+  const getAdvancedFilterCount = () => {
+    return activeFilters.filter(f => 
+      ['project', 'session', 'companySize', 'userType', 'industry', 'productTenure', 'dateRange', 'researcher'].includes(f.type)
+    ).length;
+  };
+
+  const clearAdvancedFilters = () => {
+    setActiveFilters(prev => prev.filter(f => 
+      !['project', 'session', 'companySize', 'userType', 'industry', 'productTenure', 'dateRange', 'researcher'].includes(f.type)
+    ));
+  };
+
+  const toggleNuggetSelection = (nugget) => {
+    const insightId = `${nugget.session_id}:${nugget.id}`;
+    setSelectedNuggets(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(insightId)) {
+        newSet.delete(insightId);
+      } else {
+        newSet.add(insightId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedNuggets.size === filteredNuggets.length) {
+      setSelectedNuggets(new Set());
+    } else {
+      const allIds = new Set(filteredNuggets.map(n => `${n.session_id}:${n.id}`));
+      setSelectedNuggets(allIds);
+    }
+  };
+
+  const handleBulkAddToProblemSpace = async () => {
+    if (selectedNuggets.size === 0) return;
+
+    // Import dynamically to avoid circular dependencies
+    const { getProblemSpaces } = await import('@/lib/firestoreUtils');
+    const problemSpaces = await getProblemSpaces(currentUser.uid);
+    
+    if (problemSpaces.length === 0) {
+      if (window.confirm('No problem spaces found. Would you like to create one?')) {
+        // Navigate to create problem space
+        if (onNavigate) {
+          onNavigate('/problem-spaces');
+        }
+      }
+      return;
+    }
+
+    // Simple selection - in a real app, you'd show a dialog
+    const selectedSpace = problemSpaces[0];
+    const { addInsightToProblemSpace } = await import('@/lib/firestoreUtils');
+    
+    try {
+      for (const insightId of selectedNuggets) {
+        await addInsightToProblemSpace(selectedSpace.id, insightId, currentUser.uid);
+      }
+      alert(`Added ${selectedNuggets.size} insight(s) to "${selectedSpace.name}"`);
+      setSelectedNuggets(new Set());
+    } catch (error) {
+      console.error('Error adding insights:', error);
+      alert('Failed to add insights to problem space');
+    }
   };
 
   const handleEditInAnalysis = async () => {
@@ -278,7 +354,63 @@ const RepositorySearchView = ({ onNavigate }) => {
           );
         }));
 
-      return matchesSearch && matchesCategories && matchesTags;
+      // Advanced filters
+      const projectFilters = activeFilters.filter(f => f.type === 'project');
+      const sessionFilters = activeFilters.filter(f => f.type === 'session');
+      const companySizeFilters = activeFilters.filter(f => f.type === 'companySize');
+      const userTypeFilters = activeFilters.filter(f => f.type === 'userType');
+      const industryFilters = activeFilters.filter(f => f.type === 'industry');
+      const productTenureFilters = activeFilters.filter(f => f.type === 'productTenure');
+      const dateRangeFilters = activeFilters.filter(f => f.type === 'dateRange');
+
+      // Find session for this nugget to check participant context and project
+      const session = savedSessions.find(s => s.id === nugget.session_id);
+
+      const matchesProject = projectFilters.length === 0 || 
+        (session && projectFilters.some(filter => session.projectId === filter.id));
+
+      const matchesSession = sessionFilters.length === 0 || 
+        sessionFilters.some(filter => nugget.session_id === filter.id);
+
+      const matchesCompanySize = companySizeFilters.length === 0 ||
+        (session?.participantContext?.companySize && 
+         companySizeFilters.some(filter => session.participantContext.companySize === filter.id));
+
+      const matchesUserType = userTypeFilters.length === 0 ||
+        (session?.participantContext?.userType && 
+         userTypeFilters.some(filter => session.participantContext.userType === filter.id));
+
+      const matchesIndustry = industryFilters.length === 0 ||
+        (session?.participantContext?.industry && 
+         industryFilters.some(filter => 
+           session.participantContext.industry?.toLowerCase().includes(filter.id.toLowerCase())
+         ));
+
+      const matchesProductTenure = productTenureFilters.length === 0 ||
+        (session?.participantContext?.productTenure && 
+         productTenureFilters.some(filter => session.participantContext.productTenure === filter.id));
+
+      const matchesDateRange = dateRangeFilters.length === 0 || (() => {
+        if (!nugget.session_date || !session) return true;
+        const sessionDate = new Date(nugget.session_date);
+        const now = new Date();
+        
+        return dateRangeFilters.some(filter => {
+          const daysAgo = {
+            'last_7_days': 7,
+            'last_30_days': 30,
+            'last_90_days': 90,
+            'last_year': 365
+          }[filter.id] || 0;
+          
+          const cutoffDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+          return sessionDate >= cutoffDate;
+        });
+      })();
+
+      return matchesSearch && matchesCategories && matchesTags && 
+             matchesProject && matchesSession && matchesCompanySize && 
+             matchesUserType && matchesIndustry && matchesProductTenure && matchesDateRange;
     } catch (error) {
       console.error('Error filtering nugget:', error, nugget);
       return false; // Exclude problematic nuggets
@@ -333,6 +465,14 @@ const RepositorySearchView = ({ onNavigate }) => {
           getTagFilterCount={getTagFilterCount}
         />
 
+        <AdvancedFilters
+          activeFilters={activeFilters}
+          addFilter={addFilter}
+          removeFilter={removeFilter}
+          clearAdvancedFilters={clearAdvancedFilters}
+          getAdvancedFilterCount={getAdvancedFilterCount}
+        />
+
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
@@ -362,19 +502,96 @@ const RepositorySearchView = ({ onNavigate }) => {
           {/* Nuggets Content */}
           <div className="lg:col-span-3 space-y-4 bg-background">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">
-                {filteredNuggets.length} insights found
-              </h2>
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-semibold text-foreground">
+                  {filteredNuggets.length} insights found
+                </h2>
+                {selectedNuggets.size > 0 && (
+                  <Badge variant="secondary">
+                    {selectedNuggets.size} selected
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                >
+                  {showAnalytics ? 'Hide' : 'Show'} Analytics
+                </Button>
+                {filteredNuggets.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleSelectAll}
+                  >
+                    {selectedNuggets.size === filteredNuggets.length ? (
+                      <>
+                        <CheckSquare className="w-4 h-4 mr-2" />
+                        Deselect All
+                      </>
+                    ) : (
+                      <>
+                        <Square className="w-4 h-4 mr-2" />
+                        Select All
+                      </>
+                    )}
+                  </Button>
+                )}
+                {selectedNuggets.size > 0 && (
+                  <Button
+                    size="sm"
+                    onClick={handleBulkAddToProblemSpace}
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    Add to Problem Space ({selectedNuggets.size})
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {filteredNuggets.map(nugget => (
-              <RepositoryNuggetCard
-                key={nugget.id}
-                nugget={nugget}
-                onNuggetClick={handleNuggetClick}
-                onWatchClick={handleWatchClick}
-              />
-            ))}
+            {showAnalytics && (
+              <RepositoryAnalytics nuggets={filteredNuggets} sessions={savedSessions} projects={projects} />
+            )}
+
+            {filteredNuggets.map(nugget => {
+              const insightId = `${nugget.session_id}:${nugget.id}`;
+              const isSelected = selectedNuggets.has(insightId);
+              const session = savedSessions.find(s => s.id === nugget.session_id);
+              const project = session?.projectId ? projects.find(p => p.id === session.projectId) : null;
+              
+              return (
+                <div key={nugget.id} className="relative">
+                  <div 
+                    className={`absolute left-2 top-2 z-10 cursor-pointer ${
+                      isSelected ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleNuggetSelection(nugget);
+                    }}
+                  >
+                    {isSelected ? (
+                      <CheckSquare className="w-5 h-5" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                  </div>
+                  <RepositoryNuggetCard
+                    nugget={nugget}
+                    session={session}
+                    project={project}
+                    onNuggetClick={handleNuggetClick}
+                    onWatchClick={handleWatchClick}
+                    onAddToProblemSpace={() => {
+                      setSelectedNuggets(new Set([insightId]));
+                      handleBulkAddToProblemSpace();
+                    }}
+                  />
+                </div>
+              );
+            })}
 
             {filteredNuggets.length === 0 && (
               <div className="text-center py-8 text-muted-foreground bg-background">

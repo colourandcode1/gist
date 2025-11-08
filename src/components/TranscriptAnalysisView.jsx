@@ -119,6 +119,8 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
         },
         recording_url: sessionData.recordingUrl,
         transcript_content: sessionData.transcriptContent,
+        projectId: sessionData.projectId || null,
+        participantContext: sessionData.participantContext || null,
         nuggets: nuggets.map(nugget => ({
           id: nugget.id,
           observation: nugget.observation,

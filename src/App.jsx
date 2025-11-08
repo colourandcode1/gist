@@ -8,6 +8,15 @@ import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
 import ProfilePage from "@/pages/ProfilePage";
 import LandingPage from "@/pages/LandingPage";
+import DashboardPage from "@/pages/DashboardPage";
+import ProjectsPage from "@/pages/ProjectsPage";
+import ProjectDetailPage from "@/pages/ProjectDetailPage";
+import SessionsPage from "@/pages/SessionsPage";
+import SessionDetailPage from "@/pages/SessionDetailPage";
+import RepositoryPage from "@/pages/RepositoryPage";
+import ProblemSpacesPage from "@/pages/ProblemSpacesPage";
+import ProblemSpaceDetailPage from "@/pages/ProblemSpaceDetailPage";
+import SettingsPage from "@/pages/SettingsPage";
 
 function App() {
   return (
@@ -22,6 +31,78 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects"
+            element={
+              <ProtectedRoute>
+                <ProjectsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id"
+            element={
+              <ProtectedRoute>
+                <ProjectDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sessions"
+            element={
+              <ProtectedRoute>
+                <SessionsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sessions/:id"
+            element={
+              <ProtectedRoute>
+                <SessionDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/repository"
+            element={
+              <ProtectedRoute>
+                <RepositoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/problem-spaces"
+            element={
+              <ProtectedRoute>
+                <ProblemSpacesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/problem-spaces/:id"
+            element={
+              <ProtectedRoute>
+                <ProblemSpaceDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
               </ProtectedRoute>
             }
           />
