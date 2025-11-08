@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, Workflow, Flag, Users, BarChart3, Lock, Play, FileSearch, Download } from 'lucide-react';
+import { ArrowRight, Check, X, Minus, Workflow, Flag, Users, BarChart3, Lock, Play, FileSearch, Download, Database, Sparkles, Shield, Video, FileText, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -135,6 +135,170 @@ const LandingPage = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison Table Section */}
+      <section className="container mx-auto px-6 py-16">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Compare Us</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              A modern framework for building websites that is better than the competition.
+            </p>
+          </div>
+
+          <div className="bg-card border rounded-lg shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-muted border-b">
+                    <th className="text-left p-4 font-semibold">Feature</th>
+                    <th className="text-center p-4 font-semibold">Dovetail</th>
+                    <th className="text-center p-4 font-semibold">Condens</th>
+                    <th className="text-center p-4 font-bold text-lg bg-primary/10 border-l-2 border-primary">Gist</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Where your data is stored */}
+                  <tr className="border-b">
+                    <td className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Database className="h-5 w-5 text-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-semibold mb-1">Where your data is stored</div>
+                          <div className="text-sm text-muted-foreground">
+                            Control where your research data lives
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-center text-muted-foreground">Their servers</td>
+                    <td className="p-4 text-center text-muted-foreground">Their servers</td>
+                    <td className="p-4 text-center bg-primary/5 border-l-2 border-primary">
+                      <Check className="h-5 w-5 text-green-600 mx-auto" />
+                      <div className="text-sm font-medium mt-1">Your Google Drive</div>
+                    </td>
+                  </tr>
+
+                  {/* AI features built-in */}
+                  <tr className="border-b">
+                    <td className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Sparkles className="h-5 w-5 text-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-semibold mb-1">AI features built-in</div>
+                          <div className="text-sm text-muted-foreground">
+                            Automatic AI processing vs. your choice
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <Check className="h-5 w-5 text-green-600 mx-auto" />
+                      <div className="text-sm text-muted-foreground mt-1">automatic</div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <Check className="h-5 w-5 text-green-600 mx-auto" />
+                      <div className="text-sm text-muted-foreground mt-1">automatic</div>
+                    </td>
+                    <td className="p-4 text-center bg-primary/5 border-l-2 border-primary">
+                      <X className="h-5 w-5 text-red-600 mx-auto" />
+                      <div className="text-sm font-medium mt-1">your choice via MCP</div>
+                    </td>
+                  </tr>
+
+                  {/* Third-party AI processing */}
+                  <tr className="border-b">
+                    <td className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Shield className="h-5 w-5 text-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-semibold mb-1">Third-party AI processing</div>
+                          <div className="text-sm text-muted-foreground">
+                            Whether your data is sent to third-party AI services
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-center text-muted-foreground">Yes</td>
+                    <td className="p-4 text-center text-muted-foreground">Yes</td>
+                    <td className="p-4 text-center bg-primary/5 border-l-2 border-primary">
+                      <Check className="h-5 w-5 text-green-600 mx-auto" />
+                      <div className="text-sm font-medium mt-1">Never</div>
+                    </td>
+                  </tr>
+
+                  {/* Video-linked insights */}
+                  <tr className="border-b">
+                    <td className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Video className="h-5 w-5 text-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-semibold mb-1">Video-linked insights</div>
+                          <div className="text-sm text-muted-foreground">
+                            Connect insights directly to video timestamps
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <Check className="h-5 w-5 text-green-600 mx-auto" />
+                      <div className="text-xs text-muted-foreground mt-1">*extra charge</div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <X className="h-5 w-5 text-red-600 mx-auto" />
+                    </td>
+                    <td className="p-4 text-center bg-primary/5 border-l-2 border-primary">
+                      <Check className="h-5 w-5 text-green-600 mx-auto" />
+                    </td>
+                  </tr>
+
+                  {/* Audit logs for compliance */}
+                  <tr className="border-b">
+                    <td className="p-4">
+                      <div className="flex items-start gap-3">
+                        <FileText className="h-5 w-5 text-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-semibold mb-1">Audit logs for compliance</div>
+                          <div className="text-sm text-muted-foreground">
+                            Track all changes and access for compliance
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <X className="h-5 w-5 text-red-600 mx-auto" />
+                    </td>
+                    <td className="p-4 text-center">
+                      <X className="h-5 w-5 text-red-600 mx-auto" />
+                    </td>
+                    <td className="p-4 text-center bg-primary/5 border-l-2 border-primary">
+                      <Check className="h-5 w-5 text-green-600 mx-auto" />
+                    </td>
+                  </tr>
+
+                  {/* Price (5 users/month) */}
+                  <tr>
+                    <td className="p-4">
+                      <div className="flex items-start gap-3">
+                        <DollarSign className="h-5 w-5 text-foreground mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-semibold mb-1">Price (5 users/month)</div>
+                          <div className="text-sm text-muted-foreground">
+                            Monthly pricing for 5 users
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-center font-semibold">$75</td>
+                    <td className="p-4 text-center font-semibold">€75</td>
+                    <td className="p-4 text-center font-bold text-lg bg-primary/5 border-l-2 border-primary">$60</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
