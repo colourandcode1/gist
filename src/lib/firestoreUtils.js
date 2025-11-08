@@ -478,6 +478,50 @@ export const getSessionsByProject = async (projectId, userId) => {
     return sessions;
   } catch (error) {
     console.error('Error loading sessions by project:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    
+    // Re-throw permission errors so they can be handled by the caller
+    if (error.code === 'permission-denied' || error.code === 7) {
+      throw error;
+    }
+    
+    // If error is due to missing index, log helpful message and try fallback
+    if (error.code === 'failed-precondition') {
+      console.warn('Firestore index may be missing. Check Firebase Console for index creation prompts.');
+      // Try query without orderBy as fallback
+      try {
+        const fallbackQuery = query(
+          collection(db, 'sessions'),
+          where('projectId', '==', projectId),
+          where('userId', '==', userId)
+        );
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        const fallbackSessions = [];
+        fallbackSnapshot.forEach((doc) => {
+          const data = doc.data();
+          const { transcript_content, ...sessionData } = data;
+          fallbackSessions.push({
+            id: doc.id,
+            ...sessionData,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+            _hasTranscript: !!transcript_content
+          });
+        });
+        // Sort in memory
+        fallbackSessions.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return dateB - dateA; // descending order
+        });
+        console.warn('Loaded sessions by project without index (sorted in memory). Please create the index for better performance.');
+        return fallbackSessions;
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+      }
+      console.warn('Please create the Firestore index. Check the browser console for the index creation link, or see FIREBASE_SETUP.md for instructions.');
+    }
     return [];
   }
 };
@@ -565,6 +609,61 @@ export const getProjects = async (userId, teamId = null) => {
     return projects;
   } catch (error) {
     console.error('Error loading projects:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    
+    // Re-throw permission errors so they can be handled by the caller
+    if (error.code === 'permission-denied' || error.code === 7) {
+      throw error;
+    }
+    
+    // If error is due to missing index, log helpful message and try fallback
+    if (error.code === 'failed-precondition') {
+      console.warn('Firestore index may be missing. Check Firebase Console for index creation prompts.');
+      // Try query without orderBy as fallback
+      try {
+        let fallbackQuery;
+        if (teamId) {
+          fallbackQuery = query(
+            collection(db, 'projects'),
+            where('teamId', '==', teamId)
+          );
+        } else {
+          fallbackQuery = query(
+            collection(db, 'projects'),
+            where('userId', '==', userId)
+          );
+        }
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        const fallbackProjects = [];
+        fallbackSnapshot.forEach((doc) => {
+          const data = doc.data();
+          // Filter out team projects if teamId is null (private projects only)
+          if (!teamId && data.teamId !== null) {
+            return;
+          }
+          fallbackProjects.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+            startDate: data.startDate?.toDate?.()?.toISOString() || data.startDate,
+            endDate: data.endDate?.toDate?.()?.toISOString() || data.endDate
+          });
+        });
+        // Sort in memory
+        fallbackProjects.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return dateB - dateA; // descending order
+        });
+        console.warn('Loaded projects without index (sorted in memory). Please create the index for better performance.');
+        return fallbackProjects;
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+      }
+      console.warn('Please create the Firestore index. Check the browser console for the index creation link, or see FIREBASE_SETUP.md for instructions.');
+    }
     return [];
   }
 };
@@ -615,6 +714,62 @@ export const getProjectsByStatus = async (userId, status, teamId = null) => {
     return projects;
   } catch (error) {
     console.error('Error loading projects by status:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    
+    // Re-throw permission errors so they can be handled by the caller
+    if (error.code === 'permission-denied' || error.code === 7) {
+      throw error;
+    }
+    
+    // If error is due to missing index, log helpful message and try fallback
+    if (error.code === 'failed-precondition') {
+      console.warn('Firestore index may be missing. Check Firebase Console for index creation prompts.');
+      // Try query without orderBy as fallback
+      try {
+        let fallbackQuery;
+        if (teamId) {
+          fallbackQuery = query(
+            collection(db, 'projects'),
+            where('teamId', '==', teamId),
+            where('status', '==', status)
+          );
+        } else {
+          fallbackQuery = query(
+            collection(db, 'projects'),
+            where('userId', '==', userId),
+            where('status', '==', status)
+          );
+        }
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        const fallbackProjects = [];
+        fallbackSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (!teamId && data.teamId !== null) {
+            return;
+          }
+          fallbackProjects.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+            startDate: data.startDate?.toDate?.()?.toISOString() || data.startDate,
+            endDate: data.endDate?.toDate?.()?.toISOString() || data.endDate
+          });
+        });
+        // Sort in memory
+        fallbackProjects.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return dateB - dateA; // descending order
+        });
+        console.warn('Loaded projects by status without index (sorted in memory). Please create the index for better performance.');
+        return fallbackProjects;
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+      }
+      console.warn('Please create the Firestore index. Check the browser console for the index creation link, or see FIREBASE_SETUP.md for instructions.');
+    }
     return [];
   }
 };
@@ -783,27 +938,59 @@ export const getProblemSpaces = async (userId, teamId = null) => {
 
     // Also get problem spaces where user is a contributor (if not team query)
     if (!teamId) {
-      const contributorQuery = query(
-        collection(db, 'problemSpaces'),
-        orderBy('updatedAt', 'desc')
-      );
-      const contributorSnapshot = await getDocs(contributorQuery);
-      contributorSnapshot.forEach((doc) => {
-        const data = doc.data();
-        // Check if user is a contributor and it's a team problem space
-        if (data.teamId !== null && data.contributors?.includes(userId)) {
-          // Avoid duplicates
-          if (!problemSpaces.find(ps => ps.id === doc.id)) {
-            problemSpaces.push({
-              id: doc.id,
-              ...data,
-              createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-              updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
-            });
+      try {
+        const contributorQuery = query(
+          collection(db, 'problemSpaces'),
+          orderBy('updatedAt', 'desc')
+        );
+        const contributorSnapshot = await getDocs(contributorQuery);
+        contributorSnapshot.forEach((doc) => {
+          const data = doc.data();
+          // Check if user is a contributor and it's a team problem space
+          if (data.teamId !== null && data.contributors?.includes(userId)) {
+            // Avoid duplicates
+            if (!problemSpaces.find(ps => ps.id === doc.id)) {
+              problemSpaces.push({
+                id: doc.id,
+                ...data,
+                createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+                updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+              });
+            }
           }
+        });
+      } catch (contributorError) {
+        // If contributor query fails (likely missing index), try without orderBy
+        if (contributorError.code === 'failed-precondition') {
+          console.warn('Firestore index may be missing for contributor query. Using fallback.');
+          try {
+            const fallbackContributorQuery = query(
+              collection(db, 'problemSpaces')
+            );
+            const fallbackContributorSnapshot = await getDocs(fallbackContributorQuery);
+            fallbackContributorSnapshot.forEach((doc) => {
+              const data = doc.data();
+              // Check if user is a contributor and it's a team problem space
+              if (data.teamId !== null && data.contributors?.includes(userId)) {
+                // Avoid duplicates
+                if (!problemSpaces.find(ps => ps.id === doc.id)) {
+                  problemSpaces.push({
+                    id: doc.id,
+                    ...data,
+                    createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+                    updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+                  });
+                }
+              }
+            });
+          } catch (fallbackError) {
+            console.error('Fallback contributor query also failed:', fallbackError);
+          }
+        } else {
+          console.error('Error loading contributor problem spaces:', contributorError);
         }
-      });
-      // Re-sort by updatedAt
+      }
+      // Re-sort by updatedAt (always sort in memory to ensure correct order)
       problemSpaces.sort((a, b) => {
         const dateA = new Date(a.updatedAt || 0);
         const dateB = new Date(b.updatedAt || 0);
@@ -814,6 +1001,87 @@ export const getProblemSpaces = async (userId, teamId = null) => {
     return problemSpaces;
   } catch (error) {
     console.error('Error loading problem spaces:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    
+    // Re-throw permission errors so they can be handled by the caller
+    if (error.code === 'permission-denied' || error.code === 7) {
+      throw error;
+    }
+    
+    // If error is due to missing index, log helpful message and try fallback
+    if (error.code === 'failed-precondition') {
+      console.warn('Firestore index may be missing. Check Firebase Console for index creation prompts.');
+      // Try query without orderBy as fallback
+      try {
+        let fallbackQuery;
+        if (teamId) {
+          fallbackQuery = query(
+            collection(db, 'problemSpaces'),
+            where('teamId', '==', teamId)
+          );
+        } else {
+          fallbackQuery = query(
+            collection(db, 'problemSpaces'),
+            where('userId', '==', userId)
+          );
+        }
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        const fallbackProblemSpaces = [];
+        fallbackSnapshot.forEach((doc) => {
+          const data = doc.data();
+          // Filter out team problem spaces if teamId is null (private only)
+          if (!teamId && data.teamId !== null) {
+            return;
+          }
+          fallbackProblemSpaces.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+          });
+        });
+        
+        // Also try to get contributor problem spaces (without orderBy)
+        if (!teamId) {
+          try {
+            const fallbackContributorQuery = query(
+              collection(db, 'problemSpaces')
+            );
+            const fallbackContributorSnapshot = await getDocs(fallbackContributorQuery);
+            fallbackContributorSnapshot.forEach((doc) => {
+              const data = doc.data();
+              // Check if user is a contributor and it's a team problem space
+              if (data.teamId !== null && data.contributors?.includes(userId)) {
+                // Avoid duplicates
+                if (!fallbackProblemSpaces.find(ps => ps.id === doc.id)) {
+                  fallbackProblemSpaces.push({
+                    id: doc.id,
+                    ...data,
+                    createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+                    updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+                  });
+                }
+              }
+            });
+          } catch (contributorError) {
+            console.error('Fallback contributor query failed:', contributorError);
+          }
+        }
+        
+        // Sort in memory
+        fallbackProblemSpaces.sort((a, b) => {
+          const dateA = new Date(a.updatedAt || 0);
+          const dateB = new Date(b.updatedAt || 0);
+          return dateB - dateA; // descending order
+        });
+        console.warn('Loaded problem spaces without index (sorted in memory). Please create the index for better performance.');
+        return fallbackProblemSpaces;
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+      }
+      console.warn('Please create the Firestore index. Check the browser console for the index creation link, or see FIREBASE_SETUP.md for instructions.');
+    }
     return [];
   }
 };

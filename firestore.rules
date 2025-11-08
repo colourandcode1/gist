@@ -1,0 +1,212 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Users collection - users can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      // Admins can read all user profiles
+      allow read: if isAdmin();
+    }
+    
+    // Sessions collection
+    match /sessions/{sessionId} {
+      // Users can create sessions if they're authenticated and set themselves as owner
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid;
+      
+      // Users can read their own sessions
+      allow read: if isAuthenticated() && 
+                  resource.data.userId == request.auth.uid;
+      
+      // Users can update their own sessions
+      allow update: if isAuthenticated() && 
+                    resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own sessions
+      allow delete: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // Admins can read/update/delete any session
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Projects collection
+    match /projects/{projectId} {
+      // Users can create projects if they're authenticated and set themselves as owner
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid &&
+                     request.resource.data.createdBy == request.auth.uid;
+      
+      // Users can read their own projects
+      allow read: if isAuthenticated() && 
+                  (resource.data.userId == request.auth.uid ||
+                   request.auth.uid in resource.data.teamMembers);
+      
+      // Users can update their own projects
+      allow update: if isAuthenticated() && 
+                    resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own projects
+      allow delete: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // Admins can read/update/delete any project
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Problem Spaces collection
+    match /problemSpaces/{problemSpaceId} {
+      // Users can create problem spaces if they're authenticated and set themselves as owner
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid &&
+                     request.resource.data.createdBy == request.auth.uid;
+      
+      // Users can read their own problem spaces or ones they contribute to
+      allow read: if isAuthenticated() && 
+                  (resource.data.userId == request.auth.uid ||
+                   request.auth.uid in resource.data.contributors);
+      
+      // Users can update their own problem spaces or ones they contribute to
+      allow update: if isAuthenticated() && 
+                    (resource.data.userId == request.auth.uid ||
+                     request.auth.uid in resource.data.contributors);
+      
+      // Users can delete their own problem spaces
+      allow delete: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // Admins can read/update/delete any problem space
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Comments collection
+    match /comments/{commentId} {
+      // Users can create comments if authenticated
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid;
+      
+      // Users can read comments
+      allow read: if isAuthenticated();
+      
+      // Users can update/delete their own comments
+      allow update, delete: if isAuthenticated() && 
+                             resource.data.userId == request.auth.uid;
+      
+      // Admins can update/delete any comment
+      allow update, delete: if isAdmin();
+    }
+    
+    // Share Links collection
+    match /shareLinks/{shareLinkId} {
+      // Users can create share links if authenticated
+      allow create: if isAuthenticated() && 
+                     request.resource.data.createdBy == request.auth.uid;
+      
+      // Anyone can read share links (they're meant to be shared)
+      allow read: if true;
+      
+      // Users can update/delete their own share links
+      allow update, delete: if isAuthenticated() && 
+                             resource.data.createdBy == request.auth.uid;
+      
+      // Admins can update/delete any share link
+      allow update, delete: if isAdmin();
+    }
+    
+    // Teams collection
+    match /teams/{teamId} {
+      // Users can create teams if authenticated
+      allow create: if isAuthenticated() && 
+                     request.resource.data.ownerId == request.auth.uid;
+      
+      // Users can read teams they're members of
+      allow read: if isAuthenticated() && 
+                  (request.auth.uid in resource.data.members ||
+                   resource.data.ownerId == request.auth.uid);
+      
+      // Team owners and admins can update teams
+      allow update: if isAuthenticated() && 
+                    (resource.data.ownerId == request.auth.uid ||
+                     resource.data.roles[request.auth.uid] == 'admin');
+      
+      // Only team owners can delete teams
+      allow delete: if isAuthenticated() && 
+                     resource.data.ownerId == request.auth.uid;
+      
+      // Admins can read/update/delete any team
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Team Members collection
+    match /teamMembers/{memberId} {
+      // Users can create team member records if authenticated
+      allow create: if isAuthenticated();
+      
+      // Users can read team members of teams they belong to
+      allow read: if isAuthenticated();
+      
+      // Team admins can update team members
+      allow update: if isAuthenticated();
+      
+      // Team admins can delete team members
+      allow delete: if isAuthenticated();
+      
+      // Admins have full access
+      allow read, write: if isAdmin();
+    }
+    
+    // Team Invitations collection
+    match /teamInvitations/{invitationId} {
+      // Users can create invitations if authenticated
+      allow create: if isAuthenticated();
+      
+      // Users can read invitations sent to them or by them
+      allow read: if isAuthenticated() && 
+                  (resource.data.inviteeId == request.auth.uid ||
+                   resource.data.inviterId == request.auth.uid);
+      
+      // Users can update invitations they created
+      allow update: if isAuthenticated() && 
+                    resource.data.inviterId == request.auth.uid;
+      
+      // Users can delete invitations they created or received
+      allow delete: if isAuthenticated() && 
+                     (resource.data.inviterId == request.auth.uid ||
+                      resource.data.inviteeId == request.auth.uid);
+      
+      // Admins have full access
+      allow read, write: if isAdmin();
+    }
+    
+    // Activities collection
+    match /activities/{activityId} {
+      // Users can create activities if authenticated
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid;
+      
+      // Users can read activities related to their resources
+      allow read: if isAuthenticated();
+      
+      // Users generally shouldn't update/delete activities, but admins can
+      allow update, delete: if isAdmin();
+    }
+  }
+}
+

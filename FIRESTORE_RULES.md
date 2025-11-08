@@ -2,56 +2,61 @@
 
 ## Quick Setup
 
-Copy these rules to your Firebase Console:
+The Firestore security rules are now managed in the `firestore.rules` file. You can deploy them using Firebase CLI or copy them to the Firebase Console.
+
+### Option 1: Deploy using Firebase CLI (Recommended)
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+### Option 2: Manual Setup via Firebase Console
 
 1. Go to [Firebase Console](https://console.firebase.google.com/)
 2. Select your project (`gist-aa4c1`)
 3. Go to **Firestore Database** > **Rules**
-4. Replace the existing rules with the code below
-5. Click **Publish**
+4. Copy the contents of `firestore.rules` file
+5. Paste into the rules editor
+6. Click **Publish**
 
-## Recommended Security Rules
+## Security Rules Overview
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Helper function to check if user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    // Helper function to check if user owns the resource
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-    
-    // Users collection - users can read/write their own profile
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
-    }
-    
-    // Sessions collection
-    match /sessions/{sessionId} {
-      // Users can create sessions if they're authenticated and set themselves as owner
-      allow create: if isAuthenticated() && 
-                     request.resource.data.userId == request.auth.uid;
-      
-      // Users can read their own sessions
-      allow read: if isAuthenticated() && 
-                  resource.data.userId == request.auth.uid;
-      
-      // Users can update their own sessions
-      allow update: if isAuthenticated() && 
-                    resource.data.userId == request.auth.uid;
-      
-      // Users can delete their own sessions
-      allow delete: if isAuthenticated() && 
-                     resource.data.userId == request.auth.uid;
-    }
-  }
-}
-```
+The rules include permissions for all collections:
+
+- **users**: Users can read/write their own profile; admins can read all
+- **sessions**: Users can create/read/update/delete their own sessions; admins have full access
+- **projects**: Users can create/read/update/delete their own projects; admins have full access
+- **problemSpaces**: Users can create/read/update/delete their own problem spaces; contributors can read/update; admins have full access
+- **comments**: Users can create comments and manage their own; admins can manage all
+- **shareLinks**: Anyone can read (for sharing); creators can manage; admins have full access
+- **teams**: Team members can read; owners/admins can update; admins have full access
+- **teamMembers**: Team members can read; admins can manage
+- **teamInvitations**: Users can manage invitations they sent/received; admins have full access
+- **activities**: Users can create; admins can manage all
+
+## Admin Role
+
+Users with `role: 'admin'` in their user document have elevated permissions across all collections. To set a user as admin:
+
+1. Go to Firebase Console > Firestore Database
+2. Navigate to `users` collection
+3. Find the user document
+4. Update the `role` field to `'admin'`
+
+## Complete Rules
+
+See `firestore.rules` file for the complete rules definition.
+
+## Firestore Indexes
+
+The application uses Firestore composite indexes to optimize query performance. While the app works without indexes (using fallback queries), creating indexes significantly improves performance.
+
+**For comprehensive index setup instructions, see [FIRESTORE_INDEXES.md](./FIRESTORE_INDEXES.md).**
+
+**Quick Reference - Required Indexes:**
+- `projects`: `(userId, createdAt)`, `(userId, status, createdAt)`
+- `problemSpaces`: `(userId, updatedAt)`
+- `sessions`: `(projectId, userId, createdAt)`
 
 ## Testing
 

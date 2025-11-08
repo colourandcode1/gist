@@ -70,12 +70,30 @@ service cloud.firestore {
 
 **Note:** For production, you'll need to refine these rules, especially when implementing teams functionality.
 
-### 6. Create Firestore Indexes (if needed)
+### 6. Create Firestore Indexes (Optional but Recommended)
 
-If you see errors about missing indexes when fetching sessions:
-1. Check the browser console for index creation links
-2. Click the links to automatically create the required indexes
-3. Or manually create indexes in Firebase Console > Firestore > Indexes
+**Note**: The application works without Firestore composite indexes using fallback queries, but creating indexes will significantly improve query performance, especially as your data grows.
+
+For comprehensive index setup instructions, see **[FIRESTORE_INDEXES.md](./FIRESTORE_INDEXES.md)**.
+
+**Quick Start:**
+
+1. **Automatic Method (Recommended)**:
+   - Use the application normally (create projects, problem spaces, sessions)
+   - Check browser console (F12) for index creation links when queries run
+   - Click the links to automatically create required indexes
+   - Wait 1-5 minutes for indexes to build
+
+2. **Manual Method**:
+   - Go to [Firebase Console](https://console.firebase.google.com/) > Firestore Database > Indexes
+   - Click "Create Index" and follow the instructions in [FIRESTORE_INDEXES.md](./FIRESTORE_INDEXES.md)
+
+**Required Indexes:**
+- `projects`: `(userId, createdAt)` and `(userId, status, createdAt)`
+- `problemSpaces`: `(userId, updatedAt)`
+- `sessions`: `(projectId, userId, createdAt)`
+
+See [FIRESTORE_INDEXES.md](./FIRESTORE_INDEXES.md) for complete details, step-by-step instructions, and troubleshooting tips.
 
 ### 7. Test the Setup
 
