@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { analyzeTranscript, parseTranscript } from '@/lib/transcriptUtils';
+import { parseFile } from '@/lib/fileUtils';
 
 const TranscriptUpload = ({ 
   uploadMethod, 
@@ -34,28 +35,29 @@ const TranscriptUpload = ({
       }));
     }
     
-    setTimeout(() => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const transcriptContent = e.target.result;
-        const suggestions = analyzeTranscript(transcriptContent);
-        
-        setSessionData(prev => ({
-          ...prev,
-          transcriptContent,
-          // Only auto-fill if fields are empty
-          ...(prev.participantName === '' && suggestions.participantName && { participantName: suggestions.participantName }),
-          ...(prev.sessionType === 'user_interview' && suggestions.sessionType && { sessionType: suggestions.sessionType }),
-          ...(prev.title === '' && suggestions.title && { title: suggestions.title }),
-          ...(prev.sessionDate === new Date().toISOString().split('T')[0] && suggestions.sessionDate && { sessionDate: suggestions.sessionDate })
-        }));
-        
-        // Track what suggestions were applied
-        setAutoFillSuggestions(suggestions);
-        setIsProcessing(false);
-      };
-      reader.readAsText(file);
-    }, 1000);
+    try {
+      const transcriptContent = await parseFile(file);
+      const suggestions = analyzeTranscript(transcriptContent);
+      
+      setSessionData(prev => ({
+        ...prev,
+        transcriptContent,
+        // Only auto-fill if fields are empty
+        ...(prev.participantName === '' && suggestions.participantName && { participantName: suggestions.participantName }),
+        ...(prev.sessionType === 'user_interview' && suggestions.sessionType && { sessionType: suggestions.sessionType }),
+        ...(prev.title === '' && suggestions.title && { title: suggestions.title }),
+        ...(prev.sessionDate === new Date().toISOString().split('T')[0] && suggestions.sessionDate && { sessionDate: suggestions.sessionDate })
+      }));
+      
+      // Track what suggestions were applied
+      setAutoFillSuggestions(suggestions);
+      setIsProcessing(false);
+    } catch (error) {
+      console.error('Error parsing file:', error);
+      alert(`Failed to parse file: ${error.message}`);
+      setIsProcessing(false);
+      setUploadMethod('');
+    }
   };
 
   const previewTranscript = sessionData.transcriptContent ? 
