@@ -45,12 +45,27 @@ export const AuthProvider = ({ children }) => {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         };
-        await setDoc(doc(db, 'users', user.uid), newUserProfile);
-        setUserProfile(newUserProfile);
+        try {
+          await setDoc(doc(db, 'users', user.uid), newUserProfile);
+          setUserProfile(newUserProfile);
+        } catch (profileError) {
+          console.error('Error creating user profile:', profileError);
+          // If profile creation fails due to permissions, still allow login
+          // but log the error for debugging
+          if (profileError.code === 'permission-denied') {
+            console.warn('Firestore permission denied when creating user profile. Check your security rules.');
+          }
+          // Set a minimal profile so the user can still log in
+          setUserProfile({ email: user.email, role: 'researcher' });
+        }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      setUserProfile(null);
+      // Don't block login if profile fetch fails - set a minimal profile
+      if (error.code === 'permission-denied') {
+        console.warn('Firestore permission denied when fetching user profile. Check your security rules.');
+      }
+      setUserProfile({ email: user.email, role: 'researcher' });
     }
   };
 
@@ -69,9 +84,30 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Wait for auth state to update and profile to be fetched
+      // The onAuthStateChanged listener will handle this, but we can also fetch immediately
+      await fetchUserProfile(userCredential.user);
       return { success: true, user: userCredential.user };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.error('Login error:', error);
+      // Provide more user-friendly error messages
+      let errorMessage = error.message;
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password. Please try again.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address.';
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed login attempts. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your connection and Firebase configuration.';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password.';
+      }
+      return { success: false, error: errorMessage };
     }
   };
 

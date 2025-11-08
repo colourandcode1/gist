@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Plug, Cloud, Zap, Calendar, FileText, ExternalLink } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getIntegrations, updateIntegration } from '@/lib/firestoreUtils';
 
 const Integrations = () => {
+  const { currentUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
   const [integrations, setIntegrations] = useState({
     googleDrive: { enabled: false, connected: false },
     oneDrive: { enabled: false, connected: false },
@@ -23,19 +30,111 @@ const Integrations = () => {
     dataSharing: false
   });
 
-  const handleConnect = (integrationName) => {
-    // TODO: Implement OAuth flow or API connection
-    setIntegrations({
-      ...integrations,
-      [integrationName]: { ...integrations[integrationName], connected: true, enabled: true }
-    });
+  useEffect(() => {
+    if (currentUser) {
+      loadIntegrations();
+    } else {
+      setIsLoading(false);
+    }
+  }, [currentUser?.uid]);
+
+  const loadIntegrations = async () => {
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const integrationsData = await getIntegrations(currentUser.uid);
+      if (integrationsData) {
+        if (integrationsData.googleDrive) setIntegrations(prev => ({ ...prev, googleDrive: integrationsData.googleDrive }));
+        if (integrationsData.oneDrive) setIntegrations(prev => ({ ...prev, oneDrive: integrationsData.oneDrive }));
+        if (integrationsData.slack) setIntegrations(prev => ({ ...prev, slack: integrationsData.slack }));
+        if (integrationsData.zapier) setIntegrations(prev => ({ ...prev, zapier: integrationsData.zapier }));
+        if (integrationsData.calendar) setIntegrations(prev => ({ ...prev, calendar: integrationsData.calendar }));
+        if (integrationsData.notion) setIntegrations(prev => ({ ...prev, notion: integrationsData.notion }));
+        if (integrationsData.mcp) setMcpIntegration(integrationsData.mcp);
+      }
+    } catch (error) {
+      console.error('Error loading integrations:', error);
+      setMessage({ type: 'error', text: 'Failed to load integrations' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDisconnect = (integrationName) => {
-    setIntegrations({
-      ...integrations,
-      [integrationName]: { ...integrations[integrationName], connected: false, enabled: false }
-    });
+  const handleConnect = async (integrationName) => {
+    if (!currentUser) return;
+
+    setIsSaving(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // TODO: Implement OAuth flow or API connection
+      // For now, just save the connection state
+      const updatedIntegration = { ...integrations[integrationName], connected: true, enabled: true };
+      const result = await updateIntegration(currentUser.uid, integrationName, updatedIntegration);
+      
+      if (result.success) {
+        setIntegrations({
+          ...integrations,
+          [integrationName]: updatedIntegration
+        });
+        setMessage({ type: 'success', text: `${integrationName} connected successfully` });
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to connect integration' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Failed to connect integration' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDisconnect = async (integrationName) => {
+    if (!currentUser) return;
+
+    setIsSaving(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const updatedIntegration = { ...integrations[integrationName], connected: false, enabled: false };
+      const result = await updateIntegration(currentUser.uid, integrationName, updatedIntegration);
+      
+      if (result.success) {
+        setIntegrations({
+          ...integrations,
+          [integrationName]: updatedIntegration
+        });
+        setMessage({ type: 'success', text: `${integrationName} disconnected successfully` });
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to disconnect integration' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Failed to disconnect integration' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveMcpConfig = async () => {
+    if (!currentUser) return;
+
+    setIsSaving(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const result = await updateIntegration(currentUser.uid, 'mcp', mcpIntegration);
+      if (result.success) {
+        setMessage({ type: 'success', text: 'MCP configuration saved successfully' });
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to save MCP configuration' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Failed to save MCP configuration' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -156,7 +255,9 @@ const Integrations = () => {
                   onCheckedChange={(checked) => setMcpIntegration({ ...mcpIntegration, dataSharing: checked })}
                 />
               </div>
-              <Button>Save MCP Configuration</Button>
+              <Button onClick={handleSaveMcpConfig} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save MCP Configuration'}
+              </Button>
             </>
           )}
         </CardContent>
@@ -261,6 +362,17 @@ const Integrations = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Message Display */}
+      {message.text && (
+        <div className={`p-4 rounded-md ${
+          message.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' :
+          message.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200' :
+          'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+        }`}>
+          {message.text}
+        </div>
+      )}
     </div>
   );
 };

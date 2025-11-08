@@ -9,6 +9,7 @@ import {
   where,
   updateDoc,
   deleteDoc,
+  setDoc,
   serverTimestamp,
   orderBy
 } from 'firebase/firestore';
@@ -991,6 +992,1313 @@ export const deleteProblemSpace = async (problemSpaceId, userId) => {
     return { success: true };
   } catch (error) {
     console.error('Error deleting problem space:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ============================================
+// COMMENTS COLLECTION FUNCTIONS
+// ============================================
+
+// Create a comment
+export const createComment = async (commentData, userId) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    const commentPayload = {
+      problemSpaceId: commentData.problemSpaceId,
+      insightId: commentData.insightId || null, // Optional: comment on specific insight
+      userId,
+      content: commentData.content,
+      resolved: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, 'comments'), commentPayload);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('Error creating comment:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get comments for a problem space (and optionally a specific insight)
+export const getComments = async (problemSpaceId, insightId = null) => {
+  try {
+    // Fetch all comments for the problem space
+    const q = query(
+      collection(db, 'comments'),
+      where('problemSpaceId', '==', problemSpaceId),
+      orderBy('createdAt', 'asc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const comments = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      // Filter by insightId if specified (null means general comments)
+      if (insightId !== null && data.insightId !== insightId) {
+        return;
+      }
+      if (insightId === null && data.insightId !== null) {
+        return;
+      }
+
+      comments.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+      });
+    });
+
+    return comments;
+  } catch (error) {
+    console.error('Error loading comments:', error);
+    return [];
+  }
+};
+
+// Update a comment
+export const updateComment = async (commentId, updates, userId) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    const commentRef = doc(db, 'comments', commentId);
+    const commentSnap = await getDoc(commentRef);
+    
+    if (!commentSnap.exists()) {
+      return { success: false, error: 'Comment not found' };
+    }
+
+    const commentData = commentSnap.data();
+    // Check permissions (only comment author can update)
+    if (commentData.userId !== userId) {
+      return { success: false, error: 'Permission denied' };
+    }
+
+    await updateDoc(commentRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating comment:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Delete a comment
+export const deleteComment = async (commentId, userId) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    const commentRef = doc(db, 'comments', commentId);
+    const commentSnap = await getDoc(commentRef);
+    
+    if (!commentSnap.exists()) {
+      return { success: false, error: 'Comment not found' };
+    }
+
+    const commentData = commentSnap.data();
+    // Check permissions (only comment author can delete)
+    if (commentData.userId !== userId) {
+      return { success: false, error: 'Permission denied' };
+    }
+
+    await deleteDoc(commentRef);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get user profile by ID
+export const getUserProfile = async (userId) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      return { id: userSnap.id, ...userSnap.data() };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting user profile:', error);
+    return null;
+  }
+};
+
+// Update user profile
+export const updateUserProfile = async (userId, profileData) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    const userRef = doc(db, 'users', userId);
+    
+    // Only update provided fields
+    const updateData = {
+      updatedAt: serverTimestamp()
+    };
+
+    // Add profile fields if provided
+    if (profileData.displayName !== undefined) updateData.displayName = profileData.displayName;
+    if (profileData.bio !== undefined) updateData.bio = profileData.bio;
+    if (profileData.emailNotifications !== undefined) updateData.emailNotifications = profileData.emailNotifications;
+    if (profileData.sessionReminders !== undefined) updateData.sessionReminders = profileData.sessionReminders;
+    if (profileData.weeklyDigest !== undefined) updateData.weeklyDigest = profileData.weeklyDigest;
+    if (profileData.theme !== undefined) updateData.theme = profileData.theme;
+    if (profileData.language !== undefined) updateData.language = profileData.language;
+    if (profileData.dateFormat !== undefined) updateData.dateFormat = profileData.dateFormat;
+
+    await updateDoc(userRef, updateData);
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ============================================
+// SHARING COLLECTION FUNCTIONS
+// ============================================
+
+// Create a share link for a problem space
+export const createShareLink = async (problemSpaceId, shareData, userId) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    const problemSpaceData = await getProblemSpaceById(problemSpaceId);
+    if (!problemSpaceData) {
+      return { success: false, error: 'Problem space not found' };
+    }
+
+    // Check permissions (only owner or contributors can share)
+    if (problemSpaceData.userId !== userId && !problemSpaceData.contributors?.includes(userId)) {
+      return { success: false, error: 'Permission denied' };
+    }
+
+    // Generate a unique share token
+    const shareToken = `${problemSpaceId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    const sharePayload = {
+      problemSpaceId,
+      shareToken,
+      createdBy: userId,
+      password: shareData.password || null,
+      expiresAt: shareData.expiresAt ? new Date(shareData.expiresAt) : null,
+      permission: shareData.permission || 'view', // view, edit
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, 'shareLinks'), sharePayload);
+    return { success: true, id: docRef.id, shareToken };
+  } catch (error) {
+    console.error('Error creating share link:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get share link by token
+export const getShareLinkByToken = async (shareToken) => {
+  try {
+    const q = query(
+      collection(db, 'shareLinks'),
+      where('shareToken', '==', shareToken)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const doc = querySnapshot.docs[0];
+    const data = doc.data();
+    
+    // Check if expired
+    if (data.expiresAt) {
+      const expiresAt = data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt);
+      if (expiresAt < new Date()) {
+        return null; // Expired
+      }
+    }
+
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+      expiresAt: data.expiresAt?.toDate?.()?.toISOString() || data.expiresAt
+    };
+  } catch (error) {
+    console.error('Error getting share link:', error);
+    return null;
+  }
+};
+
+// Get all share links for a problem space
+export const getShareLinks = async (problemSpaceId, userId) => {
+  try {
+    if (!userId) {
+      return [];
+    }
+
+    const problemSpaceData = await getProblemSpaceById(problemSpaceId);
+    if (!problemSpaceData) {
+      return [];
+    }
+
+    // Check permissions
+    if (problemSpaceData.userId !== userId && !problemSpaceData.contributors?.includes(userId)) {
+      return [];
+    }
+
+    const q = query(
+      collection(db, 'shareLinks'),
+      where('problemSpaceId', '==', problemSpaceId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const shareLinks = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      shareLinks.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        expiresAt: data.expiresAt?.toDate?.()?.toISOString() || data.expiresAt
+      });
+    });
+
+    return shareLinks;
+  } catch (error) {
+    console.error('Error loading share links:', error);
+    return [];
+  }
+};
+
+// Delete a share link
+export const deleteShareLink = async (shareLinkId, userId) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    const shareLinkRef = doc(db, 'shareLinks', shareLinkId);
+    const shareLinkSnap = await getDoc(shareLinkRef);
+    
+    if (!shareLinkSnap.exists()) {
+      return { success: false, error: 'Share link not found' };
+    }
+
+    const shareLinkData = shareLinkSnap.data();
+    // Check permissions
+    if (shareLinkData.createdBy !== userId) {
+      return { success: false, error: 'Permission denied' };
+    }
+
+    await deleteDoc(shareLinkRef);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting share link:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ============================================
+// TEAM MANAGEMENT FUNCTIONS
+// ============================================
+
+// Get team members for a team
+export const getTeamMembers = async (teamId, userId) => {
+  try {
+    if (!teamId || !userId) {
+      return [];
+    }
+
+    // Get team document to check permissions
+    const teamRef = doc(db, 'teams', teamId);
+    const teamSnap = await getDoc(teamRef);
+    
+    if (!teamSnap.exists()) {
+      return [];
+    }
+
+    const teamData = teamSnap.data();
+    // Check if user is a member of the team
+    if (!teamData.members?.includes(userId) && teamData.ownerId !== userId) {
+      return [];
+    }
+
+    // Get team members from teamMembers subcollection or members array
+    const membersQuery = query(
+      collection(db, 'teamMembers'),
+      where('teamId', '==', teamId)
+    );
+
+    const membersSnapshot = await getDocs(membersQuery);
+    const members = [];
+
+    membersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      members.push({
+        id: doc.id,
+        userId: data.userId,
+        email: data.email,
+        displayName: data.displayName,
+        role: data.role || 'researcher',
+        joinedAt: data.joinedAt?.toDate?.()?.toISOString() || data.joinedAt
+      });
+    });
+
+    // If no subcollection members, use members array from team document
+    if (members.length === 0 && teamData.members) {
+      // Fetch user profiles for each member
+      for (const memberId of teamData.members) {
+        const userProfile = await getUserProfile(memberId);
+        if (userProfile) {
+          members.push({
+            id: memberId,
+            userId: memberId,
+            email: userProfile.email,
+            displayName: userProfile.displayName,
+            role: teamData.roles?.[memberId] || 'researcher'
+          });
+        }
+      }
+    }
+
+    return members;
+  } catch (error) {
+    console.error('Error loading team members:', error);
+    return [];
+  }
+};
+
+// Invite a team member
+export const inviteTeamMember = async (teamId, email, role, userId) => {
+  try {
+    if (!teamId || !email || !userId) {
+      return { success: false, error: 'Team ID, email, and user ID are required' };
+    }
+
+    // Check if user has permission to invite (must be team owner or admin)
+    const teamRef = doc(db, 'teams', teamId);
+    const teamSnap = await getDoc(teamRef);
+    
+    if (!teamSnap.exists()) {
+      return { success: false, error: 'Team not found' };
+    }
+
+    const teamData = teamSnap.data();
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    
+    if (userRole !== 'admin' && teamData.ownerId !== userId) {
+      return { success: false, error: 'Permission denied - only admins can invite members' };
+    }
+
+    // Create invitation document
+    const invitationPayload = {
+      teamId,
+      email,
+      role: role || 'researcher',
+      invitedBy: userId,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      expiresAt: null // Could add expiration logic
+    };
+
+    const docRef = await addDoc(collection(db, 'teamInvitations'), invitationPayload);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('Error inviting team member:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get pending invitations for a team
+export const getPendingInvitations = async (teamId, userId) => {
+  try {
+    if (!teamId || !userId) {
+      return [];
+    }
+
+    // Check permissions
+    const teamRef = doc(db, 'teams', teamId);
+    const teamSnap = await getDoc(teamRef);
+    
+    if (!teamSnap.exists()) {
+      return [];
+    }
+
+    const teamData = teamSnap.data();
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    
+    if (userRole !== 'admin' && teamData.ownerId !== userId) {
+      return [];
+    }
+
+    const q = query(
+      collection(db, 'teamInvitations'),
+      where('teamId', '==', teamId),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const invitations = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      invitations.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        expiresAt: data.expiresAt?.toDate?.()?.toISOString() || data.expiresAt
+      });
+    });
+
+    return invitations;
+  } catch (error) {
+    console.error('Error loading pending invitations:', error);
+    return [];
+  }
+};
+
+// Update team member role
+export const updateMemberRole = async (teamId, memberId, newRole, userId) => {
+  try {
+    if (!teamId || !memberId || !userId) {
+      return { success: false, error: 'Team ID, member ID, and user ID are required' };
+    }
+
+    // Check permissions (only admin or owner can update roles)
+    const teamRef = doc(db, 'teams', teamId);
+    const teamSnap = await getDoc(teamRef);
+    
+    if (!teamSnap.exists()) {
+      return { success: false, error: 'Team not found' };
+    }
+
+    const teamData = teamSnap.data();
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    
+    if (userRole !== 'admin' && teamData.ownerId !== userId) {
+      return { success: false, error: 'Permission denied - only admins can update roles' };
+    }
+
+    // Update role in teamMembers subcollection if it exists
+    const memberQuery = query(
+      collection(db, 'teamMembers'),
+      where('teamId', '==', teamId),
+      where('userId', '==', memberId)
+    );
+
+    const memberSnapshot = await getDocs(memberQuery);
+    if (!memberSnapshot.empty) {
+      const memberDoc = memberSnapshot.docs[0];
+      await updateDoc(doc(db, 'teamMembers', memberDoc.id), {
+        role: newRole,
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      // Update in team document roles map
+      const currentRoles = teamData.roles || {};
+      await updateDoc(teamRef, {
+        roles: { ...currentRoles, [memberId]: newRole },
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating member role:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Remove team member
+export const removeTeamMember = async (teamId, memberId, userId) => {
+  try {
+    if (!teamId || !memberId || !userId) {
+      return { success: false, error: 'Team ID, member ID, and user ID are required' };
+    }
+
+    // Check permissions
+    const teamRef = doc(db, 'teams', teamId);
+    const teamSnap = await getDoc(teamRef);
+    
+    if (!teamSnap.exists()) {
+      return { success: false, error: 'Team not found' };
+    }
+
+    const teamData = teamSnap.data();
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    
+    if (userRole !== 'admin' && teamData.ownerId !== userId) {
+      return { success: false, error: 'Permission denied - only admins can remove members' };
+    }
+
+    // Cannot remove owner
+    if (teamData.ownerId === memberId) {
+      return { success: false, error: 'Cannot remove team owner' };
+    }
+
+    // Remove from teamMembers subcollection
+    const memberQuery = query(
+      collection(db, 'teamMembers'),
+      where('teamId', '==', teamId),
+      where('userId', '==', memberId)
+    );
+
+    const memberSnapshot = await getDocs(memberQuery);
+    if (!memberSnapshot.empty) {
+      for (const memberDoc of memberSnapshot.docs) {
+        await deleteDoc(doc(db, 'teamMembers', memberDoc.id));
+      }
+    }
+
+    // Remove from team document members array and roles
+    const currentMembers = teamData.members || [];
+    const currentRoles = teamData.roles || {};
+    const updatedMembers = currentMembers.filter(id => id !== memberId);
+    const { [memberId]: removedRole, ...updatedRoles } = currentRoles;
+
+    await updateDoc(teamRef, {
+      members: updatedMembers,
+      roles: updatedRoles,
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error removing team member:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Create a team
+export const createTeam = async (teamData, userId) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    const teamPayload = {
+      name: teamData.name || 'My Team',
+      ownerId: userId,
+      members: [userId], // Owner is first member
+      roles: { [userId]: 'admin' },
+      defaultRole: teamData.defaultRole || 'researcher',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, 'teams'), teamPayload);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('Error creating team:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Update team settings
+export const updateTeamSettings = async (teamId, settings, userId) => {
+  try {
+    if (!teamId || !userId) {
+      return { success: false, error: 'Team ID and user ID are required' };
+    }
+
+    // Check permissions (only admin or owner can update settings)
+    const teamRef = doc(db, 'teams', teamId);
+    const teamSnap = await getDoc(teamRef);
+    
+    if (!teamSnap.exists()) {
+      return { success: false, error: 'Team not found' };
+    }
+
+    const teamData = teamSnap.data();
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    
+    if (userRole !== 'admin' && teamData.ownerId !== userId) {
+      return { success: false, error: 'Permission denied - only admins can update team settings' };
+    }
+
+    const updateData = {
+      updatedAt: serverTimestamp()
+    };
+
+    if (settings.name !== undefined) updateData.name = settings.name;
+    if (settings.defaultRole !== undefined) updateData.defaultRole = settings.defaultRole;
+
+    await updateDoc(teamRef, updateData);
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating team settings:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get user's teams
+export const getUserTeams = async (userId) => {
+  try {
+    if (!userId) {
+      return [];
+    }
+
+    // Get teams where user is a member
+    const q = query(
+      collection(db, 'teams'),
+      where('members', 'array-contains', userId),
+      orderBy('updatedAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const teams = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      teams.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+      });
+    });
+
+    return teams;
+  } catch (error) {
+    console.error('Error loading user teams:', error);
+    return [];
+  }
+};
+
+// ============================================
+// RESEARCH CONFIGURATION FUNCTIONS
+// ============================================
+
+// Get research configuration for user or team
+export const getResearchConfiguration = async (userId, teamId = null) => {
+  try {
+    if (!userId) {
+      return null;
+    }
+
+    let configRef;
+    if (teamId) {
+      // Get team-level config
+      configRef = doc(db, 'researchConfig', `${teamId}_config`);
+    } else {
+      // Get user-level config
+      configRef = doc(db, 'researchConfig', `${userId}_config`);
+    }
+
+    const configSnap = await getDoc(configRef);
+    if (configSnap.exists()) {
+      return { id: configSnap.id, ...configSnap.data() };
+    }
+
+    // Return default configuration if none exists
+    return {
+      participantFields: [
+        { id: 'companyName', label: 'Company Name', enabled: true, required: false },
+        { id: 'companySize', label: 'Company Size', enabled: true, required: false },
+        { id: 'userRole', label: 'User Role', enabled: true, required: false },
+        { id: 'industry', label: 'Industry', enabled: true, required: false },
+        { id: 'productTenure', label: 'Product Tenure', enabled: true, required: false },
+        { id: 'userType', label: 'User Type', enabled: true, required: false }
+      ],
+      customFields: [],
+      dictionaries: {
+        industryTerms: [],
+        companyTerms: [],
+        productNames: [],
+        acronyms: []
+      },
+      categories: [
+        'Pain Points',
+        'Feature Requests',
+        'Positive Feedback',
+        'Workarounds',
+        'Competitive Insights'
+      ],
+      tags: [
+        { name: 'UX', color: '#3b82f6', group: 'General' },
+        { name: 'Performance', color: '#10b981', group: 'Technical' },
+        { name: 'Security', color: '#ef4444', group: 'Technical' }
+      ]
+    };
+  } catch (error) {
+    console.error('Error getting research configuration:', error);
+    return null;
+  }
+};
+
+// Update research configuration
+export const updateResearchConfiguration = async (userId, configData, teamId = null) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    let configRef;
+    if (teamId) {
+      // Check if user has permission to update team config (must be admin)
+      const teamRef = doc(db, 'teams', teamId);
+      const teamSnap = await getDoc(teamRef);
+      
+      if (!teamSnap.exists()) {
+        return { success: false, error: 'Team not found' };
+      }
+
+      const teamData = teamSnap.data();
+      const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+      
+      if (userRole !== 'admin' && teamData.ownerId !== userId) {
+        return { success: false, error: 'Permission denied - only admins can update team research configuration' };
+      }
+
+      configRef = doc(db, 'researchConfig', `${teamId}_config`);
+    } else {
+      configRef = doc(db, 'researchConfig', `${userId}_config`);
+    }
+
+    const updateData = {
+      userId: teamId ? null : userId,
+      teamId: teamId || null,
+      updatedAt: serverTimestamp()
+    };
+
+    if (configData.participantFields !== undefined) updateData.participantFields = configData.participantFields;
+    if (configData.customFields !== undefined) updateData.customFields = configData.customFields;
+    if (configData.dictionaries !== undefined) updateData.dictionaries = configData.dictionaries;
+    if (configData.categories !== undefined) updateData.categories = configData.categories;
+    if (configData.tags !== undefined) updateData.tags = configData.tags;
+
+    // Set createdAt if this is a new document
+    const configSnap = await getDoc(configRef);
+    if (!configSnap.exists()) {
+      updateData.createdAt = serverTimestamp();
+    }
+
+    await setDoc(configRef, updateData, { merge: true });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating research configuration:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ============================================
+// PRIVACY & SECURITY SETTINGS FUNCTIONS
+// ============================================
+
+// Get privacy/security settings for user or team
+export const getPrivacySecuritySettings = async (userId, teamId = null) => {
+  try {
+    if (!userId) {
+      return null;
+    }
+
+    let settingsRef;
+    if (teamId) {
+      settingsRef = doc(db, 'privacySecuritySettings', `${teamId}_settings`);
+    } else {
+      settingsRef = doc(db, 'privacySecuritySettings', `${userId}_settings`);
+    }
+
+    const settingsSnap = await getDoc(settingsRef);
+    if (settingsSnap.exists()) {
+      return { id: settingsSnap.id, ...settingsSnap.data() };
+    }
+
+    // Return default settings if none exists
+    return {
+      piiDetection: {
+        enabled: true,
+        types: {
+          email: true,
+          phone: true,
+          ssn: true,
+          creditCard: false,
+          address: false
+        },
+        redactionMethod: 'mask'
+      },
+      dataRetention: {
+        transcripts: { enabled: true, days: 365 },
+        nuggets: { enabled: true, days: 730 },
+        sessionRecordings: { enabled: true, days: 90 },
+        auditLogs: { enabled: true, days: 2555 },
+        problemSpaces: { enabled: false, days: 0 }
+      },
+      dataResidency: {
+        region: 'us-east-1'
+      },
+      accessControls: {
+        ipAllowlisting: false,
+        allowedIPs: [],
+        sessionTimeout: 30,
+        twoFactorAuth: false,
+        problemSpaceSharing: 'team'
+      }
+    };
+  } catch (error) {
+    console.error('Error getting privacy/security settings:', error);
+    return null;
+  }
+};
+
+// Update privacy/security settings
+export const updatePrivacySecuritySettings = async (userId, settings, teamId = null) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    let settingsRef;
+    if (teamId) {
+      // Check if user has permission to update team settings (must be admin)
+      const teamRef = doc(db, 'teams', teamId);
+      const teamSnap = await getDoc(teamRef);
+      
+      if (!teamSnap.exists()) {
+        return { success: false, error: 'Team not found' };
+      }
+
+      const teamData = teamSnap.data();
+      const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+      
+      if (userRole !== 'admin' && teamData.ownerId !== userId) {
+        return { success: false, error: 'Permission denied - only admins can update team privacy/security settings' };
+      }
+
+      settingsRef = doc(db, 'privacySecuritySettings', `${teamId}_settings`);
+    } else {
+      settingsRef = doc(db, 'privacySecuritySettings', `${userId}_settings`);
+    }
+
+    const updateData = {
+      userId: teamId ? null : userId,
+      teamId: teamId || null,
+      updatedAt: serverTimestamp()
+    };
+
+    if (settings.piiDetection !== undefined) updateData.piiDetection = settings.piiDetection;
+    if (settings.dataRetention !== undefined) updateData.dataRetention = settings.dataRetention;
+    if (settings.dataResidency !== undefined) updateData.dataResidency = settings.dataResidency;
+    if (settings.accessControls !== undefined) updateData.accessControls = settings.accessControls;
+
+    // Set createdAt if this is a new document
+    const settingsSnap = await getDoc(settingsRef);
+    if (!settingsSnap.exists()) {
+      updateData.createdAt = serverTimestamp();
+    }
+
+    await setDoc(settingsRef, updateData, { merge: true });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating privacy/security settings:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ============================================
+// ACTIVITIES COLLECTION FUNCTIONS
+// ============================================
+
+// Create an activity
+export const createActivity = async (activityData, userId) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    const activityPayload = {
+      type: activityData.type, // 'insight_added', 'comment', 'problem_space_updated', 'project_changed'
+      problemSpaceId: activityData.problemSpaceId || null,
+      projectId: activityData.projectId || null,
+      insightId: activityData.insightId || null,
+      commentId: activityData.commentId || null,
+      userId,
+      description: activityData.description,
+      metadata: activityData.metadata || {},
+      createdAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, 'activities'), activityPayload);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('Error creating activity:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get activities for a problem space
+export const getActivities = async (problemSpaceId, limit = 50) => {
+  try {
+    const q = query(
+      collection(db, 'activities'),
+      where('problemSpaceId', '==', problemSpaceId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const activities = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      activities.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt
+      });
+    });
+
+    return activities.slice(0, limit);
+  } catch (error) {
+    console.error('Error loading activities:', error);
+    return [];
+  }
+};
+
+// Get activities for a project
+export const getProjectActivities = async (projectId, limit = 50) => {
+  try {
+    const q = query(
+      collection(db, 'activities'),
+      where('projectId', '==', projectId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const activities = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      activities.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt
+      });
+    });
+
+    return activities.slice(0, limit);
+  } catch (error) {
+    console.error('Error loading project activities:', error);
+    return [];
+  }
+};
+
+// Get audit logs with filtering
+export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
+  try {
+    if (!userId) {
+      return [];
+    }
+
+    // Build query based on filters
+    let q = query(collection(db, 'activities'));
+
+    // Filter by user if specified
+    if (filters.userId) {
+      q = query(q, where('userId', '==', filters.userId));
+    }
+
+    // Filter by action type (map to activity type)
+    if (filters.actionType && filters.actionType !== 'all') {
+      const actionTypeMap = {
+        'create': ['session_created', 'project_created', 'problem_space_created', 'insight_added'],
+        'update': ['session_updated', 'project_updated', 'problem_space_updated', 'insight_updated'],
+        'delete': ['session_deleted', 'project_deleted', 'problem_space_deleted', 'insight_deleted'],
+        'view': ['session_viewed', 'project_viewed', 'problem_space_viewed']
+      };
+      
+      const types = actionTypeMap[filters.actionType] || [];
+      if (types.length > 0) {
+        // Firestore doesn't support OR queries easily, so we'll filter in memory
+        // For now, we'll query all and filter
+      }
+    }
+
+    // Filter by resource type
+    if (filters.resourceType && filters.resourceType !== 'all') {
+      const resourceFieldMap = {
+        'session': 'sessionId',
+        'project': 'projectId',
+        'problemSpace': 'problemSpaceId',
+        'insight': 'insightId'
+      };
+      
+      const field = resourceFieldMap[filters.resourceType];
+      if (field) {
+        // We'll need to query by the appropriate field
+        // For now, filter in memory after fetching
+      }
+    }
+
+    // Add date range filtering
+    if (filters.dateFrom || filters.dateTo) {
+      // Date filtering will be done in memory for simplicity
+      // A production system would use Firestore timestamp queries
+    }
+
+    // Order by creation date
+    q = query(q, orderBy('createdAt', 'desc'));
+
+    const querySnapshot = await getDocs(q);
+    const auditLogs = [];
+    const userIds = new Set();
+
+    // First pass: collect all logs and user IDs
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const createdAt = data.createdAt?.toDate?.() || new Date(data.createdAt);
+      
+      // Apply date range filter
+      if (filters.dateFrom) {
+        const dateFrom = new Date(filters.dateFrom);
+        if (createdAt < dateFrom) return;
+      }
+      if (filters.dateTo) {
+        const dateTo = new Date(filters.dateTo);
+        dateTo.setHours(23, 59, 59, 999); // End of day
+        if (createdAt > dateTo) return;
+      }
+
+      // Apply action type filter
+      if (filters.actionType && filters.actionType !== 'all') {
+        const actionTypeMap = {
+          'create': ['session_created', 'project_created', 'problem_space_created', 'insight_added'],
+          'update': ['session_updated', 'project_updated', 'problem_space_updated', 'insight_updated'],
+          'delete': ['session_deleted', 'project_deleted', 'problem_space_deleted', 'insight_deleted'],
+          'view': ['session_viewed', 'project_viewed', 'problem_space_viewed']
+        };
+        
+        const types = actionTypeMap[filters.actionType] || [];
+        if (types.length > 0 && !types.includes(data.type)) {
+          return;
+        }
+      }
+
+      // Apply resource type filter
+      if (filters.resourceType && filters.resourceType !== 'all') {
+        const resourceFieldMap = {
+          'session': 'sessionId',
+          'project': 'projectId',
+          'problemSpace': 'problemSpaceId',
+          'insight': 'insightId'
+        };
+        
+        const field = resourceFieldMap[filters.resourceType];
+        if (field && !data[field] && !data[field.replace('Id', 'Id')]) {
+          return;
+        }
+      }
+
+      // Collect user ID for batch fetching
+      if (data.userId) {
+        userIds.add(data.userId);
+      }
+
+      // Map activity type to action and resource type
+      const actionMap = {
+        'session_created': 'Create',
+        'session_updated': 'Update',
+        'session_deleted': 'Delete',
+        'session_viewed': 'View',
+        'project_created': 'Create',
+        'project_updated': 'Update',
+        'project_deleted': 'Delete',
+        'project_viewed': 'View',
+        'problem_space_created': 'Create',
+        'problem_space_updated': 'Update',
+        'problem_space_deleted': 'Delete',
+        'problem_space_viewed': 'View',
+        'insight_added': 'Create',
+        'insight_updated': 'Update',
+        'insight_deleted': 'Delete',
+        'comment': 'Comment'
+      };
+
+      const resourceTypeMap = {
+        'session_created': 'Session',
+        'session_updated': 'Session',
+        'session_deleted': 'Session',
+        'session_viewed': 'Session',
+        'project_created': 'Project',
+        'project_updated': 'Project',
+        'project_deleted': 'Project',
+        'project_viewed': 'Project',
+        'problem_space_created': 'Problem Space',
+        'problem_space_updated': 'Problem Space',
+        'problem_space_deleted': 'Problem Space',
+        'problem_space_viewed': 'Problem Space',
+        'insight_added': 'Insight',
+        'insight_updated': 'Insight',
+        'insight_deleted': 'Insight',
+        'comment': 'Comment'
+      };
+
+      auditLogs.push({
+        id: doc.id,
+        timestamp: createdAt.toISOString(),
+        userEmail: data.userId, // Will be updated below
+        userId: data.userId,
+        action: actionMap[data.type] || data.type,
+        resourceType: resourceTypeMap[data.type] || 'Unknown',
+        details: data.description || data.metadata?.details || '',
+        type: data.type,
+        metadata: data.metadata || {}
+      });
+    });
+
+    // Batch fetch user profiles (limit to avoid too many requests)
+    const userIdsArray = Array.from(userIds).slice(0, 50);
+    const userProfilePromises = userIdsArray.map(userId => getUserProfile(userId).catch(() => null));
+    const userProfiles = await Promise.all(userProfilePromises);
+    const userEmailMap = {};
+    
+    userProfiles.forEach((profile, index) => {
+      if (profile && profile.email) {
+        userEmailMap[userIdsArray[index]] = profile.email;
+      }
+    });
+
+    // Update audit logs with user emails
+    auditLogs.forEach(log => {
+      if (userEmailMap[log.userId]) {
+        log.userEmail = userEmailMap[log.userId];
+      }
+    });
+
+    return auditLogs.slice(0, limit);
+  } catch (error) {
+    console.error('Error loading audit logs:', error);
+    return [];
+  }
+};
+
+// ============================================
+// INTEGRATIONS FUNCTIONS
+// ============================================
+
+// Get integrations for user or team
+export const getIntegrations = async (userId, teamId = null) => {
+  try {
+    if (!userId) {
+      return null;
+    }
+
+    let integrationsRef;
+    if (teamId) {
+      integrationsRef = doc(db, 'integrations', `${teamId}_integrations`);
+    } else {
+      integrationsRef = doc(db, 'integrations', `${userId}_integrations`);
+    }
+
+    const integrationsSnap = await getDoc(integrationsRef);
+    if (integrationsSnap.exists()) {
+      return { id: integrationsSnap.id, ...integrationsSnap.data() };
+    }
+
+    // Return default integrations if none exists
+    return {
+      googleDrive: { enabled: false, connected: false },
+      oneDrive: { enabled: false, connected: false },
+      slack: { enabled: false, connected: false },
+      zapier: { enabled: false, connected: false },
+      calendar: { enabled: false, connected: false },
+      notion: { enabled: false, connected: false },
+      mcp: {
+        enabled: false,
+        endpoint: '',
+        apiKey: '',
+        dataSharing: false
+      }
+    };
+  } catch (error) {
+    console.error('Error getting integrations:', error);
+    return null;
+  }
+};
+
+// Update integration settings
+export const updateIntegration = async (userId, integrationName, integrationData, teamId = null) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID required' };
+    }
+
+    let integrationsRef;
+    if (teamId) {
+      // Check if user has permission to update team integrations (must be admin)
+      const teamRef = doc(db, 'teams', teamId);
+      const teamSnap = await getDoc(teamRef);
+      
+      if (!teamSnap.exists()) {
+        return { success: false, error: 'Team not found' };
+      }
+
+      const teamData = teamSnap.data();
+      const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+      
+      if (userRole !== 'admin' && teamData.ownerId !== userId) {
+        return { success: false, error: 'Permission denied - only admins can update team integrations' };
+      }
+
+      integrationsRef = doc(db, 'integrations', `${teamId}_integrations`);
+    } else {
+      integrationsRef = doc(db, 'integrations', `${userId}_integrations`);
+    }
+
+    // Get existing integrations
+    const integrationsSnap = await getDoc(integrationsRef);
+    const existingIntegrations = integrationsSnap.exists() ? integrationsSnap.data() : {};
+
+    const updateData = {
+      userId: teamId ? null : userId,
+      teamId: teamId || null,
+      updatedAt: serverTimestamp()
+    };
+
+    // Update specific integration
+    if (integrationName === 'mcp') {
+      updateData.mcp = integrationData;
+    } else {
+      updateData[integrationName] = integrationData;
+    }
+
+    // Merge with existing integrations
+    const mergedIntegrations = {
+      ...existingIntegrations,
+      ...updateData
+    };
+
+    // Set createdAt if this is a new document
+    if (!integrationsSnap.exists()) {
+      mergedIntegrations.createdAt = serverTimestamp();
+    }
+
+    await setDoc(integrationsRef, mergedIntegrations, { merge: true });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating integration:', error);
     return { success: false, error: error.message };
   }
 };

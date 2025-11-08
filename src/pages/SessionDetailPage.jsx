@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import NavigationHeader from '@/components/NavigationHeader';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import { getSessionById, updateSession, deleteSession } from '@/lib/firestoreUtils';
 import { getNuggetsBySessionId, deleteNugget } from '@/lib/firestoreUtils';
 import { getProjectById, getProjects } from '@/lib/firestoreUtils';
@@ -159,25 +160,32 @@ const SessionDetailPage = () => {
     return null;
   }
 
+  // Build breadcrumb items
+  const breadcrumbItems = [];
+  if (project) {
+    breadcrumbItems.push({ label: 'Projects', path: '/projects' });
+    breadcrumbItems.push({ label: project.name, path: `/projects/${project.id}` });
+  }
+  breadcrumbItems.push({ label: 'Sessions', path: '/sessions' });
+  breadcrumbItems.push({ label: session.title });
+
   return (
     <div className="bg-background min-h-screen">
       <NavigationHeader />
       <div className="max-w-7xl mx-auto p-6">
+        {/* Breadcrumbs */}
+        <Breadcrumbs items={breadcrumbItems} />
+        
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/sessions')}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground mb-1">{session.title}</h1>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span>{session.session_date || new Date(session.createdAt).toLocaleDateString()}</span>
-                <Badge variant="outline">{session.session_type?.replace('_', ' ')}</Badge>
-                {project && (
-                  <Badge variant="secondary">{project.name}</Badge>
-                )}
-              </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground mb-1">{session.title}</h1>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span>{session.session_date || new Date(session.createdAt).toLocaleDateString()}</span>
+              <Badge variant="outline">{session.session_type?.replace('_', ' ')}</Badge>
+              {project && (
+                <Badge variant="secondary">{project.name}</Badge>
+              )}
             </div>
           </div>
           <DropdownMenu>

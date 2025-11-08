@@ -6,6 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Users, UserPlus, Mail, Shield, Eye, Edit, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  getTeamMembers,
+  getPendingInvitations,
+  inviteTeamMember,
+  updateMemberRole,
+  removeTeamMember,
+  createTeam,
+  updateTeamSettings,
+  getUserTeams
+} from '@/lib/firestoreUtils';
 
 const TeamManagement = () => {
   const { currentUser } = useAuth();
@@ -15,37 +25,127 @@ const TeamManagement = () => {
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('researcher');
+  const [teamId, setTeamId] = useState(null);
+  const [teamSettings, setTeamSettings] = useState({
+    name: 'My Team',
+    defaultRole: 'researcher'
+  });
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    loadTeamData();
-  }, [currentUser]);
+    if (currentUser) {
+      loadTeamData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [currentUser?.uid]);
 
   const loadTeamData = async () => {
-    // TODO: Implement getTeamMembers and getPendingInvitations in firestoreUtils
-    setIsLoading(false);
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Get user's teams (for now, use first team or create one)
+      const teams = await getUserTeams(currentUser.uid);
+      let currentTeamId = teamId;
+
+      if (teams.length === 0) {
+        // Create a default team for the user
+        const result = await createTeam({ name: 'My Team' }, currentUser.uid);
+        if (result.success) {
+          currentTeamId = result.id;
+          setTeamId(currentTeamId);
+        }
+      } else {
+        currentTeamId = teams[0].id;
+        setTeamId(currentTeamId);
+        setTeamSettings({
+          name: teams[0].name || 'My Team',
+          defaultRole: teams[0].defaultRole || 'researcher'
+        });
+      }
+
+      if (currentTeamId) {
+        const members = await getTeamMembers(currentTeamId, currentUser.uid);
+        setTeamMembers(members);
+        
+        const invitations = await getPendingInvitations(currentTeamId, currentUser.uid);
+        setPendingInvitations(invitations);
+      }
+    } catch (error) {
+      console.error('Error loading team data:', error);
+      setMessage({ type: 'error', text: 'Failed to load team data' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInviteMember = async () => {
     if (!inviteEmail || !inviteEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      setMessage({ type: 'error', text: 'Please enter a valid email address' });
       return;
     }
 
-    // TODO: Implement inviteTeamMember in firestoreUtils
-    alert('Invitation functionality will be implemented');
-    setShowInviteForm(false);
-    setInviteEmail('');
+    if (!teamId) {
+      setMessage({ type: 'error', text: 'No team selected' });
+      return;
+    }
+
+    setMessage({ type: '', text: '' });
+    const result = await inviteTeamMember(teamId, inviteEmail, inviteRole, currentUser.uid);
+    
+    if (result.success) {
+      setMessage({ type: 'success', text: 'Invitation sent successfully' });
+      setShowInviteForm(false);
+      setInviteEmail('');
+      // Reload invitations
+      const invitations = await getPendingInvitations(teamId, currentUser.uid);
+      setPendingInvitations(invitations);
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Failed to send invitation' });
+    }
   };
 
   const handleUpdateRole = async (memberId, newRole) => {
-    // TODO: Implement updateMemberRole in firestoreUtils
-    alert('Role update functionality will be implemented');
+    if (!teamId) return;
+    
+    const result = await updateMemberRole(teamId, memberId, newRole, currentUser.uid);
+    if (result.success) {
+      setMessage({ type: 'success', text: 'Role updated successfully' });
+      // Reload team members
+      const members = await getTeamMembers(teamId, currentUser.uid);
+      setTeamMembers(members);
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Failed to update role' });
+    }
   };
 
   const handleRemoveMember = async (memberId) => {
     if (!window.confirm('Are you sure you want to remove this member?')) return;
-    // TODO: Implement removeTeamMember in firestoreUtils
-    alert('Remove member functionality will be implemented');
+    if (!teamId) return;
+
+    const result = await removeTeamMember(teamId, memberId, currentUser.uid);
+    if (result.success) {
+      setMessage({ type: 'success', text: 'Member removed successfully' });
+      // Reload team members
+      const members = await getTeamMembers(teamId, currentUser.uid);
+      setTeamMembers(members);
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Failed to remove member' });
+    }
+  };
+
+  const handleSaveTeamSettings = async () => {
+    if (!teamId) return;
+
+    const result = await updateTeamSettings(teamId, teamSettings, currentUser.uid);
+    if (result.success) {
+      setMessage({ type: 'success', text: 'Team settings saved successfully' });
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Failed to save team settings' });
+    }
   };
 
   const getRoleBadge = (role) => {
@@ -89,16 +189,24 @@ const TeamManagement = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Team Name</label>
-            <Input placeholder="Your Team Name" defaultValue="Research Team" />
+            <Input
+              placeholder="Your Team Name"
+              value={teamSettings.name}
+              onChange={(e) => setTeamSettings({ ...teamSettings, name: e.target.value })}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Default Role for New Members</label>
-            <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+            <select
+              value={teamSettings.defaultRole}
+              onChange={(e) => setTeamSettings({ ...teamSettings, defaultRole: e.target.value })}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+            >
               <option value="researcher">Researcher</option>
               <option value="viewer">Viewer</option>
             </select>
           </div>
-          <Button>Save Team Settings</Button>
+          <Button onClick={handleSaveTeamSettings}>Save Team Settings</Button>
         </CardContent>
       </Card>
 
@@ -228,6 +336,17 @@ const TeamManagement = () => {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Message Display */}
+      {message.text && (
+        <div className={`p-4 rounded-md ${
+          message.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' :
+          message.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200' :
+          'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+        }`}>
+          {message.text}
+        </div>
       )}
     </div>
   );

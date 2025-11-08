@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Shield, Eye, Clock, Globe, Lock } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getPrivacySecuritySettings, updatePrivacySecuritySettings } from '@/lib/firestoreUtils';
 
 const PrivacySecurity = () => {
+  const { currentUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
   const [piiDetection, setPiiDetection] = useState({
     enabled: true,
     types: {
@@ -39,6 +46,71 @@ const PrivacySecurity = () => {
   });
 
   const [newIP, setNewIP] = useState('');
+
+  useEffect(() => {
+    if (currentUser) {
+      loadSettings();
+    } else {
+      setIsLoading(false);
+    }
+  }, [currentUser?.uid]);
+
+  const loadSettings = async () => {
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const settings = await getPrivacySecuritySettings(currentUser.uid);
+      if (settings) {
+        if (settings.piiDetection) setPiiDetection(settings.piiDetection);
+        if (settings.dataRetention) setDataRetention(settings.dataRetention);
+        if (settings.dataResidency) setDataResidency(settings.dataResidency);
+        if (settings.accessControls) setAccessControls(settings.accessControls);
+      }
+    } catch (error) {
+      console.error('Error loading privacy/security settings:', error);
+      setMessage({ type: 'error', text: 'Failed to load privacy/security settings' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async (section) => {
+    if (!currentUser) return;
+
+    setIsSaving(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      let settingsToUpdate = {};
+      
+      if (section === 'pii' || section === 'all') {
+        settingsToUpdate.piiDetection = piiDetection;
+      }
+      if (section === 'retention' || section === 'all') {
+        settingsToUpdate.dataRetention = dataRetention;
+      }
+      if (section === 'residency' || section === 'all') {
+        settingsToUpdate.dataResidency = dataResidency;
+      }
+      if (section === 'access' || section === 'all') {
+        settingsToUpdate.accessControls = accessControls;
+      }
+
+      const result = await updatePrivacySecuritySettings(currentUser.uid, settingsToUpdate);
+      if (result.success) {
+        setMessage({ type: 'success', text: 'Settings saved successfully' });
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to save settings' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Failed to save settings' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleAddIP = () => {
     if (newIP.trim() && !accessControls.allowedIPs.includes(newIP)) {
@@ -114,7 +186,9 @@ const PrivacySecurity = () => {
               </div>
 
               <div className="border-t pt-4">
-                <Button variant="outline">View Audit Log</Button>
+                <Button variant="outline" onClick={() => handleSaveSettings('pii')} disabled={isSaving}>
+                  Save PII Settings
+                </Button>
               </div>
             </>
           )}
@@ -166,7 +240,9 @@ const PrivacySecurity = () => {
               </div>
             </div>
           ))}
-          <Button>Save Retention Policies</Button>
+          <Button onClick={() => handleSaveSettings('retention')} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Retention Policies'}
+          </Button>
         </CardContent>
       </Card>
 
@@ -196,7 +272,9 @@ const PrivacySecurity = () => {
           <p className="text-sm text-muted-foreground">
             Current region: {dataResidency.region}. Migration options available upon request.
           </p>
-          <Button variant="outline">Request Migration</Button>
+          <Button variant="outline" onClick={() => handleSaveSettings('residency')} disabled={isSaving}>
+            Save Data Residency
+          </Button>
         </CardContent>
       </Card>
 
@@ -282,9 +360,22 @@ const PrivacySecurity = () => {
             </select>
           </div>
 
-          <Button>Save Access Settings</Button>
+          <Button onClick={() => handleSaveSettings('access')} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Access Settings'}
+          </Button>
         </CardContent>
       </Card>
+
+      {/* Message Display */}
+      {message.text && (
+        <div className={`p-4 rounded-md ${
+          message.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' :
+          message.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200' :
+          'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+        }`}>
+          {message.text}
+        </div>
+      )}
     </div>
   );
 };

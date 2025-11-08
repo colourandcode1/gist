@@ -13,12 +13,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import NavigationHeader from '@/components/NavigationHeader';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import ProblemSpaceInsightManager from '@/components/ProblemSpaceInsightManager';
+import CommentsThread from '@/components/Comments/CommentsThread';
+import ShareDialog from '@/components/Sharing/ShareDialog';
+import ExportDialog from '@/components/Export/ExportDialog';
+import ActivityFeed from '@/components/ActivityFeed';
 import { 
   getProblemSpaceById, 
   updateProblemSpace, 
   updateProblemSpacePrivacy,
-  deleteProblemSpace
+  deleteProblemSpace,
+  createActivity
 } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProjects } from '@/lib/firestoreUtils';
@@ -36,6 +42,8 @@ const ProblemSpaceDetailPage = () => {
   const [projects, setProjects] = useState([]);
   const [newQuestion, setNewQuestion] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -93,6 +101,19 @@ const ProblemSpaceDetailPage = () => {
     try {
       const result = await updateProblemSpace(problemSpace.id, editData, currentUser.uid);
       if (result.success) {
+        // Track activity
+        await createActivity(
+          {
+            type: 'problem_space_updated',
+            problemSpaceId: problemSpace.id,
+            description: `${currentUser.email?.split('@')[0] || 'User'} updated the problem space`,
+            metadata: {
+              updatedFields: Object.keys(editData)
+            }
+          },
+          currentUser.uid
+        );
+
         await loadProblemSpace();
         setIsEditing(false);
       } else {
@@ -223,17 +244,16 @@ const ProblemSpaceDetailPage = () => {
     <div className="bg-background min-h-screen">
       <NavigationHeader />
       <div className="max-w-7xl mx-auto p-6">
+        {/* Breadcrumbs */}
+        <Breadcrumbs
+          items={[
+            { label: 'Problem Spaces', path: '/problem-spaces' },
+            { label: problemSpace.name }
+          ]}
+        />
+        
         {/* Header */}
         <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/problem-spaces')}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Problem Spaces
-          </Button>
-
           <div className="flex items-start justify-between">
             <div className="flex-1">
               {isEditing ? (
@@ -310,11 +330,11 @@ const ProblemSpaceDetailPage = () => {
                     <Copy className="w-4 h-4 mr-2" />
                     Duplicate
                   </Button>
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={() => setShowShareDialog(true)}>
                     <Share2 className="w-4 h-4 mr-2" />
                     Share
                   </Button>
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={() => setShowExportDialog(true)}>
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </Button>
@@ -468,6 +488,16 @@ const ProblemSpaceDetailPage = () => {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Activity Feed */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ActivityFeed problemSpaceId={problemSpace.id} />
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
@@ -486,7 +516,7 @@ const ProblemSpaceDetailPage = () => {
                 <CardTitle>Comments</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Comments feature coming soon</p>
+                <CommentsThread problemSpaceId={problemSpace.id} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -553,6 +583,22 @@ const ProblemSpaceDetailPage = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Share Dialog */}
+      {showShareDialog && (
+        <ShareDialog
+          problemSpaceId={problemSpace.id}
+          onClose={() => setShowShareDialog(false)}
+        />
+      )}
+
+      {/* Export Dialog */}
+      {showExportDialog && (
+        <ExportDialog
+          problemSpaceId={problemSpace.id}
+          onClose={() => setShowExportDialog(false)}
+        />
+      )}
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from '@/contexts/AuthContext';
+import { updateUserProfile } from '@/lib/firestoreUtils';
 import { User, Mail, Lock, Bell, Palette } from 'lucide-react';
 
 const ProfileSettings = () => {
@@ -38,9 +39,12 @@ const ProfileSettings = () => {
     setIsSaving(true);
     setMessage({ type: '', text: '' });
     try {
-      // TODO: Implement updateUserProfile in firestoreUtils
-      // await updateUserProfile(currentUser.uid, personalInfo);
-      setMessage({ type: 'success', text: 'Personal information updated successfully' });
+      const result = await updateUserProfile(currentUser.uid, personalInfo);
+      if (result.success) {
+        setMessage({ type: 'success', text: 'Personal information updated successfully' });
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to update personal information' });
+      }
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'Failed to update personal information' });
     } finally {
@@ -103,9 +107,12 @@ const ProfileSettings = () => {
     setIsSaving(true);
     setMessage({ type: '', text: '' });
     try {
-      // TODO: Implement updateUserProfile in firestoreUtils
-      // await updateUserProfile(currentUser.uid, { ...notifications });
-      setMessage({ type: 'success', text: 'Notification preferences updated successfully' });
+      const result = await updateUserProfile(currentUser.uid, { ...notifications });
+      if (result.success) {
+        setMessage({ type: 'success', text: 'Notification preferences updated successfully' });
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to update notifications' });
+      }
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'Failed to update notifications' });
     } finally {
@@ -117,9 +124,12 @@ const ProfileSettings = () => {
     setIsSaving(true);
     setMessage({ type: '', text: '' });
     try {
-      // TODO: Implement updateUserProfile in firestoreUtils
-      // await updateUserProfile(currentUser.uid, { ...displayPrefs });
-      setMessage({ type: 'success', text: 'Display preferences updated successfully' });
+      const result = await updateUserProfile(currentUser.uid, { ...displayPrefs });
+      if (result.success) {
+        setMessage({ type: 'success', text: 'Display preferences updated successfully' });
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to update display preferences' });
+      }
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'Failed to update display preferences' });
     } finally {

@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileText, Download, Filter, Calendar } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getAuditLogs } from '@/lib/firestoreUtils';
 
 const AuditCompliance = () => {
+  const { currentUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const [auditFilters, setAuditFilters] = useState({
     user: '',
     actionType: 'all',
@@ -21,9 +25,67 @@ const AuditCompliance = () => {
     dateRange: 'all'
   });
 
-  const handleExport = () => {
-    // TODO: Implement data export functionality
-    alert('Export functionality will be implemented');
+  useEffect(() => {
+    if (currentUser) {
+      loadAuditLogs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.uid, auditFilters.actionType, auditFilters.resourceType, auditFilters.dateFrom, auditFilters.dateTo]);
+
+  const loadAuditLogs = async () => {
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const filters = {
+        userId: auditFilters.user || currentUser.uid,
+        actionType: auditFilters.actionType,
+        resourceType: auditFilters.resourceType,
+        dateFrom: auditFilters.dateFrom,
+        dateTo: auditFilters.dateTo
+      };
+
+      const logs = await getAuditLogs(currentUser.uid, filters, 100);
+      setAuditLogs(logs);
+    } catch (error) {
+      console.error('Error loading audit logs:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      // Convert audit logs to CSV format
+      let csvContent = 'Timestamp,User,Action,Resource Type,Details\n';
+      
+      auditLogs.forEach((log) => {
+        const timestamp = new Date(log.timestamp).toLocaleString();
+        const user = `"${log.userEmail || log.userId}"`;
+        const action = `"${log.action}"`;
+        const resourceType = `"${log.resourceType}"`;
+        const details = `"${(log.details || '').replace(/"/g, '""')}"`;
+        
+        csvContent += `${timestamp},${user},${action},${resourceType},${details}\n`;
+      });
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `audit_logs_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting audit logs:', error);
+      alert('Failed to export audit logs');
+    }
   };
 
   return (
@@ -109,17 +171,24 @@ const AuditCompliance = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {auditLogs.length === 0 ? (
+                  {isLoading ? (
                     <tr>
                       <td colSpan="5" className="px-4 py-8 text-center text-muted-foreground">
-                        No audit logs found. Audit logging will be implemented.
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                        <p className="mt-2">Loading audit logs...</p>
+                      </td>
+                    </tr>
+                  ) : auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-4 py-8 text-center text-muted-foreground">
+                        No audit logs found.
                       </td>
                     </tr>
                   ) : (
                     auditLogs.map((log) => (
                       <tr key={log.id} className="border-t">
                         <td className="px-4 py-3 text-sm">{new Date(log.timestamp).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-sm">{log.userEmail}</td>
+                        <td className="px-4 py-3 text-sm">{log.userEmail || log.userId}</td>
                         <td className="px-4 py-3 text-sm">{log.action}</td>
                         <td className="px-4 py-3 text-sm">{log.resourceType}</td>
                         <td className="px-4 py-3 text-sm text-muted-foreground">{log.details}</td>
@@ -131,7 +200,7 @@ const AuditCompliance = () => {
             </div>
           </div>
 
-          <Button variant="outline" className="w-full">
+          <Button variant="outline" className="w-full" onClick={handleExport} disabled={isLoading || auditLogs.length === 0}>
             <Download className="w-4 h-4 mr-2" />
             Export Audit Logs
           </Button>

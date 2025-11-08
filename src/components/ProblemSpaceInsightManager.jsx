@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import RepositoryNuggetCard from '@/components/RepositoryNuggetCard';
-import { getAllNuggets, addInsightToProblemSpace, removeInsightFromProblemSpace } from '@/lib/firestoreUtils';
+import { getAllNuggets, addInsightToProblemSpace, removeInsightFromProblemSpace, createActivity } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
@@ -54,6 +54,19 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
         const insightId = `${nugget.session_id}:${nugget.id}`;
         await addInsightToProblemSpace(problemSpace.id, insightId, currentUser.uid);
       }
+      
+      // Track activity
+      await createActivity(
+        {
+          type: 'insight_added',
+          problemSpaceId: problemSpace.id,
+          description: `${currentUser.email?.split('@')[0] || 'User'} added ${selectedNuggets.length} insight${selectedNuggets.length > 1 ? 's' : ''} to the problem space`,
+          metadata: {
+            insightCount: selectedNuggets.length
+          }
+        },
+        currentUser.uid
+      );
       
       setSelectedNuggets([]);
       setShowAddDialog(false);

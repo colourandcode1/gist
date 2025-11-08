@@ -21,12 +21,37 @@ const LoginPage = () => {
     setError('');
     setLoading(true);
 
-    const result = await login(email, password);
+    try {
+      const result = await login(email, password);
 
-    if (result.success) {
-      navigate(from, { replace: true });
-    } else {
-      setError(result.error || 'Failed to log in');
+      if (result.success) {
+        // Navigation will happen automatically via ProtectedRoute
+        // But we can navigate after a brief delay to ensure auth state is updated
+        setTimeout(() => {
+          navigate(from === '/login' ? '/' : from, { replace: true });
+        }, 200);
+      } else {
+        // Format Firebase error messages to be more user-friendly
+        let errorMessage = result.error || 'Failed to log in';
+        if (errorMessage.includes('auth/user-not-found')) {
+          errorMessage = 'No account found with this email address.';
+        } else if (errorMessage.includes('auth/wrong-password')) {
+          errorMessage = 'Incorrect password. Please try again.';
+        } else if (errorMessage.includes('auth/invalid-email')) {
+          errorMessage = 'Invalid email address.';
+        } else if (errorMessage.includes('auth/user-disabled')) {
+          errorMessage = 'This account has been disabled.';
+        } else if (errorMessage.includes('auth/too-many-requests')) {
+          errorMessage = 'Too many failed login attempts. Please try again later.';
+        } else if (errorMessage.includes('auth/network-request-failed')) {
+          errorMessage = 'Network error. Please check your connection.';
+        }
+        setError(errorMessage);
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.message || 'An unexpected error occurred. Please try again.');
       setLoading(false);
     }
   };

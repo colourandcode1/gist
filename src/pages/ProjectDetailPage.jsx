@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import NavigationHeader from '@/components/NavigationHeader';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import { getProjectById, updateProject, deleteProject } from '@/lib/firestoreUtils';
 import { getSessionsByProject, getAllNuggets } from '@/lib/firestoreUtils';
 import { getProblemSpaces } from '@/lib/firestoreUtils';
@@ -128,21 +129,24 @@ const ProjectDetailPage = () => {
     <div className="bg-background min-h-screen">
       <NavigationHeader />
       <div className="max-w-7xl mx-auto p-6">
+        {/* Breadcrumbs */}
+        <Breadcrumbs
+          items={[
+            { label: 'Projects', path: '/projects' },
+            { label: project.name }
+          ]}
+        />
+        
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/projects')}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-bold text-foreground">{project.name}</h1>
-                <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
-                  {project.status}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground">{project.description || 'No description'}</p>
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-2xl font-bold text-foreground">{project.name}</h1>
+              <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
+                {project.status}
+              </Badge>
             </div>
+            <p className="text-muted-foreground">{project.description || 'No description'}</p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

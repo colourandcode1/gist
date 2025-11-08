@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Settings, User, Book, Tag, X, Plus } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getResearchConfiguration, updateResearchConfiguration } from '@/lib/firestoreUtils';
 
 const ResearchConfiguration = () => {
+  const { currentUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
   const [participantFields, setParticipantFields] = useState([
     { id: 'companyName', label: 'Company Name', enabled: true, required: false },
     { id: 'companySize', label: 'Company Size', enabled: true, required: false },
@@ -20,10 +27,10 @@ const ResearchConfiguration = () => {
   const [newCustomField, setNewCustomField] = useState('');
 
   const [dictionaries, setDictionaries] = useState({
-    industryTerms: [],
-    companyTerms: [],
-    productNames: [],
-    acronyms: []
+    industryTerms: '',
+    companyTerms: '',
+    productNames: '',
+    acronyms: ''
   });
 
   const [categories, setCategories] = useState([
@@ -41,6 +48,88 @@ const ResearchConfiguration = () => {
     { name: 'Security', color: '#ef4444', group: 'Technical' }
   ]);
   const [newTag, setNewTag] = useState({ name: '', color: '#3b82f6', group: 'General' });
+
+  useEffect(() => {
+    if (currentUser) {
+      loadConfiguration();
+    } else {
+      setIsLoading(false);
+    }
+  }, [currentUser?.uid]);
+
+  const loadConfiguration = async () => {
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const config = await getResearchConfiguration(currentUser.uid);
+      if (config) {
+        if (config.participantFields) setParticipantFields(config.participantFields);
+        if (config.customFields) setCustomFields(config.customFields);
+        if (config.dictionaries) {
+          // Convert arrays to comma-separated strings for display
+          setDictionaries({
+            industryTerms: Array.isArray(config.dictionaries.industryTerms) 
+              ? config.dictionaries.industryTerms.join(', ') 
+              : config.dictionaries.industryTerms || '',
+            companyTerms: Array.isArray(config.dictionaries.companyTerms)
+              ? config.dictionaries.companyTerms.join(', ')
+              : config.dictionaries.companyTerms || '',
+            productNames: Array.isArray(config.dictionaries.productNames)
+              ? config.dictionaries.productNames.join(', ')
+              : config.dictionaries.productNames || '',
+            acronyms: Array.isArray(config.dictionaries.acronyms)
+              ? config.dictionaries.acronyms.join(', ')
+              : config.dictionaries.acronyms || ''
+          });
+        }
+        if (config.categories) setCategories(config.categories);
+        if (config.tags) setTags(config.tags);
+      }
+    } catch (error) {
+      console.error('Error loading research configuration:', error);
+      setMessage({ type: 'error', text: 'Failed to load research configuration' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveConfiguration = async () => {
+    if (!currentUser) return;
+
+    setIsSaving(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // Convert dictionary strings back to arrays
+      const dictionariesData = {
+        industryTerms: dictionaries.industryTerms ? dictionaries.industryTerms.split(',').map(s => s.trim()).filter(s => s) : [],
+        companyTerms: dictionaries.companyTerms ? dictionaries.companyTerms.split(',').map(s => s.trim()).filter(s => s) : [],
+        productNames: dictionaries.productNames ? dictionaries.productNames.split(',').map(s => s.trim()).filter(s => s) : [],
+        acronyms: dictionaries.acronyms ? dictionaries.acronyms.split(',').map(s => s.trim()).filter(s => s) : []
+      };
+
+      const result = await updateResearchConfiguration(currentUser.uid, {
+        participantFields,
+        customFields,
+        dictionaries: dictionariesData,
+        categories,
+        tags
+      });
+
+      if (result.success) {
+        setMessage({ type: 'success', text: 'Research configuration saved successfully' });
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to save research configuration' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Failed to save research configuration' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleToggleField = (fieldId) => {
     setParticipantFields(fields =>
@@ -90,6 +179,17 @@ const ResearchConfiguration = () => {
   const handleRemoveTag = (tagName) => {
     setTags(tags.filter(t => t.name !== tagName));
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+          <p className="text-muted-foreground">Loading research configuration...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -172,22 +272,40 @@ const ResearchConfiguration = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Industry Terms</label>
-            <Input placeholder="Add industry-specific terms (comma-separated)" />
+            <Input
+              placeholder="Add industry-specific terms (comma-separated)"
+              value={dictionaries.industryTerms}
+              onChange={(e) => setDictionaries({ ...dictionaries, industryTerms: e.target.value })}
+            />
             <p className="text-xs text-muted-foreground">Terms will be recognized in transcripts and insights</p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Company-Specific Terms</label>
-            <Input placeholder="Add company-specific terms (comma-separated)" />
+            <Input
+              placeholder="Add company-specific terms (comma-separated)"
+              value={dictionaries.companyTerms}
+              onChange={(e) => setDictionaries({ ...dictionaries, companyTerms: e.target.value })}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Product Names</label>
-            <Input placeholder="Add product names (comma-separated)" />
+            <Input
+              placeholder="Add product names (comma-separated)"
+              value={dictionaries.productNames}
+              onChange={(e) => setDictionaries({ ...dictionaries, productNames: e.target.value })}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Acronyms</label>
-            <Input placeholder="Add acronyms and their meanings (e.g., API: Application Programming Interface)" />
+            <Input
+              placeholder="Add acronyms and their meanings (e.g., API: Application Programming Interface)"
+              value={dictionaries.acronyms}
+              onChange={(e) => setDictionaries({ ...dictionaries, acronyms: e.target.value })}
+            />
           </div>
-          <Button>Save Dictionaries</Button>
+          <Button onClick={handleSaveConfiguration} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Dictionaries'}
+          </Button>
         </CardContent>
       </Card>
 
@@ -285,6 +403,24 @@ const ResearchConfiguration = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Save All Button */}
+      <div className="flex justify-end">
+        <Button onClick={handleSaveConfiguration} disabled={isSaving} size="lg">
+          {isSaving ? 'Saving...' : 'Save All Configuration'}
+        </Button>
+      </div>
+
+      {/* Message Display */}
+      {message.text && (
+        <div className={`p-4 rounded-md ${
+          message.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' :
+          message.type === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200' :
+          'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+        }`}>
+          {message.text}
+        </div>
+      )}
     </div>
   );
 };
