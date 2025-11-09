@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Filter, X, Calendar, User, Building2, Briefcase, TrendingUp } from 'lucide-react';
+import { Filter, Calendar, User, Building2, Briefcase, TrendingUp, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { getProjects, getSessions } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -87,16 +92,6 @@ const AdvancedFilters = ({
             </h3>
           </div>
           <div className="flex items-center gap-2">
-            {getAdvancedFilterCount() > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearAdvancedFilters}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Clear All
-              </Button>
-            )}
             {!horizontal && (
               <Button
                 variant="ghost"
@@ -109,25 +104,6 @@ const AdvancedFilters = ({
           </div>
         </div>
 
-        {/* Active Filters Display */}
-        {getAdvancedFilterCount() > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {activeFilters
-              .filter(f => ['project', 'session', 'companySize', 'userType', 'industry', 'productTenure', 'dateRange', 'researcher'].includes(f.type))
-              .map((filter, idx) => (
-                <Badge key={idx} variant="secondary" className="flex items-center gap-1">
-                  {filter.name}
-                  <button
-                    onClick={() => removeFilter(filter.type, filter.id)}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-          </div>
-        )}
-
         {(showFilters || horizontal) && (
           <div className={`${horizontal ? 'space-y-3' : 'space-y-4 pt-4 border-t'}`}>
             {/* Project Filter */}
@@ -136,21 +112,46 @@ const AdvancedFilters = ({
                 <Building2 className="w-4 h-4 text-muted-foreground" />
                 <label className="text-xs font-medium text-foreground">Project</label>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {projects.map(project => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
-                    key={project.id}
-                    variant={getActiveFiltersForType('project').some(f => f.id === project.id) ? 'default' : 'outline'}
+                    variant="outline"
                     size="sm"
-                    onClick={() => handleFilterToggle('project', project.id, project.name)}
+                    className="justify-between min-w-[200px]"
                   >
-                    {project.name}
+                    <span>
+                      {getActiveFiltersForType('project').length > 0
+                        ? `${getActiveFiltersForType('project').length} selected`
+                        : 'Select projects...'}
+                    </span>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
                   </Button>
-                ))}
-                {projects.length === 0 && (
-                  <span className="text-xs text-muted-foreground">No projects available</span>
-                )}
-              </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  className="w-56 max-h-[300px] overflow-y-auto"
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {projects.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No projects available
+                    </div>
+                  ) : (
+                    projects.map(project => {
+                      const isSelected = getActiveFiltersForType('project').some(f => f.id === project.id);
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={project.id}
+                          checked={isSelected}
+                          onCheckedChange={() => handleFilterToggle('project', project.id, project.name)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          {project.name}
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Session Filter */}
@@ -159,21 +160,46 @@ const AdvancedFilters = ({
                 <Calendar className="w-4 h-4 text-muted-foreground" />
                 <label className="text-xs font-medium text-foreground">Session</label>
               </div>
-              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                {sessions.slice(0, 20).map(session => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
-                    key={session.id}
-                    variant={getActiveFiltersForType('session').some(f => f.id === session.id) ? 'default' : 'outline'}
+                    variant="outline"
                     size="sm"
-                    onClick={() => handleFilterToggle('session', session.id, session.title)}
+                    className="justify-between min-w-[200px]"
                   >
-                    {session.title}
+                    <span>
+                      {getActiveFiltersForType('session').length > 0
+                        ? `${getActiveFiltersForType('session').length} selected`
+                        : 'Select sessions...'}
+                    </span>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
                   </Button>
-                ))}
-                {sessions.length === 0 && (
-                  <span className="text-xs text-muted-foreground">No sessions available</span>
-                )}
-              </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  className="w-56 max-h-[300px] overflow-y-auto"
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {sessions.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No sessions available
+                    </div>
+                  ) : (
+                    sessions.map(session => {
+                      const isSelected = getActiveFiltersForType('session').some(f => f.id === session.id);
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={session.id}
+                          checked={isSelected}
+                          onCheckedChange={() => handleFilterToggle('session', session.id, session.title)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          {session.title}
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Participant Context Filters */}
@@ -187,64 +213,130 @@ const AdvancedFilters = ({
                 <div className={horizontal ? "flex items-center gap-2" : ""}>
                   {horizontal && <label className="text-xs text-muted-foreground whitespace-nowrap">Company Size:</label>}
                   {!horizontal && <label className="text-xs text-muted-foreground mb-1 block">Company Size</label>}
-                  <div className="flex flex-wrap gap-2">
-                    {companySizes.map(size => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
-                        key={size.id}
-                        variant={getActiveFiltersForType('companySize').some(f => f.id === size.id) ? 'default' : 'outline'}
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleFilterToggle('companySize', size.id, size.label)}
+                        className="justify-between min-w-[160px]"
                       >
-                        {size.label}
+                        <span>
+                          {getActiveFiltersForType('companySize').length > 0
+                            ? `${getActiveFiltersForType('companySize').length} selected`
+                            : 'Company Size'}
+                        </span>
+                        <ChevronDown className="w-4 h-4 opacity-50" />
                       </Button>
-                    ))}
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      className="w-56"
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {companySizes.map(size => {
+                        const isSelected = getActiveFiltersForType('companySize').some(f => f.id === size.id);
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={size.id}
+                            checked={isSelected}
+                            onCheckedChange={() => handleFilterToggle('companySize', size.id, size.label)}
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            {size.label}
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* User Type */}
                 <div className={horizontal ? "flex items-center gap-2" : ""}>
                   {horizontal && <label className="text-xs text-muted-foreground whitespace-nowrap">User Type:</label>}
                   {!horizontal && <label className="text-xs text-muted-foreground mb-1 block">User Type</label>}
-                  <div className="flex flex-wrap gap-2">
-                    {userTypes.map(type => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
-                        key={type.id}
-                        variant={getActiveFiltersForType('userType').some(f => f.id === type.id) ? 'default' : 'outline'}
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleFilterToggle('userType', type.id, type.label)}
+                        className="justify-between min-w-[160px]"
                       >
-                        {type.label}
+                        <span>
+                          {getActiveFiltersForType('userType').length > 0
+                            ? `${getActiveFiltersForType('userType').length} selected`
+                            : 'User Type'}
+                        </span>
+                        <ChevronDown className="w-4 h-4 opacity-50" />
                       </Button>
-                    ))}
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      className="w-56"
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {userTypes.map(type => {
+                        const isSelected = getActiveFiltersForType('userType').some(f => f.id === type.id);
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={type.id}
+                            checked={isSelected}
+                            onCheckedChange={() => handleFilterToggle('userType', type.id, type.label)}
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            {type.label}
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Product Tenure */}
                 <div className={horizontal ? "flex items-center gap-2" : ""}>
                   {horizontal && <label className="text-xs text-muted-foreground whitespace-nowrap">Tenure:</label>}
                   {!horizontal && <label className="text-xs text-muted-foreground mb-1 block">Product Tenure</label>}
-                  <div className="flex flex-wrap gap-2">
-                    {productTenures.map(tenure => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
-                        key={tenure.id}
-                        variant={getActiveFiltersForType('productTenure').some(f => f.id === tenure.id) ? 'default' : 'outline'}
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleFilterToggle('productTenure', tenure.id, tenure.label)}
+                        className="justify-between min-w-[160px]"
                       >
-                        {tenure.label}
+                        <span>
+                          {getActiveFiltersForType('productTenure').length > 0
+                            ? `${getActiveFiltersForType('productTenure').length} selected`
+                            : 'Product Tenure'}
+                        </span>
+                        <ChevronDown className="w-4 h-4 opacity-50" />
                       </Button>
-                    ))}
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      className="w-56"
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {productTenures.map(tenure => {
+                        const isSelected = getActiveFiltersForType('productTenure').some(f => f.id === tenure.id);
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={tenure.id}
+                            checked={isSelected}
+                            onCheckedChange={() => handleFilterToggle('productTenure', tenure.id, tenure.label)}
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            {tenure.label}
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
-                {/* Industry (text input) */}
+                {/* Industry */}
                 <div className={horizontal ? "flex items-center gap-2" : ""}>
                   {horizontal && <label className="text-xs text-muted-foreground whitespace-nowrap">Industry:</label>}
                   {!horizontal && <label className="text-xs text-muted-foreground mb-1 block">Industry</label>}
                   <input
                     type="text"
-                    placeholder="Filter by industry..."
-                    className={`${horizontal ? 'w-48' : 'w-full'} h-9 px-3 py-1 text-sm bg-background border border-input rounded-md`}
+                    placeholder="Enter industry..."
+                    className="h-9 px-3 py-1 text-sm bg-background border border-input rounded-md min-w-[160px]"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && e.target.value.trim()) {
                         handleFilterToggle('industry', e.target.value.trim().toLowerCase(), e.target.value.trim());
