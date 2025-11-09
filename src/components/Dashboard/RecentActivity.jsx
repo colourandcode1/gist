@@ -96,15 +96,6 @@ const RecentActivity = ({ recentSessions, recentProjects, recentProblemSpaces })
           {recentSessions && recentSessions.length > 0 ? (
             <div className="space-y-1">
               {displayItems(recentSessions, 'session')}
-              {recentSessions.length > 5 && (
-                <Button
-                  variant="ghost"
-                  className="w-full mt-2"
-                  onClick={() => navigate('/sessions')}
-                >
-                  View All Sessions
-                </Button>
-              )}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
@@ -112,6 +103,13 @@ const RecentActivity = ({ recentSessions, recentProjects, recentProblemSpaces })
               <p className="text-sm">No recent sessions</p>
             </div>
           )}
+          <Button
+            variant="ghost"
+            className="w-full mt-2"
+            onClick={() => navigate('/sessions')}
+          >
+            View All Sessions
+          </Button>
         </CardContent>
       </Card>
 

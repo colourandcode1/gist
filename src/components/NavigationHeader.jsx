@@ -50,10 +50,8 @@ const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { id: 'projects', label: 'Projects', icon: FolderOpen, path: '/projects' },
-    { id: 'sessions', label: 'Sessions', icon: FileText, path: '/sessions' },
     { id: 'repository', label: 'Repository', icon: Database, path: '/repository' },
-    { id: 'problem-spaces', label: 'Problem Spaces', icon: Target, path: '/problem-spaces' },
-    { id: 'upload', label: 'New Session', icon: Plus, path: '/' }
+    { id: 'problem-spaces', label: 'Problem Spaces', icon: Target, path: '/problem-spaces' }
   ];
 
   return (
