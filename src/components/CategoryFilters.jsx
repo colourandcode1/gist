@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CATEGORIES } from '@/lib/constants';
 
@@ -21,16 +20,6 @@ const CategoryFilters = ({
         <h3 className="text-sm font-medium text-foreground">
           Categories {getCategoryFilterCount() > 0 && `(${getCategoryFilterCount()})`}
         </h3>
-        {getCategoryFilterCount() > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearCategoryFilters}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Clear All
-          </Button>
-        )}
       </div>
       <div className={horizontal ? "flex flex-wrap gap-2" : "space-y-2"}>
         {CATEGORIES.map(category => (

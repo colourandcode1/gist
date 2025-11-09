@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DEFAULT_TAGS } from '@/lib/constants';
 
@@ -21,16 +20,6 @@ const TagFilters = ({
         <h3 className="text-sm font-medium text-foreground">
           Tags {getTagFilterCount() > 0 && `(${getTagFilterCount()})`}
         </h3>
-        {getTagFilterCount() > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearTagFilters}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Clear All
-          </Button>
-        )}
       </div>
       <div className="flex flex-wrap gap-2">
         {DEFAULT_TAGS.map(tag => (
