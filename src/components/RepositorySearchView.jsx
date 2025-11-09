@@ -8,7 +8,6 @@ import NavigationHeader from './NavigationHeader';
 import TranscriptModal from './TranscriptModal';
 import VideoModal from './VideoModal';
 import RepositoryNuggetCard from './RepositoryNuggetCard';
-import StatisticsCards from './StatisticsCards';
 import TagFilters from './TagFilters';
 import CategoryFilters from './CategoryFilters';
 import AdvancedFilters from './AdvancedFilters';
@@ -417,12 +416,6 @@ const RepositorySearchView = ({ onNavigate }) => {
     }
   });
 
-  // Calculate statistics from actual data
-  const totalNuggets = allNuggets.length;
-  const totalSessions = savedSessions.length;
-  const painPoints = allNuggets.filter(nugget => nugget.category === 'pain_point').length;
-  const positiveNuggets = allNuggets.filter(nugget => nugget.category === 'sentiment').length;
-
   return (
     <div className="bg-background min-h-screen">
       <NavigationHeader currentView="repository" onNavigate={onNavigate} />
@@ -482,13 +475,6 @@ const RepositorySearchView = ({ onNavigate }) => {
           </div>
         ) : (
           <>
-            <StatisticsCards
-              totalNuggets={totalNuggets}
-              totalSessions={totalSessions}
-              painPoints={painPoints}
-              positiveNuggets={positiveNuggets}
-            />
-
             {/* Main Content Area with Sidebar */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <CategoryFilters

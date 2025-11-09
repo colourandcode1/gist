@@ -21,7 +21,6 @@ const SessionsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProject, setSelectedProject] = useState('all');
   const [selectedSessionType, setSelectedSessionType] = useState('all');
-  const [selectedCompanySize, setSelectedCompanySize] = useState('all');
   const [selectedUserRole, setSelectedUserRole] = useState('all');
   const [selectedIndustry, setSelectedIndustry] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -33,12 +32,6 @@ const SessionsPage = () => {
     { value: 'focus_group', label: 'Focus Group' }
   ];
 
-  const companySizes = [
-    { value: 'smb', label: 'SMB' },
-    { value: 'mid_market', label: 'Mid-Market' },
-    { value: 'enterprise', label: 'Enterprise' }
-  ];
-
   useEffect(() => {
     if (currentUser) {
       loadData();
@@ -47,7 +40,7 @@ const SessionsPage = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [sessions, searchQuery, selectedProject, selectedSessionType, selectedCompanySize, selectedUserRole, selectedIndustry, dateRange]);
+  }, [sessions, searchQuery, selectedProject, selectedSessionType, selectedUserRole, selectedIndustry, dateRange]);
 
   const loadData = async () => {
     if (!currentUser) return;
@@ -93,13 +86,6 @@ const SessionsPage = () => {
       filtered = filtered.filter(session => session.session_type === selectedSessionType);
     }
 
-    // Company size filter
-    if (selectedCompanySize !== 'all') {
-      filtered = filtered.filter(session =>
-        session.participantContext?.companySize === selectedCompanySize
-      );
-    }
-
     // User role filter
     if (selectedUserRole !== 'all') {
       filtered = filtered.filter(session =>
@@ -137,14 +123,13 @@ const SessionsPage = () => {
     setSearchQuery('');
     setSelectedProject('all');
     setSelectedSessionType('all');
-    setSelectedCompanySize('all');
     setSelectedUserRole('all');
     setSelectedIndustry('all');
     setDateRange({ start: '', end: '' });
   };
 
   const hasActiveFilters = searchQuery || selectedProject !== 'all' || selectedSessionType !== 'all' ||
-    selectedCompanySize !== 'all' || selectedUserRole !== 'all' || selectedIndustry !== 'all' ||
+    selectedUserRole !== 'all' || selectedIndustry !== 'all' ||
     dateRange.start || dateRange.end;
 
   const getProjectName = (projectId) => {
@@ -190,7 +175,7 @@ const SessionsPage = () => {
               </div>
 
               {/* Filter Row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {/* Project Filter */}
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Project</label>
@@ -217,21 +202,6 @@ const SessionsPage = () => {
                     <option value="all">All Types</option>
                     {sessionTypes.map(type => (
                       <option key={type.value} value={type.value}>{type.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Company Size Filter */}
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Company Size</label>
-                  <select
-                    value={selectedCompanySize}
-                    onChange={(e) => setSelectedCompanySize(e.target.value)}
-                    className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
-                  >
-                    <option value="all">All Sizes</option>
-                    {companySizes.map(size => (
-                      <option key={size.value} value={size.value}>{size.label}</option>
                     ))}
                   </select>
                 </div>
