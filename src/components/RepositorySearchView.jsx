@@ -8,9 +8,8 @@ import NavigationHeader from './NavigationHeader';
 import TranscriptModal from './TranscriptModal';
 import VideoModal from './VideoModal';
 import RepositoryNuggetCard from './RepositoryNuggetCard';
-import TagFilters from './TagFilters';
-import CategoryFilters from './CategoryFilters';
-import AdvancedFilters from './AdvancedFilters';
+import HorizontalFilterDrawer from './HorizontalFilterDrawer';
+import UnifiedFilterBar from './UnifiedFilterBar';
 import RepositoryAnalytics from './RepositoryAnalytics';
 import { createTimestampedUrl } from '@/lib/videoUtils';
 import { getSessions, getAllNuggets, deleteNugget, getSessionById, getProjects } from '@/lib/firestoreUtils';
@@ -27,6 +26,7 @@ const RepositorySearchView = ({ onNavigate }) => {
   const [selectedNuggets, setSelectedNuggets] = useState(new Set());
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false); // Filters closed by default
   
   // Modal state management
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -420,52 +420,64 @@ const RepositorySearchView = ({ onNavigate }) => {
     <div className="bg-background min-h-screen">
       <NavigationHeader currentView="repository" onNavigate={onNavigate} />
       
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">Research Repository</h1>
-            <p className="text-muted-foreground">Search and discover insights from all your research sessions</p>
-          </div>
-          <Button
-            onClick={() => onNavigate('upload')}
-            className="flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            New Session
-          </Button>
-        </div>
-
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-              <Input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search insights, evidence, sessions, or tags..."
-                className="w-full pl-10 text-lg"
-              />
+      {/* Sticky Search Bar */}
+      <div className="sticky top-16 z-30 bg-background border-b border-border">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground mb-1">Research Repository</h1>
+              <p className="text-sm text-muted-foreground">Search and discover insights from all your research sessions</p>
             </div>
-          </CardContent>
-        </Card>
+            <Button
+              onClick={() => onNavigate('upload')}
+              className="flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              New Session
+            </Button>
+          </div>
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                <Input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search insights, evidence, sessions, or tags..."
+                  className="w-full pl-10 text-lg"
+                />
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Unified Filter Bar - Always visible, Filters button always first */}
+          <UnifiedFilterBar
+            activeFilters={activeFilters}
+            removeFilter={removeFilter}
+            clearAllFilters={clearAllFilters}
+            totalFilterCount={getCategoryFilterCount() + getTagFilterCount() + getAdvancedFilterCount()}
+            isFiltersOpen={isFiltersOpen}
+            onToggleFilters={() => setIsFiltersOpen(!isFiltersOpen)}
+          />
+          
+          {/* Horizontal Filter Drawer - Content only, no toggle */}
+          <HorizontalFilterDrawer
+            activeFilters={activeFilters}
+            addFilter={addFilter}
+            removeFilter={removeFilter}
+            clearCategoryFilters={clearCategoryFilters}
+            clearTagFilters={clearTagFilters}
+            clearAdvancedFilters={clearAdvancedFilters}
+            getCategoryFilterCount={getCategoryFilterCount}
+            getTagFilterCount={getTagFilterCount}
+            getAdvancedFilterCount={getAdvancedFilterCount}
+            isOpen={isFiltersOpen}
+          />
+        </div>
+      </div>
 
-        <TagFilters
-          activeFilters={activeFilters}
-          addFilter={addFilter}
-          removeFilter={removeFilter}
-          clearTagFilters={clearTagFilters}
-          getTagFilterCount={getTagFilterCount}
-        />
-
-        <AdvancedFilters
-          activeFilters={activeFilters}
-          addFilter={addFilter}
-          removeFilter={removeFilter}
-          clearAdvancedFilters={clearAdvancedFilters}
-          getAdvancedFilterCount={getAdvancedFilterCount}
-        />
-
+      <div className="max-w-7xl mx-auto px-6 py-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
@@ -474,19 +486,7 @@ const RepositorySearchView = ({ onNavigate }) => {
             </div>
           </div>
         ) : (
-          <>
-            {/* Main Content Area with Sidebar */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <CategoryFilters
-            activeFilters={activeFilters}
-            addFilter={addFilter}
-            removeFilter={removeFilter}
-            clearCategoryFilters={clearCategoryFilters}
-            getCategoryFilterCount={getCategoryFilterCount}
-          />
-
-          {/* Nuggets Content */}
-          <div className="lg:col-span-3 space-y-4 bg-background">
+          <div className="space-y-4 bg-background">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <h2 className="text-lg font-semibold text-foreground">
@@ -597,8 +597,6 @@ const RepositorySearchView = ({ onNavigate }) => {
               </div>
             )}
           </div>
-        </div>
-        </>
         )}
       </div>
       

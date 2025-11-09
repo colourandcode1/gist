@@ -59,12 +59,12 @@ const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between items-center h-16">
           <button
-            onClick={() => handleNavigation('/repository')}
+            onClick={() => handleNavigation('/dashboard')}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-md px-1 -ml-1"
             aria-label="Go to home"
           >
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Database className="w-5 h-5 text-primary-foreground" />
+              <LayoutDashboard className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
               <h1 className="text-lg font-semibold text-foreground">Research Hub</h1>

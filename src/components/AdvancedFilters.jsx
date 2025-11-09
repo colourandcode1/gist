@@ -11,18 +11,20 @@ const AdvancedFilters = ({
   addFilter,
   removeFilter,
   clearAdvancedFilters,
-  getAdvancedFilterCount
+  getAdvancedFilterCount,
+  noCard = false,
+  horizontal = false
 }) => {
   const { currentUser } = useAuth();
   const [projects, setProjects] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(horizontal); // Auto-show when horizontal
 
   useEffect(() => {
-    if (currentUser && showFilters) {
+    if (currentUser && (showFilters || horizontal)) {
       loadFilterData();
     }
-  }, [currentUser, showFilters]);
+  }, [currentUser, showFilters, horizontal]);
 
   const loadFilterData = async () => {
     try {
@@ -75,10 +77,9 @@ const AdvancedFilters = ({
     return activeFilters.filter(f => f.type === type);
   };
 
-  return (
-    <Card className="mb-6">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-4">
+  const content = (
+    <div className={noCard ? "" : "p-4"}>
+        <div className={`flex items-center justify-between ${horizontal ? 'mb-2' : 'mb-4'}`}>
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-sm font-medium text-foreground">
@@ -96,13 +97,15 @@ const AdvancedFilters = ({
                 Clear All
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              {showFilters ? 'Hide' : 'Show'} Filters
-            </Button>
+            {!horizontal && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                {showFilters ? 'Hide' : 'Show'} Filters
+              </Button>
+            )}
           </div>
         </div>
 
@@ -125,8 +128,8 @@ const AdvancedFilters = ({
           </div>
         )}
 
-        {showFilters && (
-          <div className="space-y-4 pt-4 border-t">
+        {(showFilters || horizontal) && (
+          <div className={`${horizontal ? 'space-y-3' : 'space-y-4 pt-4 border-t'}`}>
             {/* Project Filter */}
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -179,10 +182,11 @@ const AdvancedFilters = ({
                 <User className="w-4 h-4 text-muted-foreground" />
                 <label className="text-xs font-medium text-foreground">Participant Context</label>
               </div>
-              <div className="space-y-3">
+              <div className={horizontal ? "flex flex-wrap gap-3" : "space-y-3"}>
                 {/* Company Size */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Company Size</label>
+                <div className={horizontal ? "flex items-center gap-2" : ""}>
+                  {horizontal && <label className="text-xs text-muted-foreground whitespace-nowrap">Company Size:</label>}
+                  {!horizontal && <label className="text-xs text-muted-foreground mb-1 block">Company Size</label>}
                   <div className="flex flex-wrap gap-2">
                     {companySizes.map(size => (
                       <Button
@@ -198,8 +202,9 @@ const AdvancedFilters = ({
                 </div>
 
                 {/* User Type */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">User Type</label>
+                <div className={horizontal ? "flex items-center gap-2" : ""}>
+                  {horizontal && <label className="text-xs text-muted-foreground whitespace-nowrap">User Type:</label>}
+                  {!horizontal && <label className="text-xs text-muted-foreground mb-1 block">User Type</label>}
                   <div className="flex flex-wrap gap-2">
                     {userTypes.map(type => (
                       <Button
@@ -215,8 +220,9 @@ const AdvancedFilters = ({
                 </div>
 
                 {/* Product Tenure */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Product Tenure</label>
+                <div className={horizontal ? "flex items-center gap-2" : ""}>
+                  {horizontal && <label className="text-xs text-muted-foreground whitespace-nowrap">Tenure:</label>}
+                  {!horizontal && <label className="text-xs text-muted-foreground mb-1 block">Product Tenure</label>}
                   <div className="flex flex-wrap gap-2">
                     {productTenures.map(tenure => (
                       <Button
@@ -232,12 +238,13 @@ const AdvancedFilters = ({
                 </div>
 
                 {/* Industry (text input) */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Industry</label>
+                <div className={horizontal ? "flex items-center gap-2" : ""}>
+                  {horizontal && <label className="text-xs text-muted-foreground whitespace-nowrap">Industry:</label>}
+                  {!horizontal && <label className="text-xs text-muted-foreground mb-1 block">Industry</label>}
                   <input
                     type="text"
                     placeholder="Filter by industry..."
-                    className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
+                    className={`${horizontal ? 'w-48' : 'w-full'} h-9 px-3 py-1 text-sm bg-background border border-input rounded-md`}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && e.target.value.trim()) {
                         handleFilterToggle('industry', e.target.value.trim().toLowerCase(), e.target.value.trim());
@@ -270,7 +277,16 @@ const AdvancedFilters = ({
             </div>
           </div>
         )}
-      </CardContent>
+    </div>
+  );
+
+  if (noCard) {
+    return <div className="mb-4">{content}</div>;
+  }
+
+  return (
+    <Card className="mb-6">
+      <CardContent>{content}</CardContent>
     </Card>
   );
 };
