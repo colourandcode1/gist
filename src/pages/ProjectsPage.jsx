@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FolderOpen, Calendar, Users, MoreVertical, Archive, Edit, Eye } from 'lucide-react';
+import { Plus, FolderOpen, Calendar, Users, MoreVertical, Archive, Edit, Eye, LayoutGrid, List } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ const ProjectsPage = () => {
   const [projects, setProjects] = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all'); // all, active, completed, archived
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'board'
   const [isLoading, setIsLoading] = useState(true);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
@@ -154,36 +155,57 @@ const ProjectsPage = () => {
           </Button>
         </div>
 
-        {/* Status Filter */}
-        <div className="flex gap-2 mb-6">
-          <Button
-            variant={statusFilter === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setStatusFilter('all')}
-          >
-            All
-          </Button>
-          <Button
-            variant={statusFilter === 'active' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setStatusFilter('active')}
-          >
-            Active
-          </Button>
-          <Button
-            variant={statusFilter === 'completed' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setStatusFilter('completed')}
-          >
-            Completed
-          </Button>
-          <Button
-            variant={statusFilter === 'archived' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setStatusFilter('archived')}
-          >
-            Archived
-          </Button>
+        {/* Status Filter and View Toggle */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex gap-2">
+            <Button
+              variant={statusFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('all')}
+            >
+              All
+            </Button>
+            <Button
+              variant={statusFilter === 'active' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('active')}
+            >
+              Active
+            </Button>
+            <Button
+              variant={statusFilter === 'completed' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('completed')}
+            >
+              Completed
+            </Button>
+            <Button
+              variant={statusFilter === 'archived' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('archived')}
+            >
+              Archived
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="w-4 h-4 mr-2" />
+              List
+            </Button>
+            <Button
+              variant={viewMode === 'board' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('board')}
+            >
+              <LayoutGrid className="w-4 h-4 mr-2" />
+              Board
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -205,6 +227,74 @@ const ProjectsPage = () => {
               </Button>
             </CardContent>
           </Card>
+        ) : viewMode === 'list' ? (
+          <div className="space-y-4">
+            {filteredProjects.map((project) => (
+              <Card key={project.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 
+                          className="text-lg font-semibold text-foreground cursor-pointer hover:text-primary"
+                          onClick={() => navigate(`/projects/${project.id}`)}
+                        >
+                          {project.name}
+                        </h3>
+                        {getStatusBadge(project.status)}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                        {project.description || 'No description'}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          {formatDateRange(project.startDate, project.endDate)}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FolderOpen className="w-4 h-4" />
+                          {project.sessionCount} {project.sessionCount === 1 ? 'session' : 'sessions'}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          {project.insightCount} {project.insightCount === 1 ? 'insight' : 'insights'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditProject(project)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleArchiveProject(project)}>
+                            <Archive className="w-4 h-4 mr-2" />
+                            {project.status === 'archived' ? 'Unarchive' : 'Archive'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteProject(project.id)}
+                            className="text-destructive"
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProjects.map((project) => (
