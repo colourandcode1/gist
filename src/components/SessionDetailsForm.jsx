@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Video, Check, FolderOpen } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -12,7 +13,9 @@ const SessionDetailsForm = ({
   sessionData, 
   setSessionData, 
   sessionTypes, 
-  autoFillSuggestions 
+  autoFillSuggestions,
+  project,
+  transcriptContent
 }) => {
   const { currentUser } = useAuth();
   const [projects, setProjects] = useState([]);
@@ -53,52 +56,143 @@ const SessionDetailsForm = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Project Field - First */}
         <div>
-          <label className="block text-sm font-medium text-secondary-text mb-1">Title</label>
+          <label className="block text-sm font-medium text-secondary-text mb-1">Project</label>
+          <select
+            value={sessionData.projectId || ''}
+            onChange={(e) => setSessionData(prev => ({ ...prev, projectId: e.target.value || null }))}
+            className="w-full h-10 px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            disabled={isLoadingProjects}
+          >
+            <option value="">No project</option>
+            {projects.map((proj) => (
+              <option key={proj.id} value={proj.id}>
+                {proj.name}
+              </option>
+            ))}
+          </select>
+          {isLoadingProjects && (
+            <p className="mt-1 text-xs text-muted-foreground">Loading projects...</p>
+          )}
+        </div>
+
+        {/* Title Field - Required */}
+        <div>
+          <label className="block text-sm font-medium text-secondary-text mb-1">Title <span className="text-red-500">*</span></label>
           <Input
             type="text"
             value={sessionData.title}
             onChange={(e) => setSessionData(prev => ({ ...prev, title: e.target.value }))}
             placeholder="Mobile App Interview - Sarah"
           />
+          {autoFillSuggestions.title && (
+            <div className="mt-1 flex items-center gap-1 text-xs text-green-600">
+              <Check className="w-3 h-3" />
+              <span>Auto-filled from transcript</span>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-secondary-text mb-1">Date</label>
-            <Input
-              type="date"
-              value={sessionData.sessionDate}
-              onChange={(e) => setSessionData(prev => ({ ...prev, sessionDate: e.target.value }))}
-            />
-          </div>
-        </div>
-
+        {/* Session Type Field - Required */}
         <div>
-          <label className="block text-sm font-medium text-secondary-text mb-2">Type</label>
-          <div className="grid grid-cols-2 gap-2">
-            {sessionTypes.map(type => (
+          <label className="block text-sm font-medium text-secondary-text mb-2">Session Type <span className="text-red-500">*</span></label>
+          {/* First row: 3 buttons */}
+          <ButtonGroup className="w-full mb-1">
+            {sessionTypes.slice(0, 3).map(type => (
               <Button
                 key={type.value}
                 variant={sessionData.sessionType === type.value ? "default" : "outline"}
-                className="p-2 h-auto flex flex-col items-center justify-center"
-                onClick={() => setSessionData(prev => ({ ...prev, sessionType: type.value }))}
+                className="flex-1 px-2 py-1.5 h-auto flex items-center justify-center gap-1.5"
+                onClick={() => setSessionData(prev => ({ 
+                  ...prev, 
+                  sessionType: type.value,
+                  ...(type.value !== 'other' && { customSessionType: '' })
+                }))}
               >
-                <div className="text-base mb-1">{type.icon}</div>
-                <div className="text-xs font-medium">{type.label}</div>
+                <span className="text-sm">{type.icon}</span>
+                <span className="text-xs font-medium">{type.label}</span>
               </Button>
             ))}
-          </div>
+          </ButtonGroup>
+          {/* Second row: 2 buttons */}
+          <ButtonGroup className="w-full">
+            {sessionTypes.slice(3).map(type => (
+              <Button
+                key={type.value}
+                variant={sessionData.sessionType === type.value ? "default" : "outline"}
+                className="flex-1 px-2 py-1.5 h-auto flex items-center justify-center gap-1.5"
+                onClick={() => setSessionData(prev => ({ 
+                  ...prev, 
+                  sessionType: type.value,
+                  ...(type.value !== 'other' && { customSessionType: '' })
+                }))}
+              >
+                <span className="text-sm">{type.icon}</span>
+                <span className="text-xs font-medium">{type.label}</span>
+              </Button>
+            ))}
+          </ButtonGroup>
+          {sessionData.sessionType === 'other' && (
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-secondary-text mb-1">Custom Type Name <span className="text-red-500">*</span></label>
+              <Input
+                type="text"
+                value={sessionData.customSessionType || ''}
+                onChange={(e) => setSessionData(prev => ({ ...prev, customSessionType: e.target.value }))}
+                placeholder="e.g., Discovery Call, Diary Study, etc."
+              />
+            </div>
+          )}
         </div>
 
+        {/* Participant Name Field - Required */}
         <div>
-          <label className="block text-sm font-medium text-secondary-text mb-1">Participant</label>
+          <label className="block text-sm font-medium text-secondary-text mb-1">Participant Name <span className="text-red-500">*</span></label>
           <Input
             type="text"
             value={sessionData.participantName}
             onChange={(e) => setSessionData(prev => ({ ...prev, participantName: e.target.value }))}
             placeholder="Sarah M."
           />
+          {autoFillSuggestions.participantName && (
+            <div className="mt-1 flex items-center gap-1 text-xs text-green-600">
+              <Check className="w-3 h-3" />
+              <span>Auto-filled from transcript</span>
+            </div>
+          )}
+        </div>
+
+        {/* Date Field */}
+        <div>
+          <label className="block text-sm font-medium text-secondary-text mb-1">Date</label>
+          <Input
+            type="date"
+            value={sessionData.sessionDate}
+            onChange={(e) => setSessionData(prev => ({ ...prev, sessionDate: e.target.value }))}
+          />
+        </div>
+
+        {/* Recording URL Field */}
+        <div>
+          <label className="block text-sm font-medium text-secondary-text mb-1">Recording URL <span className="text-muted-foreground">(optional)</span></label>
+          <div className="relative">
+            <Input
+              type="url"
+              value={sessionData.recordingUrl}
+              onChange={(e) => setSessionData(prev => ({ ...prev, recordingUrl: e.target.value }))}
+              placeholder="https://drive.google.com/file/d/..."
+              className="pr-8"
+            />
+            <Video className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          </div>
+          {sessionData.recordingUrl && isGoogleDriveUrl(sessionData.recordingUrl) && extractDriveFileId(sessionData.recordingUrl) && (
+            <div className="mt-1 flex items-center gap-1 text-xs text-green-600">
+              <Check className="w-3 h-3" />
+              <span>Google Drive video linked</span>
+            </div>
+          )}
+          <p className="mt-1 text-xs text-muted-foreground">💡 Link to your Google Drive or OneDrive recording</p>
         </div>
 
         {/* Participant Context Section */}
@@ -227,65 +321,33 @@ const SessionDetailsForm = ({
           </Accordion>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-secondary-text mb-1">Project <span className="text-muted-foreground">(optional)</span></label>
-          <select
-            value={sessionData.projectId || ''}
-            onChange={(e) => setSessionData(prev => ({ ...prev, projectId: e.target.value || null }))}
-            className="w-full h-10 px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            disabled={isLoadingProjects}
-          >
-            <option value="">No project</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-          {isLoadingProjects && (
-            <p className="mt-1 text-xs text-muted-foreground">Loading projects...</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-secondary-text mb-1">Recording URL <span className="text-muted-foreground">(optional)</span></label>
-          <div className="relative">
-            <Input
-              type="url"
-              value={sessionData.recordingUrl}
-              onChange={(e) => setSessionData(prev => ({ ...prev, recordingUrl: e.target.value }))}
-              placeholder="https://drive.google.com/file/d/..."
-              className="pr-8"
-            />
-            <Video className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          </div>
-          {sessionData.recordingUrl && isGoogleDriveUrl(sessionData.recordingUrl) && extractDriveFileId(sessionData.recordingUrl) && (
-            <div className="mt-1 flex items-center gap-1 text-xs text-green-600">
-              <Check className="w-3 h-3" />
-              <span>Google Drive video linked</span>
-            </div>
-          )}
-        </div>
-
-        {(sessionData.title || sessionData.recordingUrl || sessionData.transcriptContent) && (
-          <div className="pt-4 border-t border-border">
-            <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-              <span>Progress</span>
-              <span>{[sessionData.title, sessionData.transcriptContent].filter(Boolean).length}/2 required</span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className="bg-primary h-2 rounded-full transition-all duration-300" 
-                style={{ width: `${[sessionData.title, sessionData.transcriptContent].filter(Boolean).length * 50}%` }}
-              />
-            </div>
-            {sessionData.recordingUrl && (
-              <div className="mt-2 text-xs text-green-600">
-                ✓ Recording URL provided (optional)
+        {/* Progress Indicator */}
+        {(() => {
+          const transcript = transcriptContent || sessionData.transcriptContent || '';
+          const requiredFields = [
+            sessionData.title?.trim(),
+            sessionData.sessionType && (sessionData.sessionType !== 'other' || sessionData.customSessionType?.trim()),
+            sessionData.participantName?.trim(),
+            transcript.trim()
+          ];
+          const completedCount = requiredFields.filter(Boolean).length;
+          const totalRequired = 4;
+          
+          return (
+            <div className="pt-4 border-t border-border">
+              <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                <span>Progress</span>
+                <span>{completedCount}/{totalRequired} required fields complete {completedCount === totalRequired && <span className="text-green-600">✓</span>}</span>
               </div>
-            )}
-          </div>
-        )}
+              <div className="w-full bg-muted rounded-full h-2">
+                <div 
+                  className="bg-primary h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${(completedCount / totalRequired) * 100}%` }}
+                />
+              </div>
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );

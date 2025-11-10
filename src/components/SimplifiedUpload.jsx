@@ -7,6 +7,7 @@ import TranscriptAnalysisView from './TranscriptAnalysisView';
 import RepositorySearchView from './RepositorySearchView';
 import SessionDetailsForm from './SessionDetailsForm';
 import TranscriptUpload from './TranscriptUpload';
+import { getProjectById } from '@/lib/firestoreUtils';
 
 const SimplifiedUpload = () => {
   const [searchParams] = useSearchParams();
@@ -19,6 +20,7 @@ const SimplifiedUpload = () => {
     recordingUrl: '',
     transcriptContent: '',
     sessionType: 'user_interview',
+    customSessionType: '',
     projectId: projectIdFromUrl || null
   });
 
@@ -30,13 +32,15 @@ const SimplifiedUpload = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [analysisPrefill, setAnalysisPrefill] = useState(null);
   const [autoFillSuggestions, setAutoFillSuggestions] = useState({});
+  const [project, setProject] = useState(null);
   const fileInputRef = useRef(null);
 
   const sessionTypes = [
-    { value: 'user_interview', label: 'Interview', icon: '🎤' },
+    { value: 'user_interview', label: 'Interview', icon: '💬' },
     { value: 'usability_test', label: 'Usability Test', icon: '🖥️' },
-    { value: 'feedback_session', label: 'Feedback', icon: '💬' },
-    { value: 'focus_group', label: 'Focus Group', icon: '👥' }
+    { value: 'feedback_session', label: 'Feedback', icon: '💭' },
+    { value: 'focus_group', label: 'Focus Group', icon: '👥' },
+    { value: 'other', label: 'Other', icon: '➕' }
   ];
 
   const handleStartAnalysis = () => {
@@ -56,6 +60,7 @@ const SimplifiedUpload = () => {
         recordingUrl: '',
         transcriptContent: '',
         sessionType: 'user_interview',
+        customSessionType: '',
         projectId: projectIdFromUrl || null
       });
       setUploadMethod('');
@@ -89,6 +94,24 @@ const SimplifiedUpload = () => {
       setCurrentView('upload');
     }
   }, [projectIdFromUrl, currentView]);
+
+  useEffect(() => {
+    // Fetch project details when projectIdFromUrl exists
+    const fetchProject = async () => {
+      if (projectIdFromUrl) {
+        try {
+          const projectData = await getProjectById(projectIdFromUrl);
+          setProject(projectData);
+        } catch (error) {
+          console.error('Error fetching project:', error);
+          setProject(null);
+        }
+      } else {
+        setProject(null);
+      }
+    };
+    fetchProject();
+  }, [projectIdFromUrl]);
 
   useEffect(() => {
     const hasData = sessionData.title.trim() || 
@@ -146,8 +169,13 @@ const SimplifiedUpload = () => {
 
 
   const canStartAnalysis = () => {
-    return sessionData.title.trim() && 
-           sessionData.transcriptContent.trim();
+    const hasTitle = sessionData.title.trim();
+    const hasTranscript = sessionData.transcriptContent.trim();
+    const hasSessionType = sessionData.sessionType && 
+      (sessionData.sessionType !== 'other' || sessionData.customSessionType?.trim());
+    const hasParticipant = sessionData.participantName.trim();
+    
+    return hasTitle && hasTranscript && hasSessionType && hasParticipant;
   };
 
   const handleQuickPaste = () => {
@@ -172,17 +200,19 @@ const SimplifiedUpload = () => {
           <p className="text-muted-foreground">Add your session details and transcript to start creating insights</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-[35%_65%] gap-6">
+          <div>
             <SessionDetailsForm 
               sessionData={sessionData}
               setSessionData={setSessionData}
               sessionTypes={sessionTypes}
               autoFillSuggestions={autoFillSuggestions}
+              project={project}
+              transcriptContent={sessionData.transcriptContent}
             />
           </div>
 
-          <div className="lg:col-span-2">
+          <div>
             <TranscriptUpload
               uploadMethod={uploadMethod}
               setUploadMethod={setUploadMethod}
