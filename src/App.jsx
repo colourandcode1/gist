@@ -110,7 +110,7 @@ function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <Navigate to="/dashboard" replace />
+                <SimplifiedUpload />
               </ProtectedRoute>
             }
           />

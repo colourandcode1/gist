@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Archive, Download, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Edit, Archive, Download, MoreVertical, Plus } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -148,7 +148,15 @@ const ProjectDetailPage = () => {
             </div>
             <p className="text-muted-foreground">{project.description || 'No description'}</p>
           </div>
-          <DropdownMenu>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={() => navigate(`/?projectId=${id}`)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Create New Session
+            </Button>
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
                 <MoreVertical className="h-5 w-5" />
@@ -172,6 +180,7 @@ const ProjectDetailPage = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
 
         {/* Tabs */}
