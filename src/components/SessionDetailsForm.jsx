@@ -3,6 +3,7 @@ import { Video, Check, FolderOpen } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { isGoogleDriveUrl, extractDriveFileId } from '@/lib/videoUtils';
 import { getProjects } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -102,122 +103,128 @@ const SessionDetailsForm = ({
 
         {/* Participant Context Section */}
         <div className="pt-2 border-t border-border">
-          <label className="block text-sm font-medium text-secondary-text mb-3">
-            Participant Context <span className="text-muted-foreground">(optional)</span>
-          </label>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Company Name</label>
-              <Input
-                type="text"
-                value={sessionData.participantContext?.companyName || ''}
-                onChange={(e) => setSessionData(prev => ({
-                  ...prev,
-                  participantContext: {
-                    ...prev.participantContext,
-                    companyName: e.target.value
-                  }
-                }))}
-                placeholder="Acme Corp"
-              />
-            </div>
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="participant-context" className="border-none">
+              <AccordionTrigger className="text-sm font-medium text-secondary-text py-2 hover:no-underline">
+                Participant Context <span className="text-muted-foreground font-normal">(optional)</span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Company Name</label>
+                    <Input
+                      type="text"
+                      value={sessionData.participantContext?.companyName || ''}
+                      onChange={(e) => setSessionData(prev => ({
+                        ...prev,
+                        participantContext: {
+                          ...prev.participantContext,
+                          companyName: e.target.value
+                        }
+                      }))}
+                      placeholder="Acme Corp"
+                    />
+                  </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Company Size</label>
-                <select
-                  value={sessionData.participantContext?.companySize || ''}
-                  onChange={(e) => setSessionData(prev => ({
-                    ...prev,
-                    participantContext: {
-                      ...prev.participantContext,
-                      companySize: e.target.value || null
-                    }
-                  }))}
-                  className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
-                >
-                  <option value="">Select size</option>
-                  <option value="smb">SMB</option>
-                  <option value="mid_market">Mid-Market</option>
-                  <option value="enterprise">Enterprise</option>
-                </select>
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Company Size</label>
+                      <select
+                        value={sessionData.participantContext?.companySize || ''}
+                        onChange={(e) => setSessionData(prev => ({
+                          ...prev,
+                          participantContext: {
+                            ...prev.participantContext,
+                            companySize: e.target.value || null
+                          }
+                        }))}
+                        className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
+                      >
+                        <option value="">Select size</option>
+                        <option value="smb">SMB</option>
+                        <option value="mid_market">Mid-Market</option>
+                        <option value="enterprise">Enterprise</option>
+                      </select>
+                    </div>
 
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">User Type</label>
-                <select
-                  value={sessionData.participantContext?.userType || ''}
-                  onChange={(e) => setSessionData(prev => ({
-                    ...prev,
-                    participantContext: {
-                      ...prev.participantContext,
-                      userType: e.target.value || null
-                    }
-                  }))}
-                  className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
-                >
-                  <option value="">Select type</option>
-                  <option value="admin">Admin</option>
-                  <option value="end_user">End User</option>
-                  <option value="decision_maker">Decision Maker</option>
-                </select>
-              </div>
-            </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">User Type</label>
+                      <select
+                        value={sessionData.participantContext?.userType || ''}
+                        onChange={(e) => setSessionData(prev => ({
+                          ...prev,
+                          participantContext: {
+                            ...prev.participantContext,
+                            userType: e.target.value || null
+                          }
+                        }))}
+                        className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
+                      >
+                        <option value="">Select type</option>
+                        <option value="admin">Admin</option>
+                        <option value="end_user">End User</option>
+                        <option value="decision_maker">Decision Maker</option>
+                      </select>
+                    </div>
+                  </div>
 
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">User Role/Title</label>
-              <Input
-                type="text"
-                value={sessionData.participantContext?.userRole || ''}
-                onChange={(e) => setSessionData(prev => ({
-                  ...prev,
-                  participantContext: {
-                    ...prev.participantContext,
-                    userRole: e.target.value
-                  }
-                }))}
-                placeholder="Product Manager"
-              />
-            </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">User Role/Title</label>
+                    <Input
+                      type="text"
+                      value={sessionData.participantContext?.userRole || ''}
+                      onChange={(e) => setSessionData(prev => ({
+                        ...prev,
+                        participantContext: {
+                          ...prev.participantContext,
+                          userRole: e.target.value
+                        }
+                      }))}
+                      placeholder="Product Manager"
+                    />
+                  </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Industry</label>
-                <Input
-                  type="text"
-                  value={sessionData.participantContext?.industry || ''}
-                  onChange={(e) => setSessionData(prev => ({
-                    ...prev,
-                    participantContext: {
-                      ...prev.participantContext,
-                      industry: e.target.value
-                    }
-                  }))}
-                  placeholder="Technology"
-                />
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Industry</label>
+                      <Input
+                        type="text"
+                        value={sessionData.participantContext?.industry || ''}
+                        onChange={(e) => setSessionData(prev => ({
+                          ...prev,
+                          participantContext: {
+                            ...prev.participantContext,
+                            industry: e.target.value
+                          }
+                        }))}
+                        placeholder="Technology"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Product Tenure</label>
-                <select
-                  value={sessionData.participantContext?.productTenure || ''}
-                  onChange={(e) => setSessionData(prev => ({
-                    ...prev,
-                    participantContext: {
-                      ...prev.participantContext,
-                      productTenure: e.target.value || null
-                    }
-                  }))}
-                  className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
-                >
-                  <option value="">Select tenure</option>
-                  <option value="new">New</option>
-                  <option value="regular">Regular</option>
-                  <option value="power_user">Power User</option>
-                </select>
-              </div>
-            </div>
-          </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Product Tenure</label>
+                      <select
+                        value={sessionData.participantContext?.productTenure || ''}
+                        onChange={(e) => setSessionData(prev => ({
+                          ...prev,
+                          participantContext: {
+                            ...prev.participantContext,
+                            productTenure: e.target.value || null
+                          }
+                        }))}
+                        className="w-full h-9 px-3 py-1 text-sm bg-background border border-input rounded-md"
+                      >
+                        <option value="">Select tenure</option>
+                        <option value="new">New</option>
+                        <option value="regular">Regular</option>
+                        <option value="power_user">Power User</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
 
         <div>

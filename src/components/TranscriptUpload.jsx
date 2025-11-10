@@ -1,5 +1,5 @@
 import React from 'react';
-import { Upload, FileText, Video, Clock, Check, X } from 'lucide-react';
+import { Upload, FileText, Video, Clock, Check, X, Play, ArrowRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,7 +21,9 @@ const TranscriptUpload = ({
   handleQuickPaste,
   showPreview,
   setShowPreview,
-  estimatedNuggets
+  estimatedNuggets,
+  handleStartAnalysis,
+  canStartAnalysis
 }) => {
   const handleFileUpload = async (file) => {
     setIsProcessing(true);
@@ -307,6 +309,20 @@ const TranscriptUpload = ({
             </div>
           </div>
         ) : null}
+
+        {handleStartAnalysis && (
+          <div className="mt-6 pt-4 border-t border-border">
+            <Button
+              onClick={handleStartAnalysis}
+              disabled={!canStartAnalysis}
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <Play className="w-4 h-4" />
+              Start Analysis
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

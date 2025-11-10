@@ -26,7 +26,7 @@ const SimplifiedUpload = () => {
   const [dragActive, setDragActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [currentView, setCurrentView] = useState('repository');
+  const [currentView, setCurrentView] = useState(projectIdFromUrl ? 'upload' : 'repository');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [analysisPrefill, setAnalysisPrefill] = useState(null);
   const [autoFillSuggestions, setAutoFillSuggestions] = useState({});
@@ -77,6 +77,18 @@ const SimplifiedUpload = () => {
       setCurrentView('analysis');
     }
   };
+
+  useEffect(() => {
+    // Update sessionData.projectId when projectIdFromUrl changes
+    setSessionData(prev => ({
+      ...prev,
+      projectId: projectIdFromUrl || null
+    }));
+    // Switch to upload view if projectId is present and we're on repository view
+    if (projectIdFromUrl && currentView === 'repository') {
+      setCurrentView('upload');
+    }
+  }, [projectIdFromUrl, currentView]);
 
   useEffect(() => {
     const hasData = sessionData.title.trim() || 
@@ -187,27 +199,10 @@ const SimplifiedUpload = () => {
               showPreview={showPreview}
               setShowPreview={setShowPreview}
               estimatedNuggets={estimatedNuggets}
+              handleStartAnalysis={handleStartAnalysis}
+              canStartAnalysis={canStartAnalysis()}
             />
           </div>
-        </div>
-
-        <div className="mt-6 flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {canStartAnalysis() ? 
-              "Ready to start creating research nuggets! 🎉" : 
-              "Fill in the details above to get started"
-            }
-          </div>
-          
-          <Button
-            onClick={handleStartAnalysis}
-            disabled={!canStartAnalysis()}
-            className="flex items-center gap-2"
-          >
-            <Play className="w-4 h-4" />
-            Start Analysis
-            <ArrowRight className="w-4 h-4" />
-          </Button>
         </div>
       </div>
     </div>
