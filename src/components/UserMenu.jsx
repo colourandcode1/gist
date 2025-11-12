@@ -47,14 +47,17 @@ const UserMenu = () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
+        <DropdownMenuItem 
+          onClick={() => navigate('/settings?tab=profile')}
+          className="cursor-pointer focus:bg-accent"
+        >
+          <div className="flex flex-col space-y-1 w-full">
             <p className="text-sm font-medium leading-none">{currentUser.email}</p>
             <p className="text-xs leading-none text-muted-foreground capitalize">
               {userProfile?.role || 'researcher'}
             </p>
           </div>
-        </DropdownMenuLabel>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate('/settings')}>
           <Settings className="mr-2 h-4 w-4" />

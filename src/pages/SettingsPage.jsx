@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import NavigationHeader from '@/components/NavigationHeader';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,7 +15,21 @@ import { User, Users, Settings as SettingsIcon, Shield, Plug, FileText, CreditCa
 
 const SettingsPage = () => {
   const { currentUser, userProfile, isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') || 'profile';
+  const [activeTab, setActiveTab] = useState(tabFromUrl);
+
+  // Sync URL param changes with active tab state
+  useEffect(() => {
+    const tab = searchParams.get('tab') || 'profile';
+    setActiveTab(tab);
+  }, [searchParams]);
+
+  // Update URL when tab changes
+  const handleTabChange = (value) => {
+    setActiveTab(value);
+    setSearchParams({ tab: value });
+  };
 
   if (!currentUser) {
     return (
@@ -38,7 +53,7 @@ const SettingsPage = () => {
           <p className="text-muted-foreground">Manage your account and preferences</p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="w-4 h-4" />
