@@ -5,7 +5,7 @@ import { DEFAULT_TAGS } from '@/lib/constants';
 /**
  * Custom hook for managing nugget state and operations
  */
-export const useNuggetManagement = (sessionData, prefill, setHasUnsavedChanges) => {
+export const useNuggetManagement = (sessionData, prefill) => {
   const [selectedText, setSelectedText] = useState('');
   const [selectedSentenceInfo, setSelectedSentenceInfo] = useState(null);
   const [nuggets, setNuggets] = useState([]);
@@ -115,7 +115,6 @@ export const useNuggetManagement = (sessionData, prefill, setHasUnsavedChanges) 
     setNewNugget({ observation: '', evidence_text: '', speaker: '', timestamp: '', category: 'general', tags: [] });
     setSelectedText('');
     setSelectedSentenceInfo(null);
-    setHasUnsavedChanges(true);
   };
 
   return {

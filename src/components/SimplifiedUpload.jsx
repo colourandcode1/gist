@@ -7,11 +7,13 @@ import TranscriptAnalysisView from './TranscriptAnalysisView';
 import RepositorySearchView from './RepositorySearchView';
 import SessionDetailsForm from './SessionDetailsForm';
 import TranscriptUpload from './TranscriptUpload';
-import { getProjectById } from '@/lib/firestoreUtils';
+import { getProjectById, saveSession } from '@/lib/firestoreUtils';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SimplifiedUpload = () => {
   const [searchParams] = useSearchParams();
   const projectIdFromUrl = searchParams.get('projectId');
+  const { currentUser } = useAuth();
 
   const [sessionData, setSessionData] = useState({
     title: '',
@@ -29,7 +31,9 @@ const SimplifiedUpload = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [currentView, setCurrentView] = useState(projectIdFromUrl ? 'upload' : 'repository');
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSavingSession, setIsSavingSession] = useState(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  const [showSaveSuccessToast, setShowSaveSuccessToast] = useState(false);
   const [analysisPrefill, setAnalysisPrefill] = useState(null);
   const [autoFillSuggestions, setAutoFillSuggestions] = useState({});
   const [project, setProject] = useState(null);
@@ -43,8 +47,54 @@ const SimplifiedUpload = () => {
     { value: 'other', label: 'Other', icon: '➕' }
   ];
 
-  const handleStartAnalysis = () => {
-    setCurrentView('analysis');
+  const handleStartAnalysis = async () => {
+    if (!currentUser) {
+      alert('Please log in to save sessions');
+      return;
+    }
+
+    setIsSavingSession(true);
+    try {
+      const sessionPayload = {
+        title: sessionData.title,
+        description: '',
+        session_date: sessionData.sessionDate,
+        session_type: sessionData.sessionType,
+        participant_info: {
+          name: sessionData.participantName
+        },
+        recording_url: sessionData.recordingUrl,
+        transcript_content: sessionData.transcriptContent,
+        projectId: sessionData.projectId || null,
+        participantContext: sessionData.participantContext || null,
+        nuggets: [] // Start with empty nuggets array
+      };
+
+      const result = await saveSession(sessionPayload, currentUser.uid);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save session');
+      }
+
+      // Update sessionData with the session ID
+      setSessionData(prev => ({ ...prev, id: result.id }));
+      
+      // Show success state on button
+      setIsSavingSession(false);
+      setShowSaveSuccess(true);
+      setShowSaveSuccessToast(true);
+      
+      // Wait 1 second to show success state, then navigate
+      setTimeout(() => {
+        setCurrentView('analysis');
+        setShowSaveSuccess(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Error saving session:', error);
+      setIsSavingSession(false);
+      setShowSaveSuccess(false);
+      alert(`Failed to save session: ${error.message}. Please try again.`);
+    }
   };
 
   const handleNavigate = (viewOrPayload) => {
@@ -52,6 +102,7 @@ const SimplifiedUpload = () => {
     if (view === 'repository') {
       setCurrentView('repository');
       setAnalysisPrefill(null);
+      setShowSaveSuccessToast(false);
     } else if (view === 'upload') {
       setSessionData({
         title: '',
@@ -65,10 +116,10 @@ const SimplifiedUpload = () => {
       });
       setUploadMethod('');
       setShowPreview(false);
-      setHasUnsavedChanges(false);
       setAutoFillSuggestions({});
       setCurrentView('upload');
       setAnalysisPrefill(null);
+      setShowSaveSuccessToast(false);
     } else if (view === 'analysis') {
       const payload = typeof viewOrPayload === 'object' ? viewOrPayload : null;
       if (payload?.session) {
@@ -78,6 +129,10 @@ const SimplifiedUpload = () => {
         setAnalysisPrefill(payload.prefill);
       } else {
         setAnalysisPrefill(null);
+      }
+      // Only show toast for new sessions, not when navigating from repository
+      if (!payload?.session?.id) {
+        setShowSaveSuccessToast(false);
       }
       setCurrentView('analysis');
     }
@@ -113,13 +168,6 @@ const SimplifiedUpload = () => {
     fetchProject();
   }, [projectIdFromUrl]);
 
-  useEffect(() => {
-    const hasData = sessionData.title.trim() || 
-                   sessionData.recordingUrl.trim() || 
-                   sessionData.transcriptContent.trim() ||
-                   sessionData.participantName.trim();
-    setHasUnsavedChanges(hasData && currentView !== 'repository');
-  }, [sessionData, currentView]);
 
   const estimatedNuggets = sessionData.transcriptContent ? Math.floor(sessionData.transcriptContent.length / 500) : 0;
 
@@ -128,9 +176,8 @@ const SimplifiedUpload = () => {
       <TranscriptAnalysisView 
         sessionData={sessionData} 
         onNavigate={handleNavigate}
-        hasUnsavedChanges={hasUnsavedChanges}
-        setHasUnsavedChanges={setHasUnsavedChanges}
         prefill={analysisPrefill}
+        showSaveSuccessToast={showSaveSuccessToast}
       />
     );
   }
@@ -190,8 +237,7 @@ const SimplifiedUpload = () => {
     <div className="bg-background min-h-screen">
       <NavigationHeader 
         currentView="upload" 
-        onNavigate={handleNavigate} 
-        hasUnsavedChanges={hasUnsavedChanges}
+        onNavigate={handleNavigate}
       />
       
       <div className="max-w-5xl mx-auto p-6">
@@ -231,6 +277,8 @@ const SimplifiedUpload = () => {
               estimatedNuggets={estimatedNuggets}
               handleStartAnalysis={handleStartAnalysis}
               canStartAnalysis={canStartAnalysis()}
+              isSavingSession={isSavingSession}
+              showSaveSuccess={showSaveSuccess}
             />
           </div>
         </div>

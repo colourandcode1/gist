@@ -1,22 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Database, Plus, Clock, Menu, FolderOpen, FileText, Settings, LayoutDashboard, Target } from 'lucide-react';
+import { Database, Plus, Menu, FolderOpen, FileText, Settings, LayoutDashboard, Target } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import UserMenu from "@/components/UserMenu";
 
-const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }) => {
+const NavigationHeader = ({ currentView, onNavigate }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // Support both old callback-based navigation and new router-based navigation
   const handleNavigation = (viewOrPath) => {
-    if (hasUnsavedChanges) {
-      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to leave?');
-      if (!confirmed) return;
-    }
-    
     // Always use React Router navigation for paths starting with /
     if (typeof viewOrPath === 'string' && viewOrPath.startsWith('/')) {
       navigate(viewOrPath);
@@ -128,15 +123,6 @@ const NavigationHeader = ({ currentView, onNavigate, hasUnsavedChanges = false }
           </div>
         )}
       </div>
-
-      {hasUnsavedChanges && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-6 py-2">
-          <div className="flex items-center gap-2 text-sm text-yellow-800 dark:text-yellow-200">
-            <Clock className="w-4 h-4" />
-            <span>You have unsaved changes in this session</span>
-          </div>
-        </div>
-      )}
     </nav>
   );
 };

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Plus, Save, Database, Check, Sparkles, X, Maximize2 } from 'lucide-react';
+import { Video, Sparkles, X, Maximize2 } from 'lucide-react';
 import NavigationHeader from './NavigationHeader';
-import { parseTranscript } from '@/lib/transcriptUtils';
-import { saveSession, updateNuggetFields } from '@/lib/firestoreUtils';
+import { parseTranscript, findNearestTimestampBeforeText } from '@/lib/transcriptUtils';
+import { updateSession, updateNuggetFields } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import Toast from '@/components/ui/toast';
 import { highlightSentimentWords, extractSentenceFromText, highlightSelectedSentence } from '@/lib/sentimentUtils';
 import VideoPlayer from './VideoPlayer';
 import { Switch } from "@/components/ui/switch";
@@ -14,13 +15,13 @@ import NuggetForm from './NuggetForm';
 import { useNuggetManagement } from '@/hooks/useNuggetManagement';
 import { CATEGORIES } from '@/lib/constants';
 
-const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, setHasUnsavedChanges, prefill }) => {
+const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSuccessToast = false }) => {
   const { currentUser } = useAuth();
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('');
   const [showSentiment, setShowSentiment] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [currentVideoTimestamp, setCurrentVideoTimestamp] = useState(null);
+  const [isSavingNugget, setIsSavingNugget] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   const {
     selectedText,
@@ -43,7 +44,14 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     newNugget,
     setNewNugget,
     createNugget
-  } = useNuggetManagement(sessionData, prefill, setHasUnsavedChanges);
+  } = useNuggetManagement(sessionData, prefill);
+
+  // Show toast on mount if showSaveSuccessToast is true
+  useEffect(() => {
+    if (showSaveSuccessToast) {
+      setShowToast(true);
+    }
+  }, [showSaveSuccessToast]);
 
   // Add document-level click handler for click-away functionality
   useEffect(() => {
@@ -99,73 +107,69 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
     }
   };
 
-  const handleSaveSession = async () => {
-    if (!currentUser) {
-      setSaveStatus('error');
+  const handleCreateNugget = async () => {
+    if (!currentUser || !sessionData.id) {
+      alert('Session not saved yet. Please try again.');
       return;
     }
 
-    setIsSaving(true);
-    setSaveStatus('');
+    if (!newNugget.observation.trim() || !selectedText) return;
 
+    setIsSavingNugget(true);
     try {
-      const sessionPayload = {
-        title: sessionData.title,
-        description: '',
-        session_date: sessionData.sessionDate,
-        session_type: sessionData.sessionType,
-        participant_info: {
-          name: sessionData.participantName
-        },
-        recording_url: sessionData.recordingUrl,
-        transcript_content: sessionData.transcriptContent,
-        projectId: sessionData.projectId || null,
-        participantContext: sessionData.participantContext || null,
-        nuggets: nuggets.map(nugget => ({
-          id: nugget.id,
-          observation: nugget.observation,
-          evidence_text: nugget.evidence_text,
-          speaker: nugget.speaker,
-          timestamp: nugget.timestamp,
-          category: nugget.category,
-          tags: nugget.tags,
-          created_at: nugget.created_at
-        }))
-      };
-
-      // Save to Firestore using utility function
-      const result = await saveSession(sessionPayload, currentUser.uid);
-      
-      if (!result.success) {
-        console.error('Save session failed:', result.error);
-        setSaveStatus('error');
-        throw new Error(result.error || 'Failed to save session');
+      // Auto-detect timestamp if not already set
+      let finalTimestamp = newNugget.timestamp;
+      if (!finalTimestamp && sessionData.transcriptContent && selectedText) {
+        const detected = findNearestTimestampBeforeText(
+          sessionData.transcriptContent,
+          selectedText
+        );
+        if (detected) {
+          finalTimestamp = detected;
+        }
       }
 
-      console.log('Session saved successfully:', result);
-      
-      setSaveStatus('saved');
-      setHasUnsavedChanges(false);
-      
-      // Navigate to repository after successful save (delay to show success message)
-      setTimeout(() => {
-        console.log('Navigating to repository...');
-        onNavigate('repository');
-      }, 1500);
-      
-      setTimeout(() => setSaveStatus(''), 5000);
-      
+      // Create the nugget object
+      const nugget = {
+        id: Date.now(),
+        observation: newNugget.observation,
+        evidence_text: selectedText,
+        speaker: newNugget.speaker || sessionData.participantName || 'Participant',
+        timestamp: finalTimestamp || null,
+        category: newNugget.category,
+        tags: newNugget.tags,
+        created_at: new Date().toLocaleString()
+      };
+
+      // Add nugget to the session's nuggets array
+      const updatedNuggets = [...nuggets, nugget];
+      const result = await updateSession(sessionData.id, {
+        nuggets: updatedNuggets.map(n => ({
+          id: n.id,
+          observation: n.observation,
+          evidence_text: n.evidence_text,
+          speaker: n.speaker,
+          timestamp: n.timestamp,
+          category: n.category,
+          tags: n.tags,
+          created_at: n.created_at
+        }))
+      }, currentUser.uid);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save nugget');
+      }
+
+      // Update local state only after successful save
+      setNuggets(updatedNuggets);
+      setNewNugget({ observation: '', evidence_text: '', speaker: '', timestamp: '', category: 'general', tags: [] });
+      setSelectedText('');
+      setSelectedSentenceInfo(null);
     } catch (error) {
-      console.error('Save failed with error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        stack: error.stack
-      });
-      setSaveStatus('error');
-      alert(`Failed to save session: ${error.message}. Please check the browser console for details.`);
+      console.error('Error saving nugget:', error);
+      alert(`Failed to save nugget: ${error.message}. Please try again.`);
     } finally {
-      setIsSaving(false);
+      setIsSavingNugget(false);
     }
   };
 
@@ -247,10 +251,17 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
 
   return (
     <div className="bg-background min-h-screen">
+      {showToast && (
+        <Toast
+          message="Session saved successfully"
+          type="success"
+          duration={3000}
+          onClose={() => setShowToast(false)}
+        />
+      )}
       <NavigationHeader 
         currentView="analysis" 
-        onNavigate={onNavigate} 
-        hasUnsavedChanges={hasUnsavedChanges}
+        onNavigate={onNavigate}
       />
       
       <div className="flex h-[calc(100vh-64px)]">
@@ -362,56 +373,6 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
           <div className="p-4 border-b border-border bg-card">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold text-foreground">Research Nuggets ({nuggets.length})</h2>
-              <div className="flex items-center gap-2">
-                {saveStatus === 'saved' && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
-                      <Check className="w-4 h-4" />
-                      Session saved!
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => onNavigate('repository')}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors"
-                      >
-                        <Database className="w-4 h-4" />
-                        View Repository
-                      </button>
-                      <button 
-                        onClick={() => onNavigate('upload')}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-secondary text-secondary-foreground text-sm rounded-md hover:bg-secondary/90 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        New Session
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {saveStatus === 'error' && (
-                  <div className="text-sm text-red-600 dark:text-red-400">
-                    Save failed. Try again.
-                  </div>
-                )}
-                {saveStatus !== 'saved' && (
-                  <button 
-                    onClick={handleSaveSession}
-                    disabled={isSaving}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isSaving ? (
-                      <>
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        Save Session
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
             </div>
           </div>
 
@@ -441,9 +402,10 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, hasUnsavedChanges, se
               newTagColor={newTagColor}
               setNewTagColor={setNewTagColor}
               editingExisting={editingExisting}
-              onCreateNugget={createNugget}
+              onCreateNugget={handleCreateNugget}
               onSaveExisting={saveExistingNugget}
               sessionData={sessionData}
+              isSaving={isSavingNugget}
             />
           </div>
         </div>

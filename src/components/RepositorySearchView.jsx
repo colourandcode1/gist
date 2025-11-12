@@ -221,12 +221,15 @@ const RepositorySearchView = ({ onNavigate }) => {
     onNavigate({
       view: 'analysis',
       session: {
+        id: sessionData.id || selectedNugget.session_id,
         title: sessionData.title,
         sessionDate: sessionData.session_date,
         participantName: sessionData.participant_info?.name || '',
         recordingUrl: sessionData.recording_url || '',
         transcriptContent: sessionData.transcript_content || '',
-        sessionType: sessionData.session_type || 'user_interview'
+        sessionType: sessionData.session_type || 'user_interview',
+        projectId: sessionData.projectId || null,
+        participantContext: sessionData.participantContext || null
       },
       prefill: {
         nuggetId: selectedNugget.id,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Upload, FileText, Video, Clock, Check, X, Play, ArrowRight } from 'lucide-react';
+import { Upload, FileText, Video, Clock, Check, X, Play, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +23,9 @@ const TranscriptUpload = ({
   setShowPreview,
   estimatedNuggets,
   handleStartAnalysis,
-  canStartAnalysis
+  canStartAnalysis,
+  isSavingSession,
+  showSaveSuccess
 }) => {
   const handleFileUpload = async (file) => {
     setIsProcessing(true);
@@ -314,12 +316,28 @@ const TranscriptUpload = ({
           <div className="mt-6 pt-4 border-t border-border">
             <Button
               onClick={handleStartAnalysis}
-              disabled={!canStartAnalysis}
-              className="w-full flex items-center justify-center gap-2"
+              disabled={!canStartAnalysis || isSavingSession || showSaveSuccess}
+              className={`w-full flex items-center justify-center gap-2 ${
+                showSaveSuccess ? 'bg-green-600 hover:bg-green-600' : ''
+              }`}
             >
-              <Play className="w-4 h-4" />
-              Start Analysis
-              <ArrowRight className="w-4 h-4" />
+              {isSavingSession ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Saving Session...
+                </>
+              ) : showSaveSuccess ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  Saved!
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  Start Analysis
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
           </div>
         )}

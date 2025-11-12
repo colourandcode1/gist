@@ -21,7 +21,8 @@ const NuggetForm = ({
   editingExisting,
   onCreateNugget,
   onSaveExisting,
-  sessionData
+  sessionData,
+  isSaving = false
 }) => {
   const addTagToNugget = (tagId) => {
     if (!newNugget.tags.includes(tagId)) {
@@ -265,11 +266,20 @@ const NuggetForm = ({
           ) : (
             <button
               onClick={onCreateNugget}
-              disabled={!newNugget.observation.trim() || !selectedText}
+              disabled={!newNugget.observation.trim() || !selectedText || isSaving}
               className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 disabled:bg-muted disabled:cursor-not-allowed transition-colors"
             >
-              <Plus className="w-4 h-4" />
-              Create Nugget
+              {isSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Create Nugget
+                </>
+              )}
             </button>
           )}
         </div>
