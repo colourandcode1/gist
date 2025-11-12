@@ -8,7 +8,7 @@ import { updateUserProfile } from '@/lib/firestoreUtils';
 import { User, Mail, Lock, Bell, Palette } from 'lucide-react';
 
 const ProfileSettings = ({ highlightDisplayName = false }) => {
-  const { currentUser, userProfile, updateUserEmail, updateUserPassword } = useAuth();
+  const { currentUser, userProfile, updateUserEmail, updateUserPassword, refreshUserProfile } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const displayNameInputRef = useRef(null);
@@ -45,6 +45,8 @@ const ProfileSettings = ({ highlightDisplayName = false }) => {
     try {
       const result = await updateUserProfile(currentUser.uid, personalInfo);
       if (result.success) {
+        // Refresh user profile to update avatar immediately
+        await refreshUserProfile();
         setMessage({ type: 'success', text: 'Personal information updated successfully' });
       } else {
         setMessage({ type: 'error', text: result.error || 'Failed to update personal information' });
@@ -169,6 +171,8 @@ const ProfileSettings = ({ highlightDisplayName = false }) => {
             <Input
               ref={displayNameInputRef}
               id="displayName"
+              type="text"
+              autoComplete="name"
               value={personalInfo.displayName}
               onChange={(e) => setPersonalInfo({ ...personalInfo, displayName: e.target.value })}
               placeholder="Your full name"
@@ -228,6 +232,7 @@ const ProfileSettings = ({ highlightDisplayName = false }) => {
               <Input
                 id="newPassword"
                 type="password"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter new password"
@@ -238,6 +243,7 @@ const ProfileSettings = ({ highlightDisplayName = false }) => {
               <Input
                 id="confirmPassword"
                 type="password"
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"

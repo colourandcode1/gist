@@ -190,6 +190,13 @@ export const AuthProvider = ({ children }) => {
     return !!userProfile;
   };
 
+  // Refresh user profile from Firestore
+  const refreshUserProfile = async () => {
+    if (currentUser) {
+      await fetchUserProfile(currentUser);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -213,6 +220,7 @@ export const AuthProvider = ({ children }) => {
     isAdmin,
     canEdit,
     canView,
+    refreshUserProfile,
     loading
   };
 
