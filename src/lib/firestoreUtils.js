@@ -1422,7 +1422,6 @@ export const updateUserProfile = async (userId, profileData) => {
 
     // Add profile fields if provided
     if (profileData.displayName !== undefined) updateData.displayName = profileData.displayName;
-    if (profileData.bio !== undefined) updateData.bio = profileData.bio;
     if (profileData.emailNotifications !== undefined) updateData.emailNotifications = profileData.emailNotifications;
     if (profileData.sessionReminders !== undefined) updateData.sessionReminders = profileData.sessionReminders;
     if (profileData.weeklyDigest !== undefined) updateData.weeklyDigest = profileData.weeklyDigest;
