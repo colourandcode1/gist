@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, CheckSquare, Square, Target } from 'lucide-react';
+import { Search, Plus, Target, CheckSquare, Square } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -551,26 +551,19 @@ const RepositorySearchView = ({ onNavigate }) => {
               const project = session?.projectId ? projects.find(p => p.id === session.projectId) : null;
               
               return (
-                <div key={nugget.id} className="relative">
-                  <div 
-                    className={`absolute left-2 top-2 z-10 cursor-pointer ${
-                      isSelected ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleNuggetSelection(nugget);
-                    }}
-                  >
-                    {isSelected ? (
-                      <CheckSquare className="w-5 h-5" />
-                    ) : (
-                      <Square className="w-5 h-5" />
-                    )}
-                  </div>
+                <div 
+                  key={nugget.id} 
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleNuggetSelection(nugget);
+                  }}
+                >
                   <RepositoryNuggetCard
                     nugget={nugget}
                     session={session}
                     project={project}
+                    isSelected={isSelected}
                     onNuggetClick={handleNuggetClick}
                     onWatchClick={handleWatchClick}
                     onAddToProblemSpace={() => {

@@ -138,7 +138,9 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSucc
         timestamp: finalTimestamp || null,
         category: newNugget.category,
         tags: newNugget.tags,
-        created_at: new Date().toLocaleString()
+        created_at: new Date().toLocaleString(),
+        createdBy: currentUser.uid,
+        createdByName: currentUser.displayName || currentUser.email || 'Unknown'
       };
 
       // Add nugget to the session's nuggets array
@@ -152,7 +154,9 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSucc
           timestamp: n.timestamp,
           category: n.category,
           tags: n.tags,
-          created_at: n.created_at
+          created_at: n.created_at,
+          createdBy: n.createdBy,
+          createdByName: n.createdByName
         }))
       }, currentUser.uid);
 

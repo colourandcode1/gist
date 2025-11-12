@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Archive, Download, MoreVertical, Plus } from 'lucide-react';
+import { ArrowLeft, Edit, Archive, Download, MoreVertical, Plus, User, PenTool } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -356,9 +356,23 @@ const ProjectInsightsTab = ({ nuggets, projectId }) => {
               <CardContent className="p-4">
                 <h4 className="font-medium text-foreground mb-2">{nugget.observation}</h4>
                 <p className="text-sm text-muted-foreground italic mb-2">"{nugget.evidence_text}"</p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap mb-2">
                   <Badge variant="outline">{nugget.category}</Badge>
                   <span className="text-xs text-muted-foreground">{nugget.session_title}</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                  {nugget.speaker && (
+                    <div className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      <span>Speaker: {nugget.speaker}</span>
+                    </div>
+                  )}
+                  {nugget.createdByName && (
+                    <div className="flex items-center gap-1">
+                      <PenTool className="w-3 h-3" />
+                      <span>Created by {nugget.createdByName}</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

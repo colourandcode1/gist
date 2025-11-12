@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Clock } from 'lucide-react';
+import { User, Clock, PenTool } from 'lucide-react';
 import { createTimestampedUrl } from '@/lib/videoUtils';
 import { CATEGORIES } from '@/lib/constants';
 
@@ -56,7 +56,13 @@ const NuggetCard = ({
           {nugget.speaker && (
             <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
               <User className="w-3 h-3" />
-              {nugget.speaker}
+              <span>Speaker: {nugget.speaker}</span>
+            </div>
+          )}
+          {nugget.createdByName && (
+            <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+              <PenTool className="w-3 h-3" />
+              <span>Created by {nugget.createdByName}</span>
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, User, Clock, Video, Target, Building2, FolderOpen } from 'lucide-react';
+import { Calendar, User, Clock, Video, Target, Building2, FolderOpen, PenTool } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { CATEGORIES } from '@/lib/constants';
 /**
  * Component for displaying a nugget card in the repository view
  */
-const RepositoryNuggetCard = ({ nugget, session, project, onNuggetClick, onWatchClick, onAddToProblemSpace }) => {
+const RepositoryNuggetCard = ({ nugget, session, project, isSelected = false, onNuggetClick, onWatchClick, onAddToProblemSpace }) => {
   const getSentimentColor = (category) => {
     switch (category) {
       case 'sentiment': return 'bg-green-100 text-green-800 border-green-200';
@@ -59,33 +59,60 @@ const RepositoryNuggetCard = ({ nugget, session, project, onNuggetClick, onWatch
 
   return (
     <Card 
-      className="hover:shadow-md transition-shadow cursor-pointer hover:border-primary/50"
-      onClick={() => onNuggetClick(nugget)}
+      className={`hover:shadow-md transition-all duration-200 ${
+        isSelected 
+          ? 'border-primary border-2 bg-primary/5 shadow-md' 
+          : 'border-border hover:border-primary/50'
+      }`}
     >
       <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-2">
           <div className="flex-1">
-            <h3 className="text-lg font-medium text-foreground mb-2">{nugget.observation}</h3>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-              <div className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                {nugget.session_date}
-              </div>
-              <div className="flex items-center gap-1">
-                <User className="w-4 h-4" />
-                {nugget.speaker}
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                {nugget.timestamp}
-              </div>
+            <h4 className="font-medium text-foreground mb-2">{nugget.observation}</h4>
+            <p 
+              className="text-sm text-muted-foreground italic mb-2 cursor-pointer hover:text-foreground transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onNuggetClick) {
+                  onNuggetClick(nugget);
+                }
+              }}
+            >"{nugget.evidence_text}"</p>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <Badge variant="outline" className={getSentimentColor(nugget.category)}>
+                {nugget.category.replace('_', ' ')}
+              </Badge>
+              <span className="text-xs text-muted-foreground">{nugget.session_title}</span>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+              {nugget.speaker && (
+                <div className="flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  <span>Speaker: {nugget.speaker}</span>
+                </div>
+              )}
+              {nugget.createdByName && (
+                <div className="flex items-center gap-1">
+                  <PenTool className="w-3 h-3" />
+                  <span>Created by {nugget.createdByName}</span>
+                </div>
+              )}
+              {nugget.timestamp && (
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {nugget.timestamp}
+                </div>
+              )}
+              {nugget.session_date && (
+                <div className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {nugget.session_date}
+                </div>
+              )}
             </div>
           </div>
           
           <div className="flex items-center gap-2 ml-4 flex-wrap">
-            <Badge variant="outline" className={getSentimentColor(nugget.category)}>
-              {nugget.category.replace('_', ' ')}
-            </Badge>
             {getParticipantContextBadge()}
             {project && (
               <Badge variant="outline" className="flex items-center gap-1 text-xs">
@@ -121,23 +148,15 @@ const RepositoryNuggetCard = ({ nugget, session, project, onNuggetClick, onWatch
           </div>
         </div>
 
-        <div className="bg-muted border-l-4 border-primary p-4 mb-4">
-          <p className="text-muted-foreground italic">"{nugget.evidence_text}"</p>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex flex-wrap gap-2">
-            {Array.isArray(nugget.tags) && nugget.tags.map(tag => (
+        {Array.isArray(nugget.tags) && nugget.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
+            {nugget.tags.map(tag => (
               <Badge key={tag} variant="secondary">
                 {tag}
               </Badge>
             ))}
           </div>
-          
-          <div className="text-sm text-muted-foreground">
-            from {nugget.session_title}
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
