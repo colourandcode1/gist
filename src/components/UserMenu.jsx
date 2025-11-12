@@ -24,11 +24,45 @@ const UserMenu = () => {
 
   const getInitials = (email) => {
     if (!email) return 'U';
-    const parts = email.split('@')[0].split('.');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+    
+    // Extract email prefix (everything before @)
+    const emailPrefix = email.split('@')[0];
+    if (!emailPrefix) return 'U';
+    
+    const hasDot = emailPrefix.includes('.');
+    const hasHyphen = emailPrefix.includes('-');
+    
+    // If both dot and hyphen exist, or neither exists, return first letter only
+    if ((hasDot && hasHyphen) || (!hasDot && !hasHyphen)) {
+      return emailPrefix.charAt(0).toUpperCase() || 'U';
     }
-    return email.substring(0, 2).toUpperCase();
+    
+    // If only dot exists, split by dot
+    if (hasDot && !hasHyphen) {
+      const parts = emailPrefix.split('.');
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        const first = parts[0].charAt(0);
+        const second = parts[1].charAt(0);
+        if (first && second) {
+          return (first + second).toUpperCase();
+        }
+      }
+    }
+    
+    // If only hyphen exists, split by hyphen
+    if (hasHyphen && !hasDot) {
+      const parts = emailPrefix.split('-');
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        const first = parts[0].charAt(0);
+        const second = parts[1].charAt(0);
+        if (first && second) {
+          return (first + second).toUpperCase();
+        }
+      }
+    }
+    
+    // Fallback: return first letter
+    return emailPrefix.charAt(0).toUpperCase() || 'U';
   };
 
   if (!currentUser) {
