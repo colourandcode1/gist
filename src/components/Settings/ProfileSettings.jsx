@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,16 +7,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { updateUserProfile } from '@/lib/firestoreUtils';
 import { User, Mail, Lock, Bell, Palette } from 'lucide-react';
 
-const ProfileSettings = () => {
+const ProfileSettings = ({ highlightDisplayName = false }) => {
   const { currentUser, userProfile, updateUserEmail, updateUserPassword } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const displayNameInputRef = useRef(null);
 
   // Personal Information
   const [personalInfo, setPersonalInfo] = useState({
     displayName: userProfile?.displayName || '',
     bio: userProfile?.bio || ''
   });
+
+  const isDisplayNameEmpty = !personalInfo.displayName || personalInfo.displayName.trim() === '';
+  const showDisplayNameError = highlightDisplayName && isDisplayNameEmpty;
 
   // Email & Notifications
   const [email, setEmail] = useState(currentUser?.email || '');
@@ -137,6 +141,17 @@ const ProfileSettings = () => {
     }
   };
 
+  // Auto-focus displayName input when highlighted
+  useEffect(() => {
+    if (highlightDisplayName && isDisplayNameEmpty && displayNameInputRef.current) {
+      // Small delay to ensure the component is fully rendered
+      const timer = setTimeout(() => {
+        displayNameInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightDisplayName, isDisplayNameEmpty]);
+
   return (
     <div className="space-y-6">
       {/* Personal Information */}
@@ -150,13 +165,20 @@ const ProfileSettings = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="displayName">Display Name</Label>
+            <Label htmlFor="displayName">Full Name</Label>
             <Input
+              ref={displayNameInputRef}
               id="displayName"
               value={personalInfo.displayName}
               onChange={(e) => setPersonalInfo({ ...personalInfo, displayName: e.target.value })}
-              placeholder="Your display name"
+              placeholder="Your full name"
+              className={showDisplayNameError ? 'border-red-500 focus-visible:ring-red-500' : ''}
             />
+            {showDisplayNameError && (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Please add your full name to help manage teams and track activity for auditing purposes.
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="bio">Bio</Label>

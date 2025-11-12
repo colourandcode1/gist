@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import NavigationHeader from '@/components/NavigationHeader';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,8 +16,10 @@ import { User, Users, Settings as SettingsIcon, Shield, Plug, FileText, CreditCa
 const SettingsPage = () => {
   const { currentUser, userProfile, isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const tabFromUrl = searchParams.get('tab') || 'profile';
   const [activeTab, setActiveTab] = useState(tabFromUrl);
+  const highlightDisplayName = location.state?.highlightDisplayName || false;
 
   // Sync URL param changes with active tab state
   useEffect(() => {
@@ -94,7 +96,7 @@ const SettingsPage = () => {
           </TabsList>
 
           <TabsContent value="profile">
-            <ProfileSettings />
+            <ProfileSettings highlightDisplayName={highlightDisplayName} />
           </TabsContent>
 
           {isUserAdmin && (
