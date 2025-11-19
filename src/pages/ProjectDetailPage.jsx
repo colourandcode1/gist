@@ -17,6 +17,7 @@ import { getProjectById, updateProject, deleteProject } from '@/lib/firestoreUti
 import { getSessionsByProject, getAllNuggets } from '@/lib/firestoreUtils';
 import { getProblemSpaces } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { canUploadSessions, canCreateProjects } from '@/lib/permissions';
 import ProjectForm from '@/components/ProjectForm';
 
 const ProjectDetailPage = () => {
