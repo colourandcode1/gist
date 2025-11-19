@@ -15,9 +15,11 @@ import { getProjects, getProjectsByStatus, deleteProject, updateProject } from '
 import { getSessionsByProject, getAllNuggets } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import ProjectForm from '@/components/ProjectForm';
+import { canCreateProjects, canEditNuggets } from '@/lib/permissions';
+import UpgradePrompt from '@/components/UpgradePrompt';
 
 const ProjectsPage = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile, userOrganization } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
@@ -149,10 +151,20 @@ const ProjectsPage = () => {
             <h1 className="text-2xl font-bold text-foreground mb-2">Projects</h1>
             <p className="text-muted-foreground">Organize your research sessions and insights</p>
           </div>
-          <Button onClick={handleCreateProject} className="flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            New Project
-          </Button>
+          {canCreateProjects(userProfile?.role) ? (
+            <Button onClick={handleCreateProject} className="flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              New Project
+            </Button>
+          ) : (
+            <UpgradePrompt
+              feature="Project Creation"
+              requiredTier="starter"
+              currentTier={userOrganization?.tier || 'starter'}
+              description="Only Researchers and Admins can create projects. Upgrade your role or plan to access this feature."
+              showInCard={false}
+            />
+          )}
         </div>
 
         {/* Status Filter and View Toggle */}

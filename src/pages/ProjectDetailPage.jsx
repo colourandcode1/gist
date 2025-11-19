@@ -22,7 +22,7 @@ import ProjectForm from '@/components/ProjectForm';
 const ProjectDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [project, setProject] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [nuggets, setNuggets] = useState([]);
@@ -149,37 +149,41 @@ const ProjectDetailPage = () => {
             <p className="text-muted-foreground">{project.description || 'No description'}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              onClick={() => navigate(`/?projectId=${id}`)}
-              className="flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Create New Session
-            </Button>
-            <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-5 w-5" />
+            {canUploadSessions(userProfile?.role) && (
+              <Button 
+                onClick={() => navigate(`/?projectId=${id}`)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Create New Session
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Project
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleArchive}>
-                <Archive className="w-4 h-4 mr-2" />
-                {project.status === 'archived' ? 'Unarchive' : 'Archive'}
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Download className="w-4 h-4 mr-2" />
-                Export Data
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDelete} className="text-destructive">
-                Delete Project
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+            {canCreateProjects(userProfile?.role) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Project
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleArchive}>
+                    <Archive className="w-4 h-4 mr-2" />
+                    {project.status === 'archived' ? 'Unarchive' : 'Archive'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Data
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                    Delete Project
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 
@@ -293,22 +297,27 @@ const ProjectOverviewTab = ({ project, sessions, nuggets }) => {
 // Sessions Tab Component
 const ProjectSessionsTab = ({ projectId, sessions, onRefresh }) => {
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Sessions in this Project</h3>
-        <Button onClick={() => navigate(`/?projectId=${projectId}`)}>
-          Create New Session
-        </Button>
+        {canUploadSessions(userProfile?.role) && (
+          <Button onClick={() => navigate(`/?projectId=${projectId}`)}>
+            Create New Session
+          </Button>
+        )}
       </div>
       {sessions.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground mb-4">No sessions in this project yet</p>
-            <Button onClick={() => navigate(`/?projectId=${projectId}`)}>
-              Create First Session
-            </Button>
+            {canUploadSessions(userProfile?.role) && (
+              <Button onClick={() => navigate(`/?projectId=${projectId}`)}>
+                Create First Session
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

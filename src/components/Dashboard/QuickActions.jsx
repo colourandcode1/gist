@@ -3,9 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, FileText, FolderOpen, Target } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+  canUploadSessions, 
+  canCreateProjects, 
+  canCreateProblemSpaces 
+} from '@/lib/permissions';
 
 const QuickActions = () => {
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
 
   const actions = [
     {
@@ -13,23 +20,26 @@ const QuickActions = () => {
       icon: FileText,
       onClick: () => navigate('/'),
       description: 'Upload a new research session',
-      color: 'bg-blue-500 hover:bg-blue-600'
+      color: 'bg-blue-500 hover:bg-blue-600',
+      permission: () => canUploadSessions(userProfile?.role)
     },
     {
       label: 'New Project',
       icon: FolderOpen,
       onClick: () => navigate('/projects'),
       description: 'Create a new research project',
-      color: 'bg-green-500 hover:bg-green-600'
+      color: 'bg-green-500 hover:bg-green-600',
+      permission: () => canCreateProjects(userProfile?.role)
     },
     {
       label: 'New Problem Space',
       icon: Target,
       onClick: () => navigate('/problem-spaces'),
       description: 'Start organizing insights',
-      color: 'bg-purple-500 hover:bg-purple-600'
+      color: 'bg-purple-500 hover:bg-purple-600',
+      permission: () => canCreateProblemSpaces(userProfile?.role)
     }
-  ];
+  ].filter(action => action.permission());
 
   return (
     <Card>

@@ -14,9 +14,11 @@ import RepositoryAnalytics from './RepositoryAnalytics';
 import { createTimestampedUrl } from '@/lib/videoUtils';
 import { getSessions, getAllNuggets, deleteNugget, getSessionById, getProjects } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { canBulkOperations, canCreateNuggets } from '@/lib/permissions';
+import UpgradePrompt from '@/components/UpgradePrompt';
 
 const RepositorySearchView = ({ onNavigate }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile, userOrganization } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [savedSessions, setSavedSessions] = useState([]);
   const [allNuggets, setAllNuggets] = useState([]);
@@ -509,33 +511,43 @@ const RepositorySearchView = ({ onNavigate }) => {
                 >
                   {showAnalytics ? 'Hide' : 'Show'} Analytics
                 </Button>
-                {filteredNuggets.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleSelectAll}
-                  >
-                    {selectedNuggets.size === filteredNuggets.length ? (
-                      <>
-                        <CheckSquare className="w-4 h-4 mr-2" />
-                        Deselect All
-                      </>
-                    ) : (
-                      <>
-                        <Square className="w-4 h-4 mr-2" />
-                        Select All
-                      </>
+                {canBulkOperations(userOrganization?.tier, userProfile?.role) ? (
+                  <>
+                    {filteredNuggets.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleSelectAll}
+                      >
+                        {selectedNuggets.size === filteredNuggets.length ? (
+                          <>
+                            <CheckSquare className="w-4 h-4 mr-2" />
+                            Deselect All
+                          </>
+                        ) : (
+                          <>
+                            <Square className="w-4 h-4 mr-2" />
+                            Select All
+                          </>
+                        )}
+                      </Button>
                     )}
-                  </Button>
-                )}
-                {selectedNuggets.size > 0 && (
-                  <Button
-                    size="sm"
-                    onClick={handleBulkAddToProblemSpace}
-                  >
-                    <Target className="w-4 h-4 mr-2" />
-                    Add to Problem Space ({selectedNuggets.size})
-                  </Button>
+                    {selectedNuggets.size > 0 && (
+                      <Button
+                        size="sm"
+                        onClick={handleBulkAddToProblemSpace}
+                      >
+                        <Target className="w-4 h-4 mr-2" />
+                        Add to Problem Space ({selectedNuggets.size})
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  selectedNuggets.size > 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      Bulk operations require Enterprise plan
+                    </div>
+                  )
                 )}
               </div>
             </div>

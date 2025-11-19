@@ -19,13 +19,14 @@ import { getSessionById, updateSession, deleteSession } from '@/lib/firestoreUti
 import { getNuggetsBySessionId, deleteNugget } from '@/lib/firestoreUtils';
 import { getProjectById, getProjects } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { canUploadSessions, canEditNuggets } from '@/lib/permissions';
 import NuggetCard from '@/components/NuggetCard';
 import { CATEGORIES } from '@/lib/constants';
 
 const SessionDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [session, setSession] = useState(null);
   const [nuggets, setNuggets] = useState([]);
   const [project, setProject] = useState(null);
@@ -97,6 +98,11 @@ const SessionDetailPage = () => {
   const handleDeleteSession = async () => {
     if (!currentUser || !session) return;
 
+    if (!canUploadSessions(userProfile?.role)) {
+      alert('You do not have permission to delete sessions. Only Researchers and Admins can delete sessions.');
+      return;
+    }
+
     const confirmed = window.confirm('Are you sure you want to delete this session? This will also delete all insights.');
     if (!confirmed) return;
 
@@ -110,6 +116,12 @@ const SessionDetailPage = () => {
 
   const handleDeleteNugget = async (nuggetId) => {
     if (!currentUser) return;
+
+    const nugget = nuggets.find(n => n.id === nuggetId);
+    if (!canEditNuggets(userProfile?.role, nugget?.createdBy, currentUser.uid)) {
+      alert('You do not have permission to delete this nugget.');
+      return;
+    }
 
     const confirmed = window.confirm('Are you sure you want to delete this insight?');
     if (!confirmed) return;
@@ -188,27 +200,29 @@ const SessionDetailPage = () => {
               )}
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Details
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Download className="w-4 h-4 mr-2" />
-                Export Session
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDeleteSession} className="text-destructive">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Session
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canUploadSessions(userProfile?.role) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Details
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Session
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDeleteSession} className="text-destructive">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Session
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Participant Context */}
@@ -305,33 +319,38 @@ const SessionDetailPage = () => {
 
 // Transcript Tab Component
 const SessionTranscriptTab = ({ session, transcript, editedTranscript, setEditedTranscript, editMode, setEditMode, onSave }) => {
+  const { userProfile } = useAuth();
+  const canEdit = canUploadSessions(userProfile?.role);
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Transcript</CardTitle>
-          <div className="flex items-center gap-2">
-            {editMode ? (
-              <>
-                <Button variant="outline" size="sm" onClick={() => {
-                  setEditedTranscript(transcript);
-                  setEditMode(false);
-                }}>
-                  <X className="w-4 h-4 mr-2" />
-                  Cancel
+          {canEdit && (
+            <div className="flex items-center gap-2">
+              {editMode ? (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setEditedTranscript(transcript);
+                    setEditMode(false);
+                  }}>
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={onSave}>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save
+                  </Button>
+                </>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Transcript
                 </Button>
-                <Button size="sm" onClick={onSave}>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save
-                </Button>
-              </>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Transcript
-              </Button>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -354,6 +373,8 @@ const SessionTranscriptTab = ({ session, transcript, editedTranscript, setEdited
 
 // Insights Tab Component
 const SessionInsightsTab = ({ nuggets, searchQuery, setSearchQuery, onDeleteNugget, session }) => {
+  const { userProfile, currentUser } = useAuth();
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -389,14 +410,16 @@ const SessionInsightsTab = ({ nuggets, searchQuery, setSearchQuery, onDeleteNugg
                 showVideoPlayer={false}
                 setCurrentVideoTimestamp={() => {}}
               />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute top-2 right-2"
-                onClick={() => onDeleteNugget(nugget.id)}
-              >
-                <Trash2 className="w-4 h-4 text-destructive" />
-              </Button>
+              {canEditNuggets(userProfile?.role, nugget.createdBy, currentUser?.uid) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => onDeleteNugget(nugget.id)}
+                >
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                </Button>
+              )}
             </div>
           ))}
         </div>

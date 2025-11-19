@@ -10,6 +10,18 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { getOrganizationById, getOrganizationByOwner, getWorkspaces } from '@/lib/firestoreUtils';
+import {
+  canUploadSessions,
+  canCreateNuggets,
+  canEditNuggets,
+  canManageTeam,
+  canManageBilling,
+  canConfigureWorkspacePermissions,
+  canViewDashboard,
+  canUseSSO,
+  canBulkOperations
+} from '@/lib/permissions';
 
 const AuthContext = createContext({});
 
@@ -24,30 +36,84 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
+  const [userOrganization, setUserOrganization] = useState(null);
+  const [userWorkspaces, setUserWorkspaces] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch user profile from Firestore
   const fetchUserProfile = async (user) => {
     if (!user) {
       setUserProfile(null);
+      setUserOrganization(null);
+      setUserWorkspaces([]);
       return;
     }
 
     try {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists()) {
-        setUserProfile(userDoc.data());
+        const profileData = userDoc.data();
+        setUserProfile(profileData);
+        
+        // Fetch organization if user has one
+        if (profileData.organizationId) {
+          try {
+            const org = await getOrganizationById(profileData.organizationId);
+            setUserOrganization(org);
+            
+            // Fetch workspaces if organization exists
+            if (org) {
+              const workspaces = await getWorkspaces(org.id);
+              setUserWorkspaces(workspaces);
+            } else {
+              setUserWorkspaces([]);
+            }
+          } catch (orgError) {
+            console.error('Error fetching organization:', orgError);
+            setUserOrganization(null);
+            setUserWorkspaces([]);
+          }
+        } else {
+          // Try to find organization by owner
+          try {
+            const org = await getOrganizationByOwner(user.uid);
+            if (org) {
+              setUserOrganization(org);
+              // Update user profile with organizationId
+              await setDoc(
+                doc(db, 'users', user.uid),
+                { organizationId: org.id },
+                { merge: true }
+              );
+              // Fetch workspaces
+              const workspaces = await getWorkspaces(org.id);
+              setUserWorkspaces(workspaces);
+            } else {
+              setUserOrganization(null);
+              setUserWorkspaces([]);
+            }
+          } catch (orgError) {
+            console.error('Error fetching organization:', orgError);
+            setUserOrganization(null);
+            setUserWorkspaces([]);
+          }
+        }
       } else {
         // Create user profile on first login with default role
         const newUserProfile = {
           email: user.email,
-          role: 'researcher', // Default role: admin, researcher, viewer
+          role: 'researcher', // Default role: researcher
+          organizationId: null,
+          workspaceIds: [],
+          seatType: 'researcher',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         };
         try {
           await setDoc(doc(db, 'users', user.uid), newUserProfile);
           setUserProfile(newUserProfile);
+          setUserOrganization(null);
+          setUserWorkspaces([]);
         } catch (profileError) {
           console.error('Error creating user profile:', profileError);
           // If profile creation fails due to permissions, still allow login
@@ -57,6 +123,8 @@ export const AuthProvider = ({ children }) => {
           }
           // Set a minimal profile so the user can still log in
           setUserProfile({ email: user.email, role: 'researcher' });
+          setUserOrganization(null);
+          setUserWorkspaces([]);
         }
       }
     } catch (error) {
@@ -66,6 +134,8 @@ export const AuthProvider = ({ children }) => {
         console.warn('Firestore permission denied when fetching user profile. Check your security rules.');
       }
       setUserProfile({ email: user.email, role: 'researcher' });
+      setUserOrganization(null);
+      setUserWorkspaces([]);
     }
   };
 
@@ -190,6 +260,62 @@ export const AuthProvider = ({ children }) => {
     return !!userProfile;
   };
 
+  // New permission check functions
+  const canUploadSessionsCheck = () => {
+    if (!userProfile) return false;
+    return canUploadSessions(userProfile.role);
+  };
+
+  const canCreateNuggetsCheck = () => {
+    if (!userProfile) return false;
+    return canCreateNuggets(userProfile.role);
+  };
+
+  const canEditNuggetsCheck = (nuggetOwnerId = null) => {
+    if (!userProfile || !currentUser) return false;
+    return canEditNuggets(userProfile.role, nuggetOwnerId, currentUser.uid);
+  };
+
+  const canManageTeamCheck = () => {
+    if (!userProfile) return false;
+    return canManageTeam(userProfile.role);
+  };
+
+  const canManageBillingCheck = () => {
+    if (!userProfile) return false;
+    return canManageBilling(userProfile.role);
+  };
+
+  const canConfigureWorkspacePermissionsCheck = () => {
+    if (!userProfile || !userOrganization) return false;
+    return canConfigureWorkspacePermissions(userOrganization.tier, userProfile.role);
+  };
+
+  const canViewDashboardCheck = () => {
+    if (!userOrganization) return false;
+    return canViewDashboard(userOrganization.tier);
+  };
+
+  const canUseSSOCheck = () => {
+    if (!userOrganization) return false;
+    return canUseSSO(userOrganization.tier);
+  };
+
+  const canBulkOperationsCheck = () => {
+    if (!userProfile || !userOrganization) return false;
+    return canBulkOperations(userOrganization.tier, userProfile.role);
+  };
+
+  // Get user organization
+  const getUserOrganization = () => {
+    return userOrganization;
+  };
+
+  // Get user workspaces
+  const getUserWorkspaces = () => {
+    return userWorkspaces;
+  };
+
   // Refresh user profile from Firestore
   const refreshUserProfile = async () => {
     if (currentUser) {
@@ -210,6 +336,8 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userProfile,
+    userOrganization,
+    userWorkspaces,
     signup,
     login,
     signout,
@@ -220,6 +348,17 @@ export const AuthProvider = ({ children }) => {
     isAdmin,
     canEdit,
     canView,
+    canUploadSessions: canUploadSessionsCheck,
+    canCreateNuggets: canCreateNuggetsCheck,
+    canEditNuggets: canEditNuggetsCheck,
+    canManageTeam: canManageTeamCheck,
+    canManageBilling: canManageBillingCheck,
+    canConfigureWorkspacePermissions: canConfigureWorkspacePermissionsCheck,
+    canViewDashboard: canViewDashboardCheck,
+    canUseSSO: canUseSSOCheck,
+    canBulkOperations: canBulkOperationsCheck,
+    getUserOrganization,
+    getUserWorkspaces,
     refreshUserProfile,
     loading
   };

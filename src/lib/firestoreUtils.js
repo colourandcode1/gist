@@ -11,7 +11,8 @@ import {
   deleteDoc,
   setDoc,
   serverTimestamp,
-  orderBy
+  orderBy,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -27,6 +28,7 @@ export const saveSession = async (sessionData, userId) => {
       userId, // Owner of the session
       teamId: null, // null = private, will be set when added to team
       projectId: sessionData.projectId || null, // null = unassigned, will be set when added to project
+      workspaceId: sessionData.workspaceId || null, // Workspace ID for organization structure
       // Participant context fields (optional structured object)
       participantContext: sessionData.participantContext || null,
       createdBy: userId,
@@ -545,6 +547,7 @@ export const createProject = async (projectData, userId) => {
       status: projectData.status || 'active', // active, completed, archived
       userId, // Owner of the project
       teamId: projectData.teamId || null, // null = private, will be set when added to team
+      workspaceId: projectData.workspaceId || null, // Workspace ID for organization structure
       researchGoals: projectData.researchGoals || [],
       teamMembers: projectData.teamMembers || [],
       createdBy: userId,
@@ -872,6 +875,7 @@ export const createProblemSpace = async (problemSpaceData, userId) => {
       privacy: problemSpaceData.privacy || 'private', // private, team
       userId, // Owner of the problem space
       teamId: problemSpaceData.teamId || null, // null = private, will be set when added to team
+      workspaceId: problemSpaceData.workspaceId || null, // Workspace ID for organization structure
       contributors: problemSpaceData.contributors || [userId], // Include creator as initial contributor
       outputType: problemSpaceData.outputType || null, // Optional output type
       problemStatement: problemSpaceData.problemStatement || '',
@@ -2566,6 +2570,680 @@ export const updateIntegration = async (userId, integrationName, integrationData
     return { success: true };
   } catch (error) {
     console.error('Error updating integration:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ============================================
+// ORGANIZATIONS COLLECTION FUNCTIONS
+// ============================================
+
+// Create a new organization
+export const createOrganization = async (organizationData, userId) => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID is required to create organization' };
+    }
+
+    // Calculate trial end date (14 days from now)
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+    const organizationPayload = {
+      name: organizationData.name || 'My Organization',
+      tier: organizationData.tier || 'starter',
+      subscriptionId: null, // Will be set when payment provider is integrated
+      subscriptionStatus: 'trialing', // Start with trial
+      trialEndsAt: Timestamp.fromDate(trialEndsAt), // Convert to Firestore Timestamp
+      currentPeriodStart: serverTimestamp(),
+      currentPeriodEnd: null, // Will be set when subscription is active
+      researcherSeatsIncluded: organizationData.researcherSeatsIncluded || 1,
+      researcherSeatsUsed: 0,
+      contributorSeatsUsed: 0,
+      workspaceLimit: organizationData.workspaceLimit || 1,
+      ownerId: userId,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, 'organizations'), organizationPayload);
+    console.log('Organization created successfully with ID:', docRef.id);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('Error creating organization:', error);
+    return { success: false, error: error.message || 'Unknown error occurred' };
+  }
+};
+
+// Get organization by ID
+export const getOrganizationById = async (organizationId) => {
+  try {
+    if (!organizationId) {
+      return null;
+    }
+
+    const orgRef = doc(db, 'organizations', organizationId);
+    const orgSnap = await getDoc(orgRef);
+    
+    if (orgSnap.exists()) {
+      const data = orgSnap.data();
+      return {
+        id: orgSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        trialEndsAt: data.trialEndsAt?.toDate?.()?.toISOString() || data.trialEndsAt,
+        currentPeriodStart: data.currentPeriodStart?.toDate?.()?.toISOString() || data.currentPeriodStart,
+        currentPeriodEnd: data.currentPeriodEnd?.toDate?.()?.toISOString() || data.currentPeriodEnd
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting organization:', error);
+    return null;
+  }
+};
+
+// Get organization by owner ID
+export const getOrganizationByOwner = async (userId) => {
+  try {
+    if (!userId) {
+      return null;
+    }
+
+    const q = query(
+      collection(db, 'organizations'),
+      where('ownerId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        trialEndsAt: data.trialEndsAt?.toDate?.()?.toISOString() || data.trialEndsAt,
+        currentPeriodStart: data.currentPeriodStart?.toDate?.()?.toISOString() || data.currentPeriodStart,
+        currentPeriodEnd: data.currentPeriodEnd?.toDate?.()?.toISOString() || data.currentPeriodEnd
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting organization by owner:', error);
+    return null;
+  }
+};
+
+// Update organization
+export const updateOrganization = async (organizationId, updates, userId) => {
+  try {
+    if (!organizationId || !userId) {
+      return { success: false, error: 'Organization ID and user ID are required' };
+    }
+
+    const orgData = await getOrganizationById(organizationId);
+    if (!orgData) {
+      return { success: false, error: 'Organization not found' };
+    }
+
+    // Check permissions (only owner or admin can update)
+    if (orgData.ownerId !== userId) {
+      // TODO: Check if user is admin of organization
+      return { success: false, error: 'Permission denied' };
+    }
+
+    const orgRef = doc(db, 'organizations', organizationId);
+    await updateDoc(orgRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating organization:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Update organization tier (admin function)
+export const updateOrganizationTier = async (organizationId, newTier, userId) => {
+  try {
+    if (!organizationId || !userId) {
+      return { success: false, error: 'Organization ID and user ID are required' };
+    }
+
+    const orgData = await getOrganizationById(organizationId);
+    if (!orgData) {
+      return { success: false, error: 'Organization not found' };
+    }
+
+    // Check permissions (only owner or admin can update tier)
+    if (orgData.ownerId !== userId) {
+      return { success: false, error: 'Permission denied' };
+    }
+
+    // Import tier config to get new seat limits
+    const { TIER_CONFIG } = await import('./pricingConstants');
+    const tierConfig = TIER_CONFIG[newTier] || TIER_CONFIG.starter;
+
+    const orgRef = doc(db, 'organizations', organizationId);
+    await updateDoc(orgRef, {
+      tier: newTier,
+      researcherSeatsIncluded: tierConfig.researcherSeatsIncluded,
+      workspaceLimit: tierConfig.workspaceLimit,
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating organization tier:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get organization members (users with this organizationId)
+export const getOrganizationMembers = async (organizationId) => {
+  try {
+    if (!organizationId) {
+      return [];
+    }
+
+    const q = query(
+      collection(db, 'users'),
+      where('organizationId', '==', organizationId)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const members = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      members.push({
+        id: doc.id,
+        email: data.email,
+        role: data.role,
+        seatType: data.seatType || 'researcher',
+        displayName: data.displayName,
+        ...data
+      });
+    });
+
+    return members;
+  } catch (error) {
+    console.error('Error getting organization members:', error);
+    return [];
+  }
+};
+
+// ============================================
+// WORKSPACES COLLECTION FUNCTIONS
+// ============================================
+
+// Create a new workspace
+export const createWorkspace = async (workspaceData, userId, organizationId) => {
+  try {
+    if (!userId || !organizationId) {
+      return { success: false, error: 'User ID and organization ID are required' };
+    }
+
+    // Check workspace limit before creating
+    const organization = await getOrganizationById(organizationId);
+    if (!organization) {
+      return { success: false, error: 'Organization not found' };
+    }
+
+    // Get current workspace count
+    const existingWorkspaces = await getWorkspaces(organizationId);
+    const currentCount = existingWorkspaces.length;
+
+    // Check if organization can create more workspaces
+    const { canCreateWorkspace, getWorkspaceLimit } = await import('./subscriptionUtils');
+    if (!canCreateWorkspace(organization, currentCount)) {
+      const limit = getWorkspaceLimit(organization);
+      return { 
+        success: false, 
+        error: limit === null 
+          ? 'Unable to create workspace' 
+          : `Workspace limit reached (${limit} workspaces). Please upgrade your plan to create more workspaces.`
+      };
+    }
+
+    const workspacePayload = {
+      name: workspaceData.name || 'My Workspace',
+      description: workspaceData.description || '',
+      organizationId,
+      createdBy: userId,
+      permissions: workspaceData.permissions || null, // Enterprise only
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, 'workspaces'), workspacePayload);
+    console.log('Workspace created successfully with ID:', docRef.id);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('Error creating workspace:', error);
+    return { success: false, error: error.message || 'Unknown error occurred' };
+  }
+};
+
+// Get workspaces for an organization
+export const getWorkspaces = async (organizationId) => {
+  try {
+    if (!organizationId) {
+      return [];
+    }
+
+    const q = query(
+      collection(db, 'workspaces'),
+      where('organizationId', '==', organizationId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const workspaces = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      workspaces.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+      });
+    });
+
+    return workspaces;
+  } catch (error) {
+    console.error('Error loading workspaces:', error);
+    return [];
+  }
+};
+
+// Get workspace by ID
+export const getWorkspaceById = async (workspaceId) => {
+  try {
+    if (!workspaceId) {
+      return null;
+    }
+
+    const workspaceRef = doc(db, 'workspaces', workspaceId);
+    const workspaceSnap = await getDoc(workspaceRef);
+    
+    if (workspaceSnap.exists()) {
+      const data = workspaceSnap.data();
+      return {
+        id: workspaceSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting workspace:', error);
+    return null;
+  }
+};
+
+// Update workspace
+export const updateWorkspace = async (workspaceId, updates, userId) => {
+  try {
+    if (!workspaceId || !userId) {
+      return { success: false, error: 'Workspace ID and user ID are required' };
+    }
+
+    const workspaceData = await getWorkspaceById(workspaceId);
+    if (!workspaceData) {
+      return { success: false, error: 'Workspace not found' };
+    }
+
+    // Check permissions (only creator or admin can update)
+    if (workspaceData.createdBy !== userId) {
+      // TODO: Check if user is admin of organization
+      return { success: false, error: 'Permission denied' };
+    }
+
+    const workspaceRef = doc(db, 'workspaces', workspaceId);
+    await updateDoc(workspaceRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating workspace:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Delete workspace
+export const deleteWorkspace = async (workspaceId, userId) => {
+  try {
+    if (!workspaceId || !userId) {
+      return { success: false, error: 'Workspace ID and user ID are required' };
+    }
+
+    const workspaceData = await getWorkspaceById(workspaceId);
+    if (!workspaceData) {
+      return { success: false, error: 'Workspace not found' };
+    }
+
+    // Check permissions (only creator or admin can delete)
+    if (workspaceData.createdBy !== userId) {
+      return { success: false, error: 'Permission denied' };
+    }
+
+    const workspaceRef = doc(db, 'workspaces', workspaceId);
+    await deleteDoc(workspaceRef);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting workspace:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Set workspace permissions (Enterprise only)
+export const setWorkspacePermissions = async (workspaceId, permissions, userId) => {
+  try {
+    if (!workspaceId || !userId) {
+      return { success: false, error: 'Workspace ID and user ID are required' };
+    }
+
+    const workspaceData = await getWorkspaceById(workspaceId);
+    if (!workspaceData) {
+      return { success: false, error: 'Workspace not found' };
+    }
+
+    // Check if organization has Enterprise tier
+    const orgData = await getOrganizationById(workspaceData.organizationId);
+    if (!orgData || orgData.tier !== 'enterprise') {
+      return { success: false, error: 'Workspace permissions are only available for Enterprise tier' };
+    }
+
+    // Check permissions (only admin can set permissions)
+    if (workspaceData.createdBy !== userId) {
+      return { success: false, error: 'Permission denied' };
+    }
+
+    const workspaceRef = doc(db, 'workspaces', workspaceId);
+    await updateDoc(workspaceRef, {
+      permissions,
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error setting workspace permissions:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get workspace permissions
+export const getWorkspacePermissions = async (workspaceId) => {
+  try {
+    const workspaceData = await getWorkspaceById(workspaceId);
+    if (!workspaceData) {
+      return null;
+    }
+    return workspaceData.permissions || null;
+  } catch (error) {
+    console.error('Error getting workspace permissions:', error);
+    return null;
+  }
+};
+
+// Get workspace members (users who have this workspace in their workspaceIds array)
+export const getWorkspaceMembers = async (workspaceId) => {
+  try {
+    if (!workspaceId) {
+      return [];
+    }
+
+    // Get all users who have this workspace in their workspaceIds array
+    const q = query(
+      collection(db, 'users'),
+      where('workspaceIds', 'array-contains', workspaceId)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const members = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      members.push({
+        id: doc.id,
+        email: data.email,
+        role: data.role,
+        seatType: data.seatType,
+        ...data
+      });
+    });
+
+    return members;
+  } catch (error) {
+    console.error('Error getting workspace members:', error);
+    return [];
+  }
+};
+
+// Add a user to a workspace
+export const addWorkspaceMember = async (workspaceId, userId) => {
+  try {
+    if (!workspaceId || !userId) {
+      return { success: false, error: 'Workspace ID and user ID are required' };
+    }
+
+    // Get user document
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      return { success: false, error: 'User not found' };
+    }
+
+    const userData = userSnap.data();
+    const workspaceIds = userData.workspaceIds || [];
+
+    // Check if user is already a member
+    if (workspaceIds.includes(workspaceId)) {
+      return { success: false, error: 'User is already a member of this workspace' };
+    }
+
+    // Add workspace to user's workspaceIds array
+    await updateDoc(userRef, {
+      workspaceIds: [...workspaceIds, workspaceId],
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error adding workspace member:', error);
+    return { success: false, error: error.message || 'Unknown error occurred' };
+  }
+};
+
+// Remove a user from a workspace
+export const removeWorkspaceMember = async (workspaceId, userId) => {
+  try {
+    if (!workspaceId || !userId) {
+      return { success: false, error: 'Workspace ID and user ID are required' };
+    }
+
+    // Get user document
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      return { success: false, error: 'User not found' };
+    }
+
+    const userData = userSnap.data();
+    const workspaceIds = userData.workspaceIds || [];
+
+    // Check if user is a member
+    if (!workspaceIds.includes(workspaceId)) {
+      return { success: false, error: 'User is not a member of this workspace' };
+    }
+
+    // Remove workspace from user's workspaceIds array
+    await updateDoc(userRef, {
+      workspaceIds: workspaceIds.filter(id => id !== workspaceId),
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error removing workspace member:', error);
+    return { success: false, error: error.message || 'Unknown error occurred' };
+  }
+};
+
+// ============================================
+// SUBSCRIPTIONS COLLECTION FUNCTIONS
+// ============================================
+
+// Create a subscription
+export const createSubscription = async (subscriptionData, organizationId) => {
+  try {
+    if (!organizationId) {
+      return { success: false, error: 'Organization ID is required' };
+    }
+
+    const subscriptionPayload = {
+      organizationId,
+      tier: subscriptionData.tier || 'starter',
+      status: subscriptionData.status || 'trialing',
+      paymentProvider: null, // Will be 'lemonsqueezy' when integrated
+      paymentProviderSubscriptionId: null, // LemonSqueezy subscription ID
+      paymentProviderCustomerId: null, // LemonSqueezy customer ID
+      currentPeriodStart: serverTimestamp(),
+      currentPeriodEnd: null, // Will be set when subscription is active
+      cancelAtPeriodEnd: false,
+      trialEndsAt: subscriptionData.trialEndsAt 
+        ? (subscriptionData.trialEndsAt instanceof Date 
+          ? Timestamp.fromDate(subscriptionData.trialEndsAt) 
+          : subscriptionData.trialEndsAt)
+        : null,
+      seats: subscriptionData.seats || 1,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, 'subscriptions'), subscriptionPayload);
+    console.log('Subscription created successfully with ID:', docRef.id);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('Error creating subscription:', error);
+    return { success: false, error: error.message || 'Unknown error occurred' };
+  }
+};
+
+// Get subscription by organization ID
+export const getSubscriptionByOrganization = async (organizationId) => {
+  try {
+    if (!organizationId) {
+      return null;
+    }
+
+    const q = query(
+      collection(db, 'subscriptions'),
+      where('organizationId', '==', organizationId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        currentPeriodStart: data.currentPeriodStart?.toDate?.()?.toISOString() || data.currentPeriodStart,
+        currentPeriodEnd: data.currentPeriodEnd?.toDate?.()?.toISOString() || data.currentPeriodEnd,
+        trialEndsAt: data.trialEndsAt?.toDate?.()?.toISOString() || data.trialEndsAt
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting subscription:', error);
+    return null;
+  }
+};
+
+// Get subscription by ID
+export const getSubscriptionById = async (subscriptionId) => {
+  try {
+    if (!subscriptionId) {
+      return null;
+    }
+
+    const subscriptionRef = doc(db, 'subscriptions', subscriptionId);
+    const subscriptionSnap = await getDoc(subscriptionRef);
+    
+    if (subscriptionSnap.exists()) {
+      const data = subscriptionSnap.data();
+      return {
+        id: subscriptionSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        currentPeriodStart: data.currentPeriodStart?.toDate?.()?.toISOString() || data.currentPeriodStart,
+        currentPeriodEnd: data.currentPeriodEnd?.toDate?.()?.toISOString() || data.currentPeriodEnd,
+        trialEndsAt: data.trialEndsAt?.toDate?.()?.toISOString() || data.trialEndsAt
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting subscription:', error);
+    return null;
+  }
+};
+
+// Update subscription
+export const updateSubscription = async (subscriptionId, updates) => {
+  try {
+    if (!subscriptionId) {
+      return { success: false, error: 'Subscription ID is required' };
+    }
+
+    const subscriptionRef = doc(db, 'subscriptions', subscriptionId);
+    await updateDoc(subscriptionRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating subscription:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Update subscription status (for webhook handlers)
+export const updateSubscriptionStatus = async (subscriptionId, status, additionalData = {}) => {
+  try {
+    if (!subscriptionId) {
+      return { success: false, error: 'Subscription ID is required' };
+    }
+
+    const subscriptionRef = doc(db, 'subscriptions', subscriptionId);
+    await updateDoc(subscriptionRef, {
+      status,
+      ...additionalData,
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating subscription status:', error);
     return { success: false, error: error.message };
   }
 };

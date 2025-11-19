@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Check, FolderOpen } from 'lucide-react';
+import { Video, Check, FolderOpen, Building2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ const SessionDetailsForm = ({
   project,
   transcriptContent
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userWorkspaces } = useAuth();
   const [projects, setProjects] = useState([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
 
@@ -56,7 +56,31 @@ const SessionDetailsForm = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Project Field - First */}
+        {/* Workspace Field - First */}
+        {userWorkspaces && userWorkspaces.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-secondary-text mb-1">
+              <Building2 className="w-4 h-4 inline mr-1" />
+              Workspace
+            </label>
+            <select
+              value={sessionData.workspaceId || ''}
+              onChange={(e) => setSessionData(prev => ({ ...prev, workspaceId: e.target.value || null }))}
+              className="w-full h-10 px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              {userWorkspaces.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Select the workspace this session belongs to
+            </p>
+          </div>
+        )}
+
+        {/* Project Field */}
         <div>
           <label className="block text-sm font-medium text-secondary-text mb-1">Project</label>
           <select

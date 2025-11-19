@@ -67,8 +67,18 @@ const RecentActivity = ({ recentSessions, recentProjects, recentProblemSpaces })
             <div className="font-medium text-foreground truncate">
               {item.name || item.title || 'Untitled'}
             </div>
-            <div className="text-sm text-muted-foreground">
-              {formatDate(item.updatedAt || item.createdAt || item.session_date)}
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <span>{formatDate(item.updatedAt || item.createdAt || item.session_date)}</span>
+              {item.session_type && (
+                <Badge variant="outline" className="text-xs">
+                  {item.session_type.replace('_', ' ')}
+                </Badge>
+              )}
+              {item.status && (
+                <Badge variant={item.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                  {item.status}
+                </Badge>
+              )}
             </div>
           </div>
         </div>

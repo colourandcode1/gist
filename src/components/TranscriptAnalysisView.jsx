@@ -4,6 +4,7 @@ import NavigationHeader from './NavigationHeader';
 import { parseTranscript, findNearestTimestampBeforeText } from '@/lib/transcriptUtils';
 import { updateSession, updateNuggetFields } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { canCreateNuggets, canEditNuggets } from '@/lib/permissions';
 import Toast from '@/components/ui/toast';
 import { highlightSentimentWords, extractSentenceFromText, highlightSelectedSentence } from '@/lib/sentimentUtils';
 import VideoPlayer from './VideoPlayer';
@@ -16,7 +17,7 @@ import { useNuggetManagement } from '@/hooks/useNuggetManagement';
 import { CATEGORIES } from '@/lib/constants';
 
 const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSuccessToast = false }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [showSentiment, setShowSentiment] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [currentVideoTimestamp, setCurrentVideoTimestamp] = useState(null);
@@ -94,6 +95,13 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSucc
 
   const saveExistingNugget = async () => {
     if (!editingExisting || !editingIds.sessionId || !editingIds.nuggetId || !currentUser) return;
+    
+    // Check if user can edit this nugget
+    const nugget = nuggets.find(n => n.id === editingIds.nuggetId);
+    if (!canEditNuggets(userProfile?.role, nugget?.createdBy, currentUser.uid)) {
+      alert('You do not have permission to edit this nugget.');
+      return;
+    }
     const result = await updateNuggetFields(editingIds.sessionId, editingIds.nuggetId, {
       observation: newNugget.observation,
       evidence_text: selectedText,
@@ -110,6 +118,11 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSucc
   const handleCreateNugget = async () => {
     if (!currentUser || !sessionData.id) {
       alert('Session not saved yet. Please try again.');
+      return;
+    }
+
+    if (!canCreateNuggets(userProfile?.role)) {
+      alert('You do not have permission to create nuggets. Only Contributors, Researchers, and Admins can create nuggets.');
       return;
     }
 
@@ -392,25 +405,27 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSucc
               />
             ))}
 
-            <NuggetForm
-              selectedText={selectedText}
-              newNugget={newNugget}
-              setNewNugget={setNewNugget}
-              categories={CATEGORIES}
-              tags={tags}
-              setTags={setTags}
-              isCreatingTag={isCreatingTag}
-              setIsCreatingTag={setIsCreatingTag}
-              newTagName={newTagName}
-              setNewTagName={setNewTagName}
-              newTagColor={newTagColor}
-              setNewTagColor={setNewTagColor}
-              editingExisting={editingExisting}
-              onCreateNugget={handleCreateNugget}
-              onSaveExisting={saveExistingNugget}
-              sessionData={sessionData}
-              isSaving={isSavingNugget}
-            />
+            {canCreateNuggets(userProfile?.role) && (
+              <NuggetForm
+                selectedText={selectedText}
+                newNugget={newNugget}
+                setNewNugget={setNewNugget}
+                categories={CATEGORIES}
+                tags={tags}
+                setTags={setTags}
+                isCreatingTag={isCreatingTag}
+                setIsCreatingTag={setIsCreatingTag}
+                newTagName={newTagName}
+                setNewTagName={setNewTagName}
+                newTagColor={newTagColor}
+                setNewTagColor={setNewTagColor}
+                editingExisting={editingExisting}
+                onCreateNugget={handleCreateNugget}
+                onSaveExisting={saveExistingNugget}
+                sessionData={sessionData}
+                isSaving={isSavingNugget}
+              />
+            )}
           </div>
         </div>
       </div>

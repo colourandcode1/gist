@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import NavigationHeader from '@/components/NavigationHeader';
 import { getSessions, getProjects } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { canUploadSessions } from '@/lib/permissions';
+import UpgradePrompt from '@/components/UpgradePrompt';
 
 const SessionsPage = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile, userOrganization } = useAuth();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -152,10 +154,20 @@ const SessionsPage = () => {
             <h1 className="text-2xl font-bold text-foreground mb-2">Sessions</h1>
             <p className="text-muted-foreground">View and manage all your research sessions</p>
           </div>
-          <Button onClick={() => navigate('/')} className="flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            New Session
-          </Button>
+          {canUploadSessions(userProfile?.role) ? (
+            <Button onClick={() => navigate('/')} className="flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              New Session
+            </Button>
+          ) : (
+            <UpgradePrompt
+              feature="Session Upload"
+              requiredTier="starter"
+              currentTier={userOrganization?.tier || 'starter'}
+              description="Only Researchers and Admins can upload sessions."
+              showInCard={false}
+            />
+          )}
         </div>
 
         {/* Search and Filters */}

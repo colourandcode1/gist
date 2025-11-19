@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Building2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,18 +8,30 @@ import { createProject, updateProject } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ProjectForm = ({ project, onSave, onCancel }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userWorkspaces } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     startDate: '',
     endDate: '',
     researchGoals: [],
-    teamMembers: []
+    teamMembers: [],
+    workspaceId: null
   });
   const [newGoal, setNewGoal] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Set default workspace from localStorage or first available
+  useEffect(() => {
+    if (userWorkspaces && userWorkspaces.length > 0 && !formData.workspaceId) {
+      const stored = localStorage.getItem('selectedWorkspaceId');
+      const defaultWorkspaceId = stored && userWorkspaces.find(w => w.id === stored)
+        ? stored
+        : userWorkspaces[0].id;
+      setFormData(prev => ({ ...prev, workspaceId: defaultWorkspaceId }));
+    }
+  }, [userWorkspaces]);
 
   useEffect(() => {
     if (project) {
@@ -29,7 +41,8 @@ const ProjectForm = ({ project, onSave, onCancel }) => {
         startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : '',
         endDate: project.endDate ? new Date(project.endDate).toISOString().split('T')[0] : '',
         researchGoals: project.researchGoals || [],
-        teamMembers: project.teamMembers || []
+        teamMembers: project.teamMembers || [],
+        workspaceId: project.workspaceId || null
       });
     }
   }, [project]);
@@ -58,6 +71,7 @@ const ProjectForm = ({ project, onSave, onCancel }) => {
         endDate: formData.endDate || null,
         researchGoals: formData.researchGoals,
         teamMembers: formData.teamMembers,
+        workspaceId: formData.workspaceId || null,
         status: project?.status || 'active'
       };
 
@@ -151,6 +165,29 @@ const ProjectForm = ({ project, onSave, onCancel }) => {
                   rows={3}
                 />
               </div>
+
+              {userWorkspaces && userWorkspaces.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    <Building2 className="w-4 h-4 inline mr-1" />
+                    Workspace
+                  </label>
+                  <select
+                    value={formData.workspaceId || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, workspaceId: e.target.value || null }))}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    {userWorkspaces.map((workspace) => (
+                      <option key={workspace.id} value={workspace.id}>
+                        {workspace.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select the workspace this project belongs to
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

@@ -15,9 +15,11 @@ import NavigationHeader from '@/components/NavigationHeader';
 import { getProblemSpaces } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import ProblemSpaceForm from '@/components/ProblemSpaceForm';
+import { canCreateProblemSpaces } from '@/lib/permissions';
+import UpgradePrompt from '@/components/UpgradePrompt';
 
 const ProblemSpacesPage = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile, userOrganization } = useAuth();
   const navigate = useNavigate();
   const [problemSpaces, setProblemSpaces] = useState([]);
   const [filteredSpaces, setFilteredSpaces] = useState([]);
@@ -142,10 +144,20 @@ const ProblemSpacesPage = () => {
             <h1 className="text-2xl font-bold text-foreground mb-2">Problem Spaces</h1>
             <p className="text-muted-foreground">Organize and analyze insights across your research</p>
           </div>
-          <Button onClick={handleCreateSpace} className="flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            New Problem Space
-          </Button>
+          {canCreateProblemSpaces(userProfile?.role) ? (
+            <Button onClick={handleCreateSpace} className="flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              New Problem Space
+            </Button>
+          ) : (
+            <UpgradePrompt
+              feature="Problem Space Creation"
+              requiredTier="starter"
+              currentTier={userOrganization?.tier || 'starter'}
+              description="Only Contributors, Researchers, and Admins can create problem spaces."
+              showInCard={false}
+            />
+          )}
         </div>
 
         {/* Filters and View Toggle */}

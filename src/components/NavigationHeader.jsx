@@ -4,10 +4,14 @@ import { Database, Plus, Menu, FolderOpen, FileText, Settings, LayoutDashboard, 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import UserMenu from "@/components/UserMenu";
+import WorkspaceSelector from "@/components/WorkspaceSelector";
+import { useAuth } from '@/contexts/AuthContext';
+import { canViewDashboard } from '@/lib/permissions';
 
 const NavigationHeader = ({ currentView, onNavigate }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { userOrganization } = useAuth();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // Support both old callback-based navigation and new router-based navigation
@@ -42,8 +46,12 @@ const NavigationHeader = ({ currentView, onNavigate }) => {
 
   const activeView = getActiveView();
 
+  // Filter nav items based on permissions
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    // Only show dashboard if user has access (Team+ tier)
+    ...(userOrganization && canViewDashboard(userOrganization.tier) 
+      ? [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }]
+      : []),
     { id: 'projects', label: 'Projects', icon: FolderOpen, path: '/projects' },
     { id: 'repository', label: 'Repository', icon: Database, path: '/repository' },
     { id: 'problem-spaces', label: 'Problem Spaces', icon: Target, path: '/problem-spaces' }
@@ -85,11 +93,13 @@ const NavigationHeader = ({ currentView, onNavigate }) => {
                 </Button>
               );
             })}
+            <WorkspaceSelector />
             <ThemeToggle />
             <UserMenu />
           </div>
 
           <div className="md:hidden flex items-center gap-2">
+            <WorkspaceSelector />
             <ThemeToggle />
             <UserMenu />
             <Button

@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const SimplifiedUpload = () => {
   const [searchParams] = useSearchParams();
   const projectIdFromUrl = searchParams.get('projectId');
-  const { currentUser } = useAuth();
+  const { currentUser, userWorkspaces } = useAuth();
 
   const [sessionData, setSessionData] = useState({
     title: '',
@@ -23,8 +23,20 @@ const SimplifiedUpload = () => {
     transcriptContent: '',
     sessionType: 'user_interview',
     customSessionType: '',
-    projectId: projectIdFromUrl || null
+    projectId: projectIdFromUrl || null,
+    workspaceId: null
   });
+
+  // Set default workspace from localStorage or first available
+  useEffect(() => {
+    if (userWorkspaces && userWorkspaces.length > 0 && !sessionData.workspaceId) {
+      const stored = localStorage.getItem('selectedWorkspaceId');
+      const defaultWorkspaceId = stored && userWorkspaces.find(w => w.id === stored)
+        ? stored
+        : userWorkspaces[0].id;
+      setSessionData(prev => ({ ...prev, workspaceId: defaultWorkspaceId }));
+    }
+  }, [userWorkspaces, sessionData.workspaceId]);
 
   const [uploadMethod, setUploadMethod] = useState('');
   const [dragActive, setDragActive] = useState(false);
@@ -66,6 +78,7 @@ const SimplifiedUpload = () => {
         recording_url: sessionData.recordingUrl,
         transcript_content: sessionData.transcriptContent,
         projectId: sessionData.projectId || null,
+        workspaceId: sessionData.workspaceId || null,
         participantContext: sessionData.participantContext || null,
         nuggets: [] // Start with empty nuggets array
       };

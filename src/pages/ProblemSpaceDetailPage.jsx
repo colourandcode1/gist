@@ -28,12 +28,13 @@ import {
 } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProjects } from '@/lib/firestoreUtils';
+import { canEditProblemSpaces, canCreateProblemSpaces } from '@/lib/permissions';
 
 const ProblemSpaceDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [problemSpace, setProblemSpace] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
@@ -210,7 +211,12 @@ const ProblemSpaceDetailPage = () => {
     });
   };
 
-  const canEdit = problemSpace && (
+  const canEdit = problemSpace && canEditProblemSpaces(
+    userProfile?.role,
+    problemSpace.userId,
+    currentUser?.uid,
+    problemSpace.contributors || []
+  ) && (
     problemSpace.userId === currentUser?.uid || 
     problemSpace.contributors?.includes(currentUser?.uid)
   );

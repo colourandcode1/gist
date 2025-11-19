@@ -1,14 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import NavigationHeader from '@/components/NavigationHeader';
 import QuickStats from '@/components/Dashboard/QuickStats';
 import QuickActions from '@/components/Dashboard/QuickActions';
 import RecentActivity from '@/components/Dashboard/RecentActivity';
+import ActivityChart from '@/components/Dashboard/ActivityChart';
 import { getSessions, getProjects, getProblemSpaces, getAllNuggets } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { canViewDashboard } from '@/lib/permissions';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowUp, Lock, Building2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const DashboardPage = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userOrganization, userWorkspaces } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null);
   const [stats, setStats] = useState({
     sessionsThisWeek: 0,
     sessionsThisMonth: 0,
@@ -19,12 +28,27 @@ const DashboardPage = () => {
   const [recentSessions, setRecentSessions] = useState([]);
   const [recentProjects, setRecentProjects] = useState([]);
   const [recentProblemSpaces, setRecentProblemSpaces] = useState([]);
+  const [allSessions, setAllSessions] = useState([]);
+  const [allNuggets, setAllNuggets] = useState([]);
+
+  // Get selected workspace from localStorage or default to first workspace
+  useEffect(() => {
+    if (userWorkspaces && userWorkspaces.length > 0) {
+      const stored = localStorage.getItem('selectedWorkspaceId');
+      const workspaceId = stored && userWorkspaces.find(w => w.id === stored)
+        ? stored
+        : userWorkspaces[0].id;
+      setSelectedWorkspaceId(workspaceId);
+    } else {
+      setSelectedWorkspaceId(null);
+    }
+  }, [userWorkspaces]);
 
   useEffect(() => {
     if (currentUser) {
       loadDashboardData();
     }
-  }, [currentUser]);
+  }, [currentUser, selectedWorkspaceId]);
 
   const loadDashboardData = async () => {
     if (!currentUser) {
@@ -35,12 +59,22 @@ const DashboardPage = () => {
     setIsLoading(true);
     try {
       // Fetch all data in parallel
-      const [sessions, projects, problemSpaces, allNuggets] = await Promise.all([
+      let [sessions, projects, problemSpaces, nuggets] = await Promise.all([
         getSessions(currentUser.uid),
         getProjects(currentUser.uid),
         getProblemSpaces(currentUser.uid),
         getAllNuggets(currentUser.uid)
       ]);
+
+      // Filter by workspace if one is selected
+      if (selectedWorkspaceId) {
+        sessions = sessions.filter(s => s.workspaceId === selectedWorkspaceId);
+        projects = projects.filter(p => p.workspaceId === selectedWorkspaceId);
+        problemSpaces = problemSpaces.filter(ps => ps.workspaceId === selectedWorkspaceId);
+        // Filter nuggets by sessions in the workspace
+        const workspaceSessionIds = new Set(sessions.map(s => s.id));
+        nuggets = nuggets.filter(n => workspaceSessionIds.has(n.session_id));
+      }
 
       // Calculate stats
       const now = new Date();
@@ -63,7 +97,7 @@ const DashboardPage = () => {
       setStats({
         sessionsThisWeek,
         sessionsThisMonth,
-        totalInsights: allNuggets.length,
+        totalInsights: nuggets.length,
         activeProjects,
         activeProblemSpaces
       });
@@ -90,12 +124,45 @@ const DashboardPage = () => {
       setRecentSessions(sortedSessions.slice(0, 5));
       setRecentProjects(sortedProjects.slice(0, 5));
       setRecentProblemSpaces(sortedProblemSpaces.slice(0, 5));
+      setAllSessions(sessions);
+      setAllNuggets(nuggets);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Check if user has access to dashboard
+  if (!userOrganization || !canViewDashboard(userOrganization.tier)) {
+    return (
+      <div className="bg-background min-h-screen">
+        <NavigationHeader />
+        <div className="max-w-7xl mx-auto p-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="w-5 h-5" />
+                Dashboard Access Restricted
+              </CardTitle>
+              <CardDescription>
+                Dashboard analytics are available for Team and Enterprise plans
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                Upgrade to Team or Enterprise to access advanced analytics, insights, and reporting features.
+              </p>
+              <Button onClick={() => navigate('/settings?tab=billing')} className="flex items-center gap-2">
+                <ArrowUp className="w-4 h-4" />
+                Upgrade Plan
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -114,12 +181,46 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="bg-background min-h-screen">
+      <div className="bg-background min-h-screen">
       <NavigationHeader />
       <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">Overview of your research activities</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Overview of your research activities
+              {selectedWorkspaceId && userWorkspaces?.length > 0 && (
+                <span className="ml-2">
+                  <Badge variant="secondary" className="ml-2">
+                    <Building2 className="w-3 h-3 mr-1 inline" />
+                    {userWorkspaces.find(w => w.id === selectedWorkspaceId)?.name || 'Workspace'}
+                  </Badge>
+                </span>
+              )}
+            </p>
+          </div>
+          {userWorkspaces && userWorkspaces.length > 1 && (
+            <select
+              value={selectedWorkspaceId || ''}
+              onChange={(e) => {
+                const workspaceId = e.target.value || null;
+                setSelectedWorkspaceId(workspaceId);
+                if (workspaceId) {
+                  localStorage.setItem('selectedWorkspaceId', workspaceId);
+                } else {
+                  localStorage.removeItem('selectedWorkspaceId');
+                }
+              }}
+              className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="">All Workspaces</option>
+              {userWorkspaces.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Quick Stats */}
@@ -130,6 +231,11 @@ const DashboardPage = () => {
         {/* Quick Actions */}
         <div className="mb-6">
           <QuickActions />
+        </div>
+
+        {/* Activity Chart */}
+        <div className="mb-6">
+          <ActivityChart sessions={allSessions} nuggets={allNuggets} />
         </div>
 
         {/* Recent Activity */}

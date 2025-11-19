@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Building2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { createProblemSpace, updateProblemSpace } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userWorkspaces } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -19,11 +19,23 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
     outputType: '',
     problemStatement: '',
     keyQuestions: [],
-    initialInsights: []
+    initialInsights: [],
+    workspaceId: null
   });
   const [newQuestion, setNewQuestion] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Set default workspace from localStorage or first available
+  useEffect(() => {
+    if (userWorkspaces && userWorkspaces.length > 0 && !formData.workspaceId) {
+      const stored = localStorage.getItem('selectedWorkspaceId');
+      const defaultWorkspaceId = stored && userWorkspaces.find(w => w.id === stored)
+        ? stored
+        : userWorkspaces[0].id;
+      setFormData(prev => ({ ...prev, workspaceId: defaultWorkspaceId }));
+    }
+  }, [userWorkspaces]);
 
   useEffect(() => {
     if (problemSpace) {
@@ -34,7 +46,8 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
         outputType: problemSpace.outputType || '',
         problemStatement: problemSpace.problemStatement || '',
         keyQuestions: problemSpace.keyQuestions || [],
-        initialInsights: []
+        initialInsights: [],
+        workspaceId: problemSpace.workspaceId || null
       });
     }
   }, [problemSpace]);
@@ -60,7 +73,8 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
         problemStatement: formData.problemStatement.trim(),
         keyQuestions: formData.keyQuestions,
         linkedProjects: [],
-        insightIds: formData.initialInsights
+        insightIds: formData.initialInsights,
+        workspaceId: formData.workspaceId || null
       };
 
       let result;
@@ -157,6 +171,30 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
                   rows={3}
                 />
               </div>
+
+              {userWorkspaces && userWorkspaces.length > 0 && (
+                <div>
+                  <label htmlFor="workspace" className="block text-sm font-medium text-foreground mb-2">
+                    <Building2 className="w-4 h-4 inline mr-1" />
+                    Workspace
+                  </label>
+                  <select
+                    id="workspace"
+                    value={formData.workspaceId || ''}
+                    onChange={(e) => setFormData({ ...formData, workspaceId: e.target.value || null })}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    {userWorkspaces.map((workspace) => (
+                      <option key={workspace.id} value={workspace.id}>
+                        {workspace.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select the workspace this problem space belongs to
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">

@@ -17,6 +17,7 @@ import RepositoryPage from "@/pages/RepositoryPage";
 import ProblemSpacesPage from "@/pages/ProblemSpacesPage";
 import ProblemSpaceDetailPage from "@/pages/ProblemSpaceDetailPage";
 import SettingsPage from "@/pages/SettingsPage";
+import WorkspacesPage from "@/pages/WorkspacesPage";
 
 function App() {
   return (
@@ -103,6 +104,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workspaces"
+            element={
+              <ProtectedRoute>
+                <WorkspacesPage />
               </ProtectedRoute>
             }
           />
