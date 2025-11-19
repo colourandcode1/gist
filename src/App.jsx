@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from "@/components/theme-provider";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import SimplifiedUpload from "@/components/SimplifiedUpload";
 import LoginPage from "@/pages/LoginPage";
@@ -18,6 +18,18 @@ import ProblemSpacesPage from "@/pages/ProblemSpacesPage";
 import ProblemSpaceDetailPage from "@/pages/ProblemSpaceDetailPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WorkspacesPage from "@/pages/WorkspacesPage";
+import { canViewDashboard } from '@/lib/permissions';
+
+// Component to handle catch-all route with permission-based redirect
+const DefaultRedirect = () => {
+  const { userOrganization } = useAuth();
+  
+  // Redirect to projects if user doesn't have dashboard access
+  if (userOrganization && canViewDashboard(userOrganization.tier)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Navigate to="/projects" replace />;
+};
 
 function App() {
   return (
@@ -123,7 +135,11 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={
+            <ProtectedRoute>
+              <DefaultRedirect />
+            </ProtectedRoute>
+          } />
         </Routes>
       </AuthProvider>
     </ThemeProvider>

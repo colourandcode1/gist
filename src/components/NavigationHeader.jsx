@@ -62,7 +62,14 @@ const NavigationHeader = ({ currentView, onNavigate }) => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between items-center h-16">
           <button
-            onClick={() => handleNavigation('/dashboard')}
+            onClick={() => {
+              // Redirect to projects if user doesn't have dashboard access
+              if (userOrganization && canViewDashboard(userOrganization.tier)) {
+                handleNavigation('/dashboard');
+              } else {
+                handleNavigation('/projects');
+              }
+            }}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-md px-1 -ml-1"
             aria-label="Go to home"
           >

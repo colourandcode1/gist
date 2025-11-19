@@ -8,9 +8,7 @@ import ActivityChart from '@/components/Dashboard/ActivityChart';
 import { getSessions, getProjects, getProblemSpaces, getAllNuggets } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { canViewDashboard } from '@/lib/permissions';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowUp, Lock, Building2 } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const DashboardPage = () => {
@@ -45,10 +43,11 @@ const DashboardPage = () => {
   }, [userWorkspaces]);
 
   useEffect(() => {
-    if (currentUser) {
+    // Only load data if user has dashboard access
+    if (currentUser && userOrganization && canViewDashboard(userOrganization.tier)) {
       loadDashboardData();
     }
-  }, [currentUser, selectedWorkspaceId]);
+  }, [currentUser, selectedWorkspaceId, userOrganization]);
 
   const loadDashboardData = async () => {
     if (!currentUser) {
@@ -133,35 +132,18 @@ const DashboardPage = () => {
     }
   };
 
-  // Check if user has access to dashboard
+  // Redirect to projects if user doesn't have access to dashboard
+  useEffect(() => {
+    if (userOrganization && !canViewDashboard(userOrganization.tier)) {
+      navigate('/projects', { replace: true });
+    } else if (!userOrganization) {
+      navigate('/projects', { replace: true });
+    }
+  }, [userOrganization, navigate]);
+
+  // Don't render anything if user doesn't have access (redirect is in progress)
   if (!userOrganization || !canViewDashboard(userOrganization.tier)) {
-    return (
-      <div className="bg-background min-h-screen">
-        <NavigationHeader />
-        <div className="max-w-7xl mx-auto p-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="w-5 h-5" />
-                Dashboard Access Restricted
-              </CardTitle>
-              <CardDescription>
-                Dashboard analytics are available for Team and Enterprise plans
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
-                Upgrade to Team or Enterprise to access advanced analytics, insights, and reporting features.
-              </p>
-              <Button onClick={() => navigate('/settings?tab=billing')} className="flex items-center gap-2">
-                <ArrowUp className="w-4 h-4" />
-                Upgrade Plan
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (isLoading) {
