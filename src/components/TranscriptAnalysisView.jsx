@@ -18,7 +18,7 @@ import { CATEGORIES } from '@/lib/constants';
 
 const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSuccessToast = false }) => {
   const { currentUser, userProfile } = useAuth();
-  const [showSentiment, setShowSentiment] = useState(false);
+  const [showSentiment, setShowSentiment] = useState(true);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [currentVideoTimestamp, setCurrentVideoTimestamp] = useState(null);
   const [isSavingNugget, setIsSavingNugget] = useState(false);
