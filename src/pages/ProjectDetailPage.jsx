@@ -150,7 +150,7 @@ const ProjectDetailPage = () => {
             <p className="text-muted-foreground">{project.description || 'No description'}</p>
           </div>
           <div className="flex items-center gap-2">
-            {canUploadSessions(userProfile?.role) && (
+            {canUploadSessions(userProfile?.role, userProfile?.is_admin) && (
               <Button 
                 onClick={() => navigate(`/?projectId=${id}`)}
                 className="flex items-center gap-2"
@@ -304,7 +304,7 @@ const ProjectSessionsTab = ({ projectId, sessions, onRefresh }) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Sessions in this Project</h3>
-        {canUploadSessions(userProfile?.role) && (
+        {canUploadSessions(userProfile?.role, userProfile?.is_admin) && (
           <Button onClick={() => navigate(`/?projectId=${projectId}`)}>
             Create New Session
           </Button>
@@ -314,7 +314,7 @@ const ProjectSessionsTab = ({ projectId, sessions, onRefresh }) => {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground mb-4">No sessions in this project yet</p>
-            {canUploadSessions(userProfile?.role) && (
+            {canUploadSessions(userProfile?.role, userProfile?.is_admin) && (
               <Button onClick={() => navigate(`/?projectId=${projectId}`)}>
                 Create First Session
               </Button>

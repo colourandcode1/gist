@@ -15,7 +15,7 @@ const UpgradePrompt = ({
 }) => {
   const navigate = useNavigate();
   const tierConfig = TIER_CONFIG[requiredTier];
-  const currentTierConfig = TIER_CONFIG[currentTier] || TIER_CONFIG[TIERS.STARTER];
+  const currentTierConfig = TIER_CONFIG[currentTier] || TIER_CONFIG[TIERS.SMALL_TEAM];
 
   const handleUpgrade = () => {
     navigate('/settings?tab=billing');

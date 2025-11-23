@@ -101,7 +101,7 @@ const ProfilePage = () => {
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Role</label>
-                <p className="text-foreground capitalize">{userProfile?.role || 'researcher'}</p>
+                <p className="text-foreground capitalize">{userProfile?.role || 'member'}</p>
               </div>
             </CardContent>
           </Card>

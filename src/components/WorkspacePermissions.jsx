@@ -35,7 +35,7 @@ const WorkspacePermissions = ({ workspaceId }) => {
       setPermissions(perms || {
         // Default permissions structure
         allowAllMembers: true,
-        allowedRoles: ['admin', 'researcher', 'contributor', 'viewer'],
+        allowedRoles: ['member', 'viewer'],
         allowedUsers: [],
         restrictedActions: [],
       });
@@ -113,7 +113,7 @@ const WorkspacePermissions = ({ workspaceId }) => {
     return <div className="text-muted-foreground">Loading permissions...</div>;
   }
 
-  const roles = ['admin', 'researcher', 'contributor', 'viewer'];
+  const roles = ['member', 'viewer'];
 
   return (
     <Card>

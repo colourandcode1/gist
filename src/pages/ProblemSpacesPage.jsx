@@ -153,8 +153,8 @@ const ProblemSpacesPage = () => {
             <UpgradePrompt
               feature="Problem Space Creation"
               requiredTier="starter"
-              currentTier={userOrganization?.tier || 'starter'}
-              description="Only Contributors, Researchers, and Admins can create problem spaces."
+              currentTier={userOrganization?.tier || 'small_team'}
+              description="Only Members can create problem spaces."
               showInCard={false}
             />
           )}

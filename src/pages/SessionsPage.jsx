@@ -154,7 +154,7 @@ const SessionsPage = () => {
             <h1 className="text-2xl font-bold text-foreground mb-2">Sessions</h1>
             <p className="text-muted-foreground">View and manage all your research sessions</p>
           </div>
-          {canUploadSessions(userProfile?.role) ? (
+          {canUploadSessions(userProfile?.role, userProfile?.is_admin) ? (
             <Button onClick={() => navigate('/')} className="flex items-center gap-2">
               <Plus className="w-5 h-5" />
               New Session
@@ -163,8 +163,8 @@ const SessionsPage = () => {
             <UpgradePrompt
               feature="Session Upload"
               requiredTier="starter"
-              currentTier={userOrganization?.tier || 'starter'}
-              description="Only Researchers and Admins can upload sessions."
+              currentTier={userOrganization?.tier || 'small_team'}
+              description="Only Members can upload sessions."
               showInCard={false}
             />
           )}

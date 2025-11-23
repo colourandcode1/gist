@@ -26,7 +26,7 @@ The rules include permissions for all collections:
 - **users**: Users can read/write their own profile; admins can read all
 - **sessions**: Users can create/read/update/delete their own sessions; admins have full access
 - **projects**: Users can create/read/update/delete their own projects; admins have full access
-- **problemSpaces**: Users can create/read/update/delete their own problem spaces; contributors can read/update; admins have full access
+- **problemSpaces**: Members can create/read/update/delete their own problem spaces; problem space contributors (collaborators) can read/update; admins have full access
 - **comments**: Users can create comments and manage their own; admins can manage all
 - **shareLinks**: Anyone can read (for sharing); creators can manage; admins have full access
 - **teams**: Team members can read; owners/admins can update; admins have full access
@@ -36,12 +36,15 @@ The rules include permissions for all collections:
 
 ## Admin Role
 
-Users with `role: 'admin'` in their user document have elevated permissions across all collections. To set a user as admin:
+Users with `role: 'member'` and `is_admin: true` in their user document have elevated permissions across all collections. Admin is now a permission flag on the Member role, not a separate role.
+
+To set a user as admin:
 
 1. Go to Firebase Console > Firestore Database
 2. Navigate to `users` collection
 3. Find the user document
-4. Update the `role` field to `'admin'`
+4. Ensure `role` field is set to `'member'`
+5. Set `is_admin` field to `true`
 
 ## Complete Rules
 

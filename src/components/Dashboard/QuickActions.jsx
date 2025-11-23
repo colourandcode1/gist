@@ -21,7 +21,7 @@ const QuickActions = () => {
       onClick: () => navigate('/'),
       description: 'Upload a new research session',
       color: 'bg-blue-500 hover:bg-blue-600',
-      permission: () => canUploadSessions(userProfile?.role)
+      permission: () => canUploadSessions(userProfile?.role, userProfile?.is_admin)
     },
     {
       label: 'New Project',
@@ -29,7 +29,7 @@ const QuickActions = () => {
       onClick: () => navigate('/projects'),
       description: 'Create a new research project',
       color: 'bg-green-500 hover:bg-green-600',
-      permission: () => canCreateProjects(userProfile?.role)
+      permission: () => canCreateProjects(userProfile?.role, userProfile?.is_admin)
     },
     {
       label: 'New Problem Space',
@@ -37,7 +37,7 @@ const QuickActions = () => {
       onClick: () => navigate('/problem-spaces'),
       description: 'Start organizing insights',
       color: 'bg-purple-500 hover:bg-purple-600',
-      permission: () => canCreateProblemSpaces(userProfile?.role)
+      permission: () => canCreateProblemSpaces(userProfile?.role, userProfile?.is_admin)
     }
   ].filter(action => action.permission());
 

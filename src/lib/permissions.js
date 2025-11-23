@@ -2,22 +2,50 @@
 import { ROLE_PERMISSIONS, ROLES, hasFeature } from './pricingConstants';
 
 /**
+ * Check if user is an admin (has is_admin flag on Member role)
+ * @param {string} role - User role
+ * @param {boolean} isAdmin - is_admin flag from user profile
+ * @returns {boolean}
+ */
+export const isAdmin = (role, isAdmin = false) => {
+  return role === ROLES.MEMBER && isAdmin === true;
+};
+
+// Store reference to avoid shadowing issues when parameter name conflicts with function name
+const isAdminCheck = isAdmin;
+
+/**
  * Get permissions for a role
- * @param {string} role - User role (viewer, contributor, researcher, admin)
+ * @param {string} role - User role (viewer, member)
+ * @param {boolean} isAdmin - is_admin flag (for Member role)
  * @returns {object} Permission object
  */
-export const getRolePermissions = (role) => {
-  return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS[ROLES.VIEWER];
+export const getRolePermissions = (role, isAdmin = false) => {
+  const basePermissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS[ROLES.VIEWER];
+  
+  // Use isAdminCheck to avoid parameter shadowing - the parameter 'isAdmin' shadows the function 'isAdmin'
+  if (isAdminCheck(role, isAdmin)) {
+    return {
+      ...basePermissions,
+      canManageTeam: true,
+      canManageBilling: true,
+      canConfigureWorkspacePermissions: true, // Still gated by tier (Enterprise only)
+      canBulkOperations: true // Available to all Members
+    };
+  }
+  
+  return basePermissions;
 };
 
 /**
  * Check if user has a specific permission based on role
  * @param {string} role - User role
  * @param {string} permission - Permission to check (e.g., 'canUploadSessions')
+ * @param {boolean} isAdmin - is_admin flag (for Member role)
  * @returns {boolean}
  */
-export const hasPermission = (role, permission) => {
-  const permissions = getRolePermissions(role);
+export const hasPermission = (role, permission, isAdmin = false) => {
+  const permissions = getRolePermissions(role, isAdmin);
   return permissions[permission] || false;
 };
 
@@ -41,19 +69,21 @@ export const canUseFeature = (tier, role, feature) => {
 /**
  * Check if user can upload sessions
  * @param {string} role - User role
+ * @param {boolean} isAdmin - is_admin flag (for Member role, not used here but for consistency)
  * @returns {boolean}
  */
-export const canUploadSessions = (role) => {
-  return hasPermission(role, 'canUploadSessions');
+export const canUploadSessions = (role, isAdmin = false) => {
+  return hasPermission(role, 'canUploadSessions', isAdmin);
 };
 
 /**
  * Check if user can create nuggets
  * @param {string} role - User role
+ * @param {boolean} isAdmin - is_admin flag (for Member role, not used here but for consistency)
  * @returns {boolean}
  */
-export const canCreateNuggets = (role) => {
-  return hasPermission(role, 'canCreateNuggets');
+export const canCreateNuggets = (role, isAdmin = false) => {
+  return hasPermission(role, 'canCreateNuggets', isAdmin);
 };
 
 /**
@@ -61,16 +91,12 @@ export const canCreateNuggets = (role) => {
  * @param {string} role - User role
  * @param {string} nuggetOwnerId - ID of the nugget owner (for checking if user can edit others' nuggets)
  * @param {string} userId - Current user ID
+ * @param {boolean} isAdmin - is_admin flag (for Member role)
  * @returns {boolean}
  */
-export const canEditNuggets = (role, nuggetOwnerId = null, userId = null) => {
-  // Contributors can only edit their own nuggets
-  if (role === ROLES.CONTRIBUTOR) {
-    return nuggetOwnerId === userId;
-  }
-  
-  // Researchers and admins can edit all nuggets
-  return hasPermission(role, 'canEditNuggets');
+export const canEditNuggets = (role, nuggetOwnerId = null, userId = null, isAdmin = false) => {
+  // Members can edit all nuggets
+  return hasPermission(role, 'canEditNuggets', isAdmin);
 };
 
 /**
@@ -96,17 +122,13 @@ export const canCreateProblemSpaces = (role) => {
  * @param {string} role - User role
  * @param {string} problemSpaceOwnerId - ID of the problem space owner
  * @param {string} userId - Current user ID
- * @param {array} contributors - Array of contributor IDs
+ * @param {array} contributors - Array of contributor IDs (for problem space collaborators)
+ * @param {boolean} isAdmin - is_admin flag (for Member role)
  * @returns {boolean}
  */
-export const canEditProblemSpaces = (role, problemSpaceOwnerId = null, userId = null, contributors = []) => {
-  // Contributors can edit problem spaces they own or contribute to
-  if (role === ROLES.CONTRIBUTOR) {
-    return problemSpaceOwnerId === userId || contributors.includes(userId);
-  }
-  
-  // Researchers and admins can edit all problem spaces
-  return hasPermission(role, 'canEditProblemSpaces');
+export const canEditProblemSpaces = (role, problemSpaceOwnerId = null, userId = null, contributors = [], isAdmin = false) => {
+  // Members can edit all problem spaces
+  return hasPermission(role, 'canEditProblemSpaces', isAdmin);
 };
 
 /**
@@ -130,48 +152,58 @@ export const canCreateProjects = (role) => {
 /**
  * Check if user can manage team
  * @param {string} role - User role
+ * @param {boolean} isAdmin - is_admin flag (for Member role)
  * @returns {boolean}
  */
-export const canManageTeam = (role) => {
-  return hasPermission(role, 'canManageTeam');
+export const canManageTeam = (role, isAdmin = false) => {
+  // Use isAdminCheck to avoid parameter shadowing
+  return isAdminCheck(role, isAdmin);
 };
 
 /**
  * Check if user can manage billing
  * @param {string} role - User role
+ * @param {boolean} isAdmin - is_admin flag (for Member role)
  * @returns {boolean}
  */
-export const canManageBilling = (role) => {
-  return hasPermission(role, 'canManageBilling');
+export const canManageBilling = (role, isAdmin = false) => {
+  // Use isAdminCheck to avoid parameter shadowing
+  return isAdminCheck(role, isAdmin);
 };
 
 /**
- * Check if user can configure workspace permissions (Enterprise only)
+ * Check if user can configure workspace permissions (Enterprise only, Admin only)
  * @param {string} tier - Organization tier
  * @param {string} role - User role
+ * @param {boolean} isAdmin - is_admin flag (for Member role)
  * @returns {boolean}
  */
-export const canConfigureWorkspacePermissions = (tier, role) => {
-  return canUseFeature(tier, role, 'workspacePermissions');
+export const canConfigureWorkspacePermissions = (tier, role, isAdmin = false) => {
+  // Use isAdminCheck to avoid parameter shadowing
+  if (!isAdminCheck(role, isAdmin)) return false;
+  return hasFeature(tier, 'workspacePermissions');
 };
 
 /**
  * Check if user can configure custom fields
  * @param {string} role - User role
+ * @param {boolean} isAdmin - is_admin flag (for Member role, not used here but for consistency)
  * @returns {boolean}
  */
-export const canConfigureCustomFields = (role) => {
-  return hasPermission(role, 'canConfigureCustomFields');
+export const canConfigureCustomFields = (role, isAdmin = false) => {
+  return hasPermission(role, 'canConfigureCustomFields', isAdmin);
 };
 
 /**
- * Check if user can perform bulk operations (Enterprise only)
- * @param {string} tier - Organization tier
+ * Check if user can perform bulk operations (Available to all Members)
+ * @param {string} tier - Organization tier (not used, kept for API consistency)
  * @param {string} role - User role
+ * @param {boolean} isAdmin - is_admin flag (not used, kept for API consistency)
  * @returns {boolean}
  */
-export const canBulkOperations = (tier, role) => {
-  return canUseFeature(tier, role, 'bulkOperations');
+export const canBulkOperations = (tier, role, isAdmin = false) => {
+  // Available to all Members (not just admins)
+  return hasPermission(role, 'canBulkOperations', isAdmin);
 };
 
 /**

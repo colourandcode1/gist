@@ -511,7 +511,7 @@ const RepositorySearchView = ({ onNavigate }) => {
                 >
                   {showAnalytics ? 'Hide' : 'Show'} Analytics
                 </Button>
-                {canBulkOperations(userOrganization?.tier, userProfile?.role) ? (
+                {canBulkOperations(userOrganization?.tier, userProfile?.role, userProfile?.is_admin) && (
                   <>
                     {filteredNuggets.length > 0 && (
                       <Button
@@ -542,12 +542,6 @@ const RepositorySearchView = ({ onNavigate }) => {
                       </Button>
                     )}
                   </>
-                ) : (
-                  selectedNuggets.size > 0 && (
-                    <div className="text-sm text-muted-foreground">
-                      Bulk operations require Enterprise plan
-                    </div>
-                  )
                 )}
               </div>
             </div>

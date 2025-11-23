@@ -11,11 +11,19 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Helper function to check if user is admin
+    // Helper function to check if user is admin (Member with is_admin flag)
     function isAdmin() {
       return isAuthenticated() && 
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'member' &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_admin == true;
+    }
+    
+    // Helper function to check if user is member (can create content)
+    function isMember() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'member';
     }
     
     // Helper function to get user role
@@ -57,10 +65,10 @@ service cloud.firestore {
     
     // Sessions collection
     match /sessions/{sessionId} {
-      // Users can create sessions if they're authenticated, set themselves as owner, and have researcher/admin role
+      // Users can create sessions if they're authenticated, set themselves as owner, and are members
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid &&
-                     (getUserRole() == 'researcher' || getUserRole() == 'admin');
+                     isMember();
       
       // Users can read sessions in their organization or their own sessions
       allow read: if isAuthenticated() && 
@@ -68,10 +76,10 @@ service cloud.firestore {
                    (resource.data.workspaceId != null && 
                     canAccessWorkspace(resource.data.workspaceId)));
       
-      // Users can update their own sessions, or researchers/admins can update any in their workspace
+      // Users can update their own sessions, or members can update any in their workspace
       allow update: if isAuthenticated() && 
                     (resource.data.userId == request.auth.uid ||
-                     ((getUserRole() == 'researcher' || getUserRole() == 'admin') &&
+                     (isMember() &&
                       resource.data.workspaceId != null &&
                       canAccessWorkspace(resource.data.workspaceId)));
       
@@ -85,11 +93,11 @@ service cloud.firestore {
     
     // Projects collection
     match /projects/{projectId} {
-      // Users can create projects if they're authenticated, set themselves as owner, and have researcher/admin role
+      // Users can create projects if they're authenticated, set themselves as owner, and are members
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid &&
                      request.resource.data.createdBy == request.auth.uid &&
-                     (getUserRole() == 'researcher' || getUserRole() == 'admin');
+                     isMember();
       
       // Users can read projects in their organization or their own projects
       allow read: if isAuthenticated() && 
@@ -98,10 +106,10 @@ service cloud.firestore {
                    (resource.data.workspaceId != null && 
                     canAccessWorkspace(resource.data.workspaceId)));
       
-      // Users can update their own projects, or researchers/admins can update any in their workspace
+      // Users can update their own projects, or members can update any in their workspace
       allow update: if isAuthenticated() && 
                     (resource.data.userId == request.auth.uid ||
-                     ((getUserRole() == 'researcher' || getUserRole() == 'admin') &&
+                     (isMember() &&
                       resource.data.workspaceId != null &&
                       canAccessWorkspace(resource.data.workspaceId)));
       
@@ -115,11 +123,11 @@ service cloud.firestore {
     
     // Problem Spaces collection
     match /problemSpaces/{problemSpaceId} {
-      // Users can create problem spaces if authenticated, set themselves as owner, and have contributor/researcher/admin role
+      // Users can create problem spaces if authenticated, set themselves as owner, and are members
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid &&
                      request.resource.data.createdBy == request.auth.uid &&
-                     (getUserRole() == 'contributor' || getUserRole() == 'researcher' || getUserRole() == 'admin');
+                     isMember();
       
       // Users can read problem spaces in their organization or ones they contribute to
       allow read: if isAuthenticated() && 
@@ -128,11 +136,11 @@ service cloud.firestore {
                    (resource.data.workspaceId != null && 
                     canAccessWorkspace(resource.data.workspaceId)));
       
-      // Users can update their own problem spaces, ones they contribute to, or researchers/admins can update any in their workspace
+      // Users can update their own problem spaces, ones they contribute to, or members can update any in their workspace
       allow update: if isAuthenticated() && 
                     (resource.data.userId == request.auth.uid ||
                      request.auth.uid in resource.data.contributors ||
-                     ((getUserRole() == 'researcher' || getUserRole() == 'admin') &&
+                     (isMember() &&
                       resource.data.workspaceId != null &&
                       canAccessWorkspace(resource.data.workspaceId)));
       
@@ -146,10 +154,10 @@ service cloud.firestore {
     
     // Comments collection
     match /comments/{commentId} {
-      // Users can create comments if authenticated and have contributor/researcher/admin role
+      // Users can create comments if authenticated and are members
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid &&
-                     (getUserRole() == 'contributor' || getUserRole() == 'researcher' || getUserRole() == 'admin');
+                     isMember();
       
       // Users can read comments in their organization
       allow read: if isAuthenticated();
@@ -268,7 +276,7 @@ service cloud.firestore {
       // Only owners or admins can update organizations
       allow update: if isAuthenticated() && 
                     (resource.data.ownerId == request.auth.uid ||
-                     (hasRoleInOrg(organizationId, 'admin') && 
+                     (isAdmin() && 
                       request.resource.data.ownerId == resource.data.ownerId));
       
       // Only owners can delete organizations
@@ -293,13 +301,13 @@ service cloud.firestore {
       // Users can update workspaces they created, or admins can update any in their organization
       allow update: if isAuthenticated() && 
                     (resource.data.createdBy == request.auth.uid ||
-                     (hasRoleInOrg(resource.data.organizationId, 'admin') &&
+                     (isAdmin() &&
                       canAccessWorkspace(workspaceId)));
       
       // Users can delete workspaces they created, or admins can delete any
       allow delete: if isAuthenticated() && 
                      (resource.data.createdBy == request.auth.uid ||
-                      (hasRoleInOrg(resource.data.organizationId, 'admin') &&
+                      (isAdmin() &&
                        canAccessWorkspace(workspaceId)));
       
       // Admins can read/update/delete any workspace
@@ -319,7 +327,7 @@ service cloud.firestore {
       // Only organization owners or admins can update subscriptions
       allow update: if isAuthenticated() && 
                     (get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)).data.ownerId == request.auth.uid ||
-                     hasRoleInOrg(resource.data.organizationId, 'admin'));
+                     isAdmin());
       
       // Only organization owners can delete subscriptions
       allow delete: if isAuthenticated() && 

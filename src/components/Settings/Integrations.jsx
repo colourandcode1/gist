@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plug, Cloud, Zap, Calendar, FileText, ExternalLink } from 'lucide-react';
+import { Cloud, Zap, Calendar, FileText, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getIntegrations, updateIntegration } from '@/lib/firestoreUtils';
 
@@ -23,12 +23,6 @@ const Integrations = () => {
     notion: { enabled: false, connected: false }
   });
 
-  const [mcpIntegration, setMcpIntegration] = useState({
-    enabled: false,
-    endpoint: '',
-    apiKey: '',
-    dataSharing: false
-  });
 
   useEffect(() => {
     if (currentUser) {
@@ -53,7 +47,6 @@ const Integrations = () => {
         if (integrationsData.zapier) setIntegrations(prev => ({ ...prev, zapier: integrationsData.zapier }));
         if (integrationsData.calendar) setIntegrations(prev => ({ ...prev, calendar: integrationsData.calendar }));
         if (integrationsData.notion) setIntegrations(prev => ({ ...prev, notion: integrationsData.notion }));
-        if (integrationsData.mcp) setMcpIntegration(integrationsData.mcp);
       }
     } catch (error) {
       console.error('Error loading integrations:', error);
@@ -117,25 +110,6 @@ const Integrations = () => {
     }
   };
 
-  const handleSaveMcpConfig = async () => {
-    if (!currentUser) return;
-
-    setIsSaving(true);
-    setMessage({ type: '', text: '' });
-
-    try {
-      const result = await updateIntegration(currentUser.uid, 'mcp', mcpIntegration);
-      if (result.success) {
-        setMessage({ type: 'success', text: 'MCP configuration saved successfully' });
-      } else {
-        setMessage({ type: 'error', text: result.error || 'Failed to save MCP configuration' });
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Failed to save MCP configuration' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -202,64 +176,6 @@ const Integrations = () => {
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* MCP Integration */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plug className="w-5 h-5" />
-            MCP Integration (Q1 2026)
-          </CardTitle>
-          <CardDescription>Connect AI tools and configure endpoints for advanced automation</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Enable MCP Integration</div>
-              <div className="text-sm text-muted-foreground">Connect external AI tools and services</div>
-            </div>
-            <Switch
-              checked={mcpIntegration.enabled}
-              onCheckedChange={(checked) => setMcpIntegration({ ...mcpIntegration, enabled: checked })}
-            />
-          </div>
-
-          {mcpIntegration.enabled && (
-            <>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">MCP Endpoint</label>
-                <Input
-                  value={mcpIntegration.endpoint}
-                  onChange={(e) => setMcpIntegration({ ...mcpIntegration, endpoint: e.target.value })}
-                  placeholder="https://api.example.com/mcp"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">API Key</label>
-                <Input
-                  type="password"
-                  value={mcpIntegration.apiKey}
-                  onChange={(e) => setMcpIntegration({ ...mcpIntegration, apiKey: e.target.value })}
-                  placeholder="Enter API key"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Data Sharing</div>
-                  <div className="text-sm text-muted-foreground">Allow MCP tools to access your data</div>
-                </div>
-                <Switch
-                  checked={mcpIntegration.dataSharing}
-                  onCheckedChange={(checked) => setMcpIntegration({ ...mcpIntegration, dataSharing: checked })}
-                />
-              </div>
-              <Button onClick={handleSaveMcpConfig} disabled={isSaving}>
-                {isSaving ? 'Saving...' : 'Save MCP Configuration'}
-              </Button>
-            </>
-          )}
         </CardContent>
       </Card>
 

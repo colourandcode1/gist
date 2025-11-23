@@ -31,7 +31,7 @@ export const landingContent = {
     },
     {
       title: "Team Collaboration",
-      description: "Role-based permissions (Admin, Researcher, Viewer) ensure the right access for everyone on your team."
+      description: "Role-based permissions (Member, Viewer, Admin) ensure the right access for everyone on your team."
     }
   ],
   featuresSection: {
@@ -56,7 +56,7 @@ export const landingContent = {
       {
         icon: "Users",
         title: "Team Collaboration",
-        description: "Role-based permissions (Admin, Researcher, Viewer) ensure the right access for everyone on your team."
+        description: "Role-based permissions (Member, Viewer, Admin) ensure the right access for everyone on your team."
       },
       {
         icon: "FileSearch",
@@ -95,38 +95,45 @@ export const landingContent = {
     note: "No credit card required",
     tiers: [
       {
-        name: "Starter",
-        price: "$25",
+        name: "Small Team",
+        price: "$49",
         period: "/month",
-        userRange: "1-3 users",
+        userRange: "1-5 people",
         features: [
+          "→ Dashboard & analytics",
+          "→ SSO integration",
+          "→ 3 workspaces",
+          "→ Bulk operations",
           "→ Unlimited transcripts & insights",
           "→ Google Drive video integration",
-          "→ Basic audit logs",
+          "→ Audit logs",
           "→ Email support"
         ],
         cta: "Start Free 14-Day Trial"
       },
       {
         name: "Team",
-        price: "$120",
+        price: "$149",
         period: "/month",
-        userRange: "4-10 users",
-        description: "Everything in Starter, plus:",
+        userRange: "6-15 people",
+        description: "Everything in Small Team, plus:",
         features: [
+          "→ 10 workspaces",
           "→ Advanced audit logs with export",
-          "→ Priority support",
-          "→ MCP integration (Q1 2026)"
+          "→ Priority support"
         ],
         cta: "Start Free 14-Day Trial"
       },
       {
         name: "Enterprise",
-        price: "Custom pricing",
-        userRange: "10+ users",
+        price: "$399",
+        period: "/month",
+        userRange: "16+ people",
         description: "Everything in Team, plus:",
         features: [
-          "→ SSO integration (coming Q1 2026)",
+          "→ Unlimited workspaces",
+          "→ Workspace-level permissions",
+          "→ Custom audit retention",
           "→ Custom compliance features",
           "→ Dedicated account manager",
           "→ Service level agreement"
@@ -138,11 +145,7 @@ export const landingContent = {
   faq: [
     {
       question: "Why don't you have built-in AI features?",
-      answer: "We believe you should control where your data goes. Many research repositories send your transcripts to third-party AI services (like OpenAI) without making this obvious. We'd rather let you choose your own AI tools via MCP integration, use your on-premise models, or not use AI at all."
-    },
-    {
-      question: "What is MCP integration?",
-      answer: "MCP (Model Context Protocol) lets you connect your own AI tools to Gist. Want to use Claude with your data? Connect your Anthropic API key. Have an on-premise LLM? Connect that instead. You control which AI sees your data — not us."
+      answer: "We believe you should control where your data goes. Many research repositories send your transcripts to third-party AI services (like OpenAI) without making this obvious. We'd rather let you choose your own AI tools, use your on-premise models, or not use AI at all."
     },
     {
       question: "Do you store my video recordings?",
@@ -150,7 +153,7 @@ export const landingContent = {
     },
     {
       question: "Can I use AI features today?",
-      answer: "Not built-in, but you can export your data anytime and use external AI tools. MCP integration (coming Q1 2026) will make this seamless."
+      answer: "Not built-in, but you can export your data anytime and use external AI tools with your data."
     },
     {
       question: "Is this HIPAA/GDPR compliant?",

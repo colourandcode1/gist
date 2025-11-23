@@ -40,6 +40,39 @@ export const AuthProvider = ({ children }) => {
   const [userWorkspaces, setUserWorkspaces] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Migrate old roles to new role structure
+  const migrateUserRole = (profileData) => {
+    if (!profileData.role) return { ...profileData, role: 'member', is_admin: false };
+    
+    // Migrate old roles to new structure
+    if (profileData.role === 'researcher' || profileData.role === 'contributor') {
+      return {
+        ...profileData,
+        role: 'member',
+        is_admin: false
+      };
+    }
+    
+    // Migrate old admin role
+    if (profileData.role === 'admin') {
+      return {
+        ...profileData,
+        role: 'member',
+        is_admin: true
+      };
+    }
+    
+    // Ensure is_admin exists for member role
+    if (profileData.role === 'member' && profileData.is_admin === undefined) {
+      return {
+        ...profileData,
+        is_admin: false
+      };
+    }
+    
+    return profileData;
+  };
+
   // Fetch user profile from Firestore
   const fetchUserProfile = async (user) => {
     if (!user) {
@@ -53,7 +86,19 @@ export const AuthProvider = ({ children }) => {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists()) {
         const profileData = userDoc.data();
-        setUserProfile(profileData);
+        const migratedProfile = migrateUserRole(profileData);
+        
+        // Update in database if migration occurred
+        if (migratedProfile.role !== profileData.role || 
+            migratedProfile.is_admin !== profileData.is_admin) {
+          try {
+            await setDoc(doc(db, 'users', user.uid), migratedProfile, { merge: true });
+          } catch (migrationError) {
+            console.warn('Could not update user role in database:', migrationError);
+          }
+        }
+        
+        setUserProfile(migratedProfile);
         
         // Fetch organization if user has one
         if (profileData.organizationId) {
@@ -102,10 +147,10 @@ export const AuthProvider = ({ children }) => {
         // Create user profile on first login with default role
         const newUserProfile = {
           email: user.email,
-          role: 'researcher', // Default role: researcher
+          role: 'member', // Default role: member
+          is_admin: false, // Admin is a permission flag on Member role
           organizationId: null,
           workspaceIds: [],
-          seatType: 'researcher',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         };
@@ -122,7 +167,7 @@ export const AuthProvider = ({ children }) => {
             console.warn('Firestore permission denied when creating user profile. Check your security rules.');
           }
           // Set a minimal profile so the user can still log in
-          setUserProfile({ email: user.email, role: 'researcher' });
+          setUserProfile({ email: user.email, role: 'member', is_admin: false });
           setUserOrganization(null);
           setUserWorkspaces([]);
         }
@@ -133,7 +178,7 @@ export const AuthProvider = ({ children }) => {
       if (error.code === 'permission-denied') {
         console.warn('Firestore permission denied when fetching user profile. Check your security rules.');
       }
-      setUserProfile({ email: user.email, role: 'researcher' });
+      setUserProfile({ email: user.email, role: 'member', is_admin: false });
       setUserOrganization(null);
       setUserWorkspaces([]);
     }
@@ -246,13 +291,16 @@ export const AuthProvider = ({ children }) => {
     return userProfile.role === role;
   };
 
-  // Check if user is admin
-  const isAdmin = () => hasRole('admin');
+  // Check if user is admin (Member with is_admin flag)
+  const isAdmin = () => {
+    if (!userProfile) return false;
+    return userProfile.role === 'member' && userProfile.is_admin === true;
+  };
 
-  // Check if user can edit (admin or researcher)
+  // Check if user can edit (member or admin)
   const canEdit = () => {
     if (!userProfile) return false;
-    return userProfile.role === 'admin' || userProfile.role === 'researcher';
+    return userProfile.role === 'member'; // All members can edit
   };
 
   // Check if user can view (all roles)
@@ -263,32 +311,32 @@ export const AuthProvider = ({ children }) => {
   // New permission check functions
   const canUploadSessionsCheck = () => {
     if (!userProfile) return false;
-    return canUploadSessions(userProfile.role);
+    return canUploadSessions(userProfile.role, userProfile.is_admin || false);
   };
 
   const canCreateNuggetsCheck = () => {
     if (!userProfile) return false;
-    return canCreateNuggets(userProfile.role);
+    return canCreateNuggets(userProfile.role, userProfile.is_admin || false);
   };
 
   const canEditNuggetsCheck = (nuggetOwnerId = null) => {
     if (!userProfile || !currentUser) return false;
-    return canEditNuggets(userProfile.role, nuggetOwnerId, currentUser.uid);
+    return canEditNuggets(userProfile.role, nuggetOwnerId, currentUser.uid, userProfile.is_admin || false);
   };
 
   const canManageTeamCheck = () => {
     if (!userProfile) return false;
-    return canManageTeam(userProfile.role);
+    return canManageTeam(userProfile.role, userProfile.is_admin || false);
   };
 
   const canManageBillingCheck = () => {
     if (!userProfile) return false;
-    return canManageBilling(userProfile.role);
+    return canManageBilling(userProfile.role, userProfile.is_admin || false);
   };
 
   const canConfigureWorkspacePermissionsCheck = () => {
     if (!userProfile || !userOrganization) return false;
-    return canConfigureWorkspacePermissions(userOrganization.tier, userProfile.role);
+    return canConfigureWorkspacePermissions(userOrganization.tier, userProfile.role, userProfile.is_admin || false);
   };
 
   const canViewDashboardCheck = () => {
@@ -303,7 +351,7 @@ export const AuthProvider = ({ children }) => {
 
   const canBulkOperationsCheck = () => {
     if (!userProfile || !userOrganization) return false;
-    return canBulkOperations(userOrganization.tier, userProfile.role);
+    return canBulkOperations(userOrganization.tier, userProfile.role, userProfile.is_admin || false);
   };
 
   // Get user organization

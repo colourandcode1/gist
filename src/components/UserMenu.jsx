@@ -123,7 +123,7 @@ const UserMenu = () => {
               )}
             </div>
             <p className="text-xs leading-none text-muted-foreground capitalize">
-              {userProfile?.role || 'researcher'}
+              {userProfile?.role || 'member'}
             </p>
           </div>
         </DropdownMenuItem>

@@ -41,7 +41,7 @@ The implementation is complete with all core functionality in place. All phases 
 
 #### 2.1 AuthContext Updates
 - ✅ `organizationId` and `workspaceIds` added to user profile
-- ✅ `hasRole()` supports all new roles (viewer, contributor, researcher, admin)
+- ✅ `hasRole()` supports all roles (viewer, member, admin)
 - ✅ Permission check functions implemented:
   - ✅ `canUploadSessions()`
   - ✅ `canCreateNuggets()`
@@ -57,9 +57,8 @@ The implementation is complete with all core functionality in place. All phases 
 - ✅ `src/lib/permissions.js` - Centralized permission checking with role-based matrix
 - ✅ Role permissions matrix complete:
   - ✅ Viewer: View only
-  - ✅ Contributor: View + create nuggets + comment + create problem spaces
-  - ✅ Researcher: Contributor + upload sessions + edit all nuggets + create projects
-  - ✅ Admin: Researcher + manage team + billing + workspace permissions (Enterprise)
+  - ✅ Member: Upload sessions, create nuggets, create projects, manage own content
+  - ✅ Admin: Member permissions + team management, billing, workspace permissions (Enterprise only, via is_admin flag)
 - ✅ Feature gating based on tier and role
 
 **Files:**
@@ -117,7 +116,7 @@ The implementation is complete with all core functionality in place. All phases 
 #### 4.1 Feature Flags
 - ✅ Feature flags defined per tier in `pricingConstants.js`
 - ✅ Starter: Basic features + SSO (updated)
-- ✅ Team: Dashboard, SSO, 5 workspaces, unlimited contributors
+- ✅ Team: Dashboard, SSO, 10 workspaces
 - ✅ Enterprise: All features + workspace permissions, bulk operations, custom audit retention
 
 #### 4.2 UI Feature Gating
@@ -156,7 +155,7 @@ The implementation is complete with all core functionality in place. All phases 
 #### 5.1 Subscription Management UI
 - ✅ `src/components/Settings/Billing.jsx` - Complete subscription management UI
   - ✅ Displays current tier and subscription status
-  - ✅ Shows seat usage (researcher/contributor seats)
+  - ✅ Shows team size and tier information
   - ✅ Shows trial status and days remaining
   - ✅ Tier comparison interface
   - ✅ Uses `paymentProvider.js` abstraction layer

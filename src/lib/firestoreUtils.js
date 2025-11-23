@@ -1632,7 +1632,7 @@ export const getTeamMembers = async (teamId, userId) => {
         userId: data.userId,
         email: data.email,
         displayName: data.displayName,
-        role: data.role || 'researcher',
+        role: data.role || 'member',
         joinedAt: data.joinedAt?.toDate?.()?.toISOString() || data.joinedAt
       });
     });
@@ -1677,7 +1677,7 @@ export const inviteTeamMember = async (teamId, email, role, userId) => {
     }
 
     const teamData = teamSnap.data();
-    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'member');
     
     if (userRole !== 'admin' && teamData.ownerId !== userId) {
       return { success: false, error: 'Permission denied - only admins can invite members' };
@@ -1687,7 +1687,7 @@ export const inviteTeamMember = async (teamId, email, role, userId) => {
     const invitationPayload = {
       teamId,
       email,
-      role: role || 'researcher',
+      role: role || 'member',
       invitedBy: userId,
       status: 'pending',
       createdAt: serverTimestamp(),
@@ -1718,7 +1718,7 @@ export const getPendingInvitations = async (teamId, userId) => {
     }
 
     const teamData = teamSnap.data();
-    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'member');
     
     if (userRole !== 'admin' && teamData.ownerId !== userId) {
       return [];
@@ -1767,7 +1767,7 @@ export const updateMemberRole = async (teamId, memberId, newRole, userId) => {
     }
 
     const teamData = teamSnap.data();
-    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'member');
     
     if (userRole !== 'admin' && teamData.ownerId !== userId) {
       return { success: false, error: 'Permission denied - only admins can update roles' };
@@ -1819,7 +1819,7 @@ export const removeTeamMember = async (teamId, memberId, userId) => {
     }
 
     const teamData = teamSnap.data();
-    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'member');
     
     if (userRole !== 'admin' && teamData.ownerId !== userId) {
       return { success: false, error: 'Permission denied - only admins can remove members' };
@@ -1875,7 +1875,7 @@ export const createTeam = async (teamData, userId) => {
       ownerId: userId,
       members: [userId], // Owner is first member
       roles: { [userId]: 'admin' },
-      defaultRole: teamData.defaultRole || 'researcher',
+      defaultRole: teamData.defaultRole || 'member',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -1904,7 +1904,7 @@ export const updateTeamSettings = async (teamId, settings, userId) => {
     }
 
     const teamData = teamSnap.data();
-    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+    const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'member');
     
     if (userRole !== 'admin' && teamData.ownerId !== userId) {
       return { success: false, error: 'Permission denied - only admins can update team settings' };
@@ -2038,7 +2038,7 @@ export const updateResearchConfiguration = async (userId, configData, teamId = n
       }
 
       const teamData = teamSnap.data();
-      const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+      const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'member');
       
       if (userRole !== 'admin' && teamData.ownerId !== userId) {
         return { success: false, error: 'Permission denied - only admins can update team research configuration' };
@@ -2153,7 +2153,7 @@ export const updatePrivacySecuritySettings = async (userId, settings, teamId = n
       }
 
       const teamData = teamSnap.data();
-      const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+      const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'member');
       
       if (userRole !== 'admin' && teamData.ownerId !== userId) {
         return { success: false, error: 'Permission denied - only admins can update team privacy/security settings' };
@@ -2527,7 +2527,7 @@ export const updateIntegration = async (userId, integrationName, integrationData
       }
 
       const teamData = teamSnap.data();
-      const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'researcher');
+      const userRole = teamData.roles?.[userId] || (teamData.ownerId === userId ? 'admin' : 'member');
       
       if (userRole !== 'admin' && teamData.ownerId !== userId) {
         return { success: false, error: 'Permission denied - only admins can update team integrations' };
@@ -2591,15 +2591,12 @@ export const createOrganization = async (organizationData, userId) => {
 
     const organizationPayload = {
       name: organizationData.name || 'My Organization',
-      tier: organizationData.tier || 'starter',
+      tier: organizationData.tier || 'small_team',
       subscriptionId: null, // Will be set when payment provider is integrated
       subscriptionStatus: 'trialing', // Start with trial
       trialEndsAt: Timestamp.fromDate(trialEndsAt), // Convert to Firestore Timestamp
       currentPeriodStart: serverTimestamp(),
       currentPeriodEnd: null, // Will be set when subscription is active
-      researcherSeatsIncluded: organizationData.researcherSeatsIncluded || 1,
-      researcherSeatsUsed: 0,
-      contributorSeatsUsed: 0,
       workspaceLimit: organizationData.workspaceLimit || 1,
       ownerId: userId,
       createdAt: serverTimestamp(),
@@ -2726,14 +2723,13 @@ export const updateOrganizationTier = async (organizationId, newTier, userId) =>
       return { success: false, error: 'Permission denied' };
     }
 
-    // Import tier config to get new seat limits
-    const { TIER_CONFIG } = await import('./pricingConstants');
-    const tierConfig = TIER_CONFIG[newTier] || TIER_CONFIG.starter;
+    // Import tier config to get workspace limits
+    const { TIER_CONFIG, TIERS } = await import('./pricingConstants');
+    const tierConfig = TIER_CONFIG[newTier] || TIER_CONFIG[TIERS.SMALL_TEAM];
 
     const orgRef = doc(db, 'organizations', organizationId);
     await updateDoc(orgRef, {
       tier: newTier,
-      researcherSeatsIncluded: tierConfig.researcherSeatsIncluded,
       workspaceLimit: tierConfig.workspaceLimit,
       updatedAt: serverTimestamp()
     });
@@ -2766,7 +2762,7 @@ export const getOrganizationMembers = async (organizationId) => {
         id: doc.id,
         email: data.email,
         role: data.role,
-        seatType: data.seatType || 'researcher',
+        is_admin: data.is_admin || false,
         displayName: data.displayName,
         ...data
       });
@@ -3020,7 +3016,7 @@ export const getWorkspaceMembers = async (workspaceId) => {
         id: doc.id,
         email: data.email,
         role: data.role,
-        seatType: data.seatType,
+        is_admin: data.is_admin || false,
         ...data
       });
     });
@@ -3117,7 +3113,7 @@ export const createSubscription = async (subscriptionData, organizationId) => {
 
     const subscriptionPayload = {
       organizationId,
-      tier: subscriptionData.tier || 'starter',
+      tier: subscriptionData.tier || 'small_team',
       status: subscriptionData.status || 'trialing',
       paymentProvider: null, // Will be 'lemonsqueezy' when integrated
       paymentProviderSubscriptionId: null, // LemonSqueezy subscription ID

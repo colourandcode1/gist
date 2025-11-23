@@ -98,8 +98,8 @@ const SessionDetailPage = () => {
   const handleDeleteSession = async () => {
     if (!currentUser || !session) return;
 
-    if (!canUploadSessions(userProfile?.role)) {
-      alert('You do not have permission to delete sessions. Only Researchers and Admins can delete sessions.');
+    if (!canUploadSessions(userProfile?.role, userProfile?.is_admin)) {
+      alert('You do not have permission to delete sessions. Only Members can delete sessions.');
       return;
     }
 
@@ -118,7 +118,7 @@ const SessionDetailPage = () => {
     if (!currentUser) return;
 
     const nugget = nuggets.find(n => n.id === nuggetId);
-    if (!canEditNuggets(userProfile?.role, nugget?.createdBy, currentUser.uid)) {
+    if (!canEditNuggets(userProfile?.role, nugget?.createdBy, currentUser.uid, userProfile?.is_admin)) {
       alert('You do not have permission to delete this nugget.');
       return;
     }
@@ -200,7 +200,7 @@ const SessionDetailPage = () => {
               )}
             </div>
           </div>
-          {canUploadSessions(userProfile?.role) && (
+          {canUploadSessions(userProfile?.role, userProfile?.is_admin) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -320,7 +320,7 @@ const SessionDetailPage = () => {
 // Transcript Tab Component
 const SessionTranscriptTab = ({ session, transcript, editedTranscript, setEditedTranscript, editMode, setEditMode, onSave }) => {
   const { userProfile } = useAuth();
-  const canEdit = canUploadSessions(userProfile?.role);
+  const canEdit = canUploadSessions(userProfile?.role, userProfile?.is_admin);
 
   return (
     <Card>
@@ -410,7 +410,7 @@ const SessionInsightsTab = ({ nuggets, searchQuery, setSearchQuery, onDeleteNugg
                 showVideoPlayer={false}
                 setCurrentVideoTimestamp={() => {}}
               />
-              {canEditNuggets(userProfile?.role, nugget.createdBy, currentUser?.uid) && (
+              {canEditNuggets(userProfile?.role, nugget.createdBy, currentUser?.uid, userProfile?.is_admin) && (
                 <Button
                   variant="ghost"
                   size="sm"

@@ -98,7 +98,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSucc
     
     // Check if user can edit this nugget
     const nugget = nuggets.find(n => n.id === editingIds.nuggetId);
-    if (!canEditNuggets(userProfile?.role, nugget?.createdBy, currentUser.uid)) {
+    if (!canEditNuggets(userProfile?.role, nugget?.createdBy, currentUser.uid, userProfile?.is_admin)) {
       alert('You do not have permission to edit this nugget.');
       return;
     }
@@ -121,8 +121,8 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSucc
       return;
     }
 
-    if (!canCreateNuggets(userProfile?.role)) {
-      alert('You do not have permission to create nuggets. Only Contributors, Researchers, and Admins can create nuggets.');
+    if (!canCreateNuggets(userProfile?.role, userProfile?.is_admin)) {
+      alert('You do not have permission to create nuggets. Only Members can create nuggets.');
       return;
     }
 
@@ -405,7 +405,7 @@ const TranscriptAnalysisView = ({ sessionData, onNavigate, prefill, showSaveSucc
               />
             ))}
 
-            {canCreateNuggets(userProfile?.role) && (
+            {canCreateNuggets(userProfile?.role, userProfile?.is_admin) && (
               <NuggetForm
                 selectedText={selectedText}
                 newNugget={newNugget}

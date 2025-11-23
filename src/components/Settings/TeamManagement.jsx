@@ -14,11 +14,7 @@ import {
   TIERS,
   ROLES
 } from '@/lib/pricingConstants';
-import { 
-  getSeatUsage, 
-  hasAvailableResearcherSeats,
-  hasAvailableContributorSeats
-} from '@/lib/subscriptionUtils';
+import { getTeamInfo } from '@/lib/subscriptionUtils';
 import { canManageTeam } from '@/lib/permissions';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -31,8 +27,7 @@ const TeamManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState(ROLES.CONTRIBUTOR);
-  const [inviteSeatType, setInviteSeatType] = useState('contributor');
+  const [inviteRole, setInviteRole] = useState(ROLES.MEMBER);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -59,19 +54,18 @@ const TeamManagement = () => {
     }
   };
 
-  // Helper function to count admin members
+  // Helper function to count admin members (Members with is_admin flag)
   const getAdminCount = (members) => {
-    return members.filter(m => m.role === ROLES.ADMIN).length;
+    return members.filter(m => m.role === ROLES.MEMBER && m.is_admin === true).length;
   };
 
-  const handleUpdateRole = async (memberId, newRole, newSeatType) => {
-    if (!userOrganization || !canManageTeam(userProfile?.role)) return;
+  const handleUpdateRole = async (memberId, newRole) => {
+    if (!userOrganization || !canManageTeam(userProfile?.role, userProfile?.is_admin)) return;
     
     setIsProcessing(true);
     setMessage({ type: '', text: '' });
 
     try {
-      // Check seat limits before updating
       const currentMember = organizationMembers.find(m => m.id === memberId);
       if (!currentMember) {
         setMessage({ type: 'error', text: 'Member not found' });
@@ -79,34 +73,26 @@ const TeamManagement = () => {
         return;
       }
 
-      // Check if trying to change last admin to non-admin role
+      // Check if trying to change last admin to non-admin
       const adminCount = getAdminCount(organizationMembers);
-      if (currentMember.role === ROLES.ADMIN && newRole !== ROLES.ADMIN && adminCount === 1) {
+      const isCurrentlyAdmin = currentMember.role === ROLES.MEMBER && currentMember.is_admin === true;
+      const willBeAdmin = newRole === ROLES.MEMBER; // Admin toggle is handled separately
+      
+      if (isCurrentlyAdmin && !willBeAdmin && adminCount === 1) {
         setMessage({ 
           type: 'error', 
-          text: 'Cannot change the last admin to a different role. Please assign another admin first.' 
+          text: 'Cannot remove admin status from the last admin. Please assign another admin first.' 
         });
         setIsProcessing(false);
         return;
       }
 
-      // If changing to researcher, check if seats are available
-      if (newSeatType === 'researcher' && currentMember.seatType !== 'researcher') {
-        if (!hasAvailableResearcherSeats(userOrganization)) {
-          setMessage({ 
-            type: 'error', 
-            text: 'No available researcher seats. Please upgrade your plan or remove a researcher.' 
-          });
-          setIsProcessing(false);
-          return;
-        }
-      }
-
-      // Update user role and seat type
+      // Update user role
       const userRef = doc(db, 'users', memberId);
       await updateDoc(userRef, {
         role: newRole,
-        seatType: newSeatType,
+        // Clear is_admin if changing to viewer
+        ...(newRole === ROLES.VIEWER ? { is_admin: false } : {}),
         updatedAt: serverTimestamp()
       });
 
@@ -121,9 +107,59 @@ const TeamManagement = () => {
     }
   };
 
+  const handleToggleAdmin = async (memberId, isAdmin) => {
+    if (!userOrganization || !canManageTeam(userProfile?.role, userProfile?.is_admin)) return;
+    
+    setIsProcessing(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const currentMember = organizationMembers.find(m => m.id === memberId);
+      if (!currentMember) {
+        setMessage({ type: 'error', text: 'Member not found' });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Must be a Member to be an admin
+      if (currentMember.role !== ROLES.MEMBER) {
+        setMessage({ type: 'error', text: 'Only Members can be assigned admin status' });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Check if trying to remove admin from last admin
+      const adminCount = getAdminCount(organizationMembers);
+      if (currentMember.is_admin === true && !isAdmin && adminCount === 1) {
+        setMessage({ 
+          type: 'error', 
+          text: 'Cannot remove admin status from the last admin. Please assign another admin first.' 
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Update is_admin flag
+      const userRef = doc(db, 'users', memberId);
+      await updateDoc(userRef, {
+        is_admin: isAdmin,
+        updatedAt: serverTimestamp()
+      });
+
+      setMessage({ type: 'success', text: `Admin status ${isAdmin ? 'granted' : 'removed'} successfully` });
+      await loadOrganizationMembers();
+      await refreshUserProfile();
+    } catch (err) {
+      console.error('Error updating admin status:', err);
+      setMessage({ type: 'error', text: err.message || 'Failed to update admin status' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleRemoveMember = async (memberId) => {
     if (!window.confirm('Are you sure you want to remove this member from the organization?')) return;
-    if (!userOrganization || !canManageTeam(userProfile?.role)) return;
+    if (!userOrganization || !canManageTeam(userProfile?.role, userProfile?.is_admin)) return;
 
     setIsProcessing(true);
     setMessage({ type: '', text: '' });
@@ -138,7 +174,8 @@ const TeamManagement = () => {
       }
 
       const adminCount = getAdminCount(organizationMembers);
-      if (memberToRemove.role === ROLES.ADMIN && adminCount === 1) {
+      const isAdmin = memberToRemove.role === ROLES.MEMBER && memberToRemove.is_admin === true;
+      if (isAdmin && adminCount === 1) {
         setMessage({ 
           type: 'error', 
           text: 'Cannot remove the last admin. Please assign another admin first.' 
@@ -175,14 +212,12 @@ const TeamManagement = () => {
     setShowInviteForm(false);
   };
 
-  const getRoleBadge = (role, seatType) => {
+  const getRoleBadge = (role, isAdmin = false) => {
     const roleConfig = {
-      [ROLES.ADMIN]: { label: 'Admin', variant: 'default', icon: Shield },
-      [ROLES.RESEARCHER]: { label: 'Researcher', variant: 'secondary', icon: Edit },
-      [ROLES.CONTRIBUTOR]: { label: 'Contributor', variant: 'outline', icon: Eye },
+      [ROLES.MEMBER]: { label: 'Member', variant: 'secondary', icon: Edit },
       [ROLES.VIEWER]: { label: 'Viewer', variant: 'outline', icon: Eye }
     };
-    const config = roleConfig[role] || roleConfig[ROLES.CONTRIBUTOR];
+    const config = roleConfig[role] || roleConfig[ROLES.VIEWER];
     const Icon = config.icon;
     return (
       <div className="flex items-center gap-2">
@@ -190,9 +225,10 @@ const TeamManagement = () => {
           <Icon className="w-3 h-3" />
           {config.label}
         </Badge>
-        {seatType && (
-          <Badge variant="outline" className="text-xs">
-            {seatType === 'researcher' ? 'Researcher Seat' : 'Contributor Seat'}
+        {isAdmin && role === ROLES.MEMBER && (
+          <Badge variant="default" className="flex items-center gap-1">
+            <Shield className="w-3 h-3" />
+            Admin
           </Badge>
         )}
       </div>
@@ -218,7 +254,7 @@ const TeamManagement = () => {
     );
   }
 
-  if (!canManageTeam(userProfile?.role)) {
+  if (!canManageTeam(userProfile?.role, userProfile?.is_admin)) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Only administrators can manage team members.</p>
@@ -226,71 +262,46 @@ const TeamManagement = () => {
     );
   }
 
-  const seatUsage = getSeatUsage(userOrganization);
-  const tierConfig = TIER_CONFIG[userOrganization.tier] || TIER_CONFIG[TIERS.STARTER];
-  const canAddResearcher = hasAvailableResearcherSeats(userOrganization);
-  const canAddContributor = hasAvailableContributorSeats(userOrganization, seatUsage.contributorSeatsUsed);
+  // Count members (excluding viewers) for team size
+  const memberCount = organizationMembers.filter(m => m.role !== ROLES.VIEWER).length;
+  const teamInfo = getTeamInfo(userOrganization, memberCount);
 
   return (
     <div className="space-y-6">
-      {/* Seat Usage Summary */}
+      {/* Team Size Summary */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
-            Seat Usage
+            Team Size
           </CardTitle>
-          <CardDescription>Current seat usage and limits</CardDescription>
+          <CardDescription>Current team size and tier information</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium">Researcher Seats</div>
+              <div className="text-sm font-medium">Team Members</div>
               <div className="text-sm text-muted-foreground">
-                {seatUsage.researcherSeatsUsed} / {seatUsage.researcherSeatsIncluded === null ? 'Unlimited' : seatUsage.researcherSeatsIncluded}
+                {memberCount} {memberCount === 1 ? 'member' : 'members'}
               </div>
             </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className="bg-primary h-2 rounded-full"
-                style={{ 
-                  width: seatUsage.researcherSeatsIncluded === null 
-                    ? '100%' 
-                    : `${Math.min(100, (seatUsage.researcherSeatsUsed / seatUsage.researcherSeatsIncluded) * 100)}%` 
-                }}
-              />
+            <div className="text-sm text-muted-foreground">
+              Current tier: <span className="font-medium">{teamInfo.tierConfig.name}</span> ({teamInfo.tierConfig.teamSizeRange || 'N/A'})
             </div>
-            {!canAddResearcher && (
-              <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Researcher seat limit reached. Upgrade your plan to add more researchers.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium">Contributor Seats</div>
-              <div className="text-sm text-muted-foreground">
-                {seatUsage.contributorSeatsUsed} / {seatUsage.contributorSeatsUnlimited ? 'Unlimited' : 'Unlimited (billed)'}
+            {teamInfo.shouldUpgrade && (
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mt-3">
+                <div className="flex items-start gap-2">
+                  <TrendingUp className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <div className="font-medium text-primary mb-1">Recommended Tier Update</div>
+                    <div className="text-muted-foreground">
+                      Your team size ({memberCount} members) is better suited for the <span className="font-medium">{TIER_CONFIG[teamInfo.recommendedTier].name}</span> tier.
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-            {seatUsage.contributorSeatsUnlimited ? (
-              <p className="text-xs text-muted-foreground">Unlimited contributors included</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                ${tierConfig.contributorSeatPrice}/month per contributor
-              </p>
             )}
           </div>
-
-          {seatUsage.researcherSeatsUsed > seatUsage.researcherSeatsIncluded && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                You are using {seatUsage.researcherSeatsUsed - seatUsage.researcherSeatsIncluded} additional researcher seat(s) at ${tierConfig.researcherSeatPrice}/month each.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -303,7 +314,7 @@ const TeamManagement = () => {
                 <Users className="w-5 h-5" />
                 Organization Members
               </CardTitle>
-              <CardDescription>Manage team member roles and seat types</CardDescription>
+              <CardDescription>Manage team member roles and permissions</CardDescription>
             </div>
             <Button onClick={() => setShowInviteForm(!showInviteForm)} className="flex items-center gap-2">
               <UserPlus className="w-4 h-4" />
@@ -330,25 +341,12 @@ const TeamManagement = () => {
                   onChange={(e) => setInviteRole(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
                 >
-                  <option value={ROLES.RESEARCHER}>Researcher</option>
-                  <option value={ROLES.CONTRIBUTOR}>Contributor</option>
+                  <option value={ROLES.MEMBER}>Member</option>
                   <option value={ROLES.VIEWER}>Viewer</option>
                 </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Seat Type</label>
-                <select
-                  value={inviteSeatType}
-                  onChange={(e) => setInviteSeatType(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
-                  disabled={inviteRole === ROLES.VIEWER}
-                >
-                  <option value="researcher">Researcher Seat</option>
-                  <option value="contributor">Contributor Seat</option>
-                </select>
-                {inviteRole === ROLES.VIEWER && (
-                  <p className="text-xs text-muted-foreground">Viewers do not consume seats</p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Members can create content. Viewers can only view content.
+                </p>
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleInviteMember} disabled={isProcessing}>
@@ -378,32 +376,30 @@ const TeamManagement = () => {
                       <div className="font-medium">{member.displayName || member.email}</div>
                       <div className="text-sm text-muted-foreground">{member.email}</div>
                     </div>
-                    {getRoleBadge(member.role, member.seatType)}
+                    {getRoleBadge(member.role, member.is_admin)}
                   </div>
                   <div className="flex items-center gap-2">
                     <select
                       value={member.role}
-                      onChange={(e) => {
-                        const newRole = e.target.value;
-                        // Auto-set seat type based on role
-                        let newSeatType = member.seatType;
-                        if (newRole === ROLES.VIEWER) {
-                          newSeatType = null; // Viewers don't consume seats
-                        } else if (newRole === ROLES.RESEARCHER && member.seatType !== 'researcher') {
-                          newSeatType = 'researcher';
-                        } else if (newRole === ROLES.CONTRIBUTOR && member.seatType === 'researcher') {
-                          newSeatType = 'contributor';
-                        }
-                        handleUpdateRole(member.id, newRole, newSeatType);
-                      }}
+                      onChange={(e) => handleUpdateRole(member.id, e.target.value)}
                       className="flex h-8 rounded-md border border-input bg-background px-2 py-1 text-sm"
                       disabled={isProcessing || member.id === currentUser?.uid}
                     >
-                      <option value={ROLES.ADMIN}>Admin</option>
-                      <option value={ROLES.RESEARCHER}>Researcher</option>
-                      <option value={ROLES.CONTRIBUTOR}>Contributor</option>
+                      <option value={ROLES.MEMBER}>Member</option>
                       <option value={ROLES.VIEWER}>Viewer</option>
                     </select>
+                    {member.role === ROLES.MEMBER && (
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={member.is_admin === true}
+                          onChange={(e) => handleToggleAdmin(member.id, e.target.checked)}
+                          disabled={isProcessing || member.id === currentUser?.uid}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-muted-foreground">Admin</span>
+                      </label>
+                    )}
                     {member.id !== currentUser?.uid && (
                       <Button
                         variant="ghost"
@@ -438,3 +434,4 @@ const TeamManagement = () => {
 };
 
 export default TeamManagement;
+

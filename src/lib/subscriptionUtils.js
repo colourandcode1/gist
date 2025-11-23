@@ -1,68 +1,19 @@
-// Subscription and seat management utilities
+// Subscription and team size management utilities
 import { TIER_CONFIG, TIERS, TRIAL_PERIOD_DAYS } from './pricingConstants';
 
 /**
- * Check if organization has available researcher seats
- * @param {object} organization - Organization document
- * @returns {boolean}
+ * Calculate appropriate tier based on team size
+ * @param {number} teamSize - Number of members in the organization
+ * @returns {string} Tier name
  */
-export const hasAvailableResearcherSeats = (organization) => {
-  if (!organization) return false;
-  
-  const tierConfig = TIER_CONFIG[organization.tier] || TIER_CONFIG[TIERS.STARTER];
-  const included = organization.researcherSeatsIncluded || tierConfig.researcherSeatsIncluded;
-  const used = organization.researcherSeatsUsed || 0;
-  
-  return used < included;
-};
-
-/**
- * Check if organization has available contributor seats (only relevant for Starter tier)
- * @param {object} organization - Organization document
- * @param {number} currentContributorCount - Current number of contributors
- * @returns {boolean}
- */
-export const hasAvailableContributorSeats = (organization, currentContributorCount) => {
-  if (!organization) return false;
-  
-  // Team and Enterprise have unlimited contributors
-  if (organization.tier === TIERS.TEAM || organization.tier === TIERS.ENTERPRISE) {
-    return true;
+export const calculateTierFromTeamSize = (teamSize) => {
+  if (teamSize <= 5) {
+    return TIERS.SMALL_TEAM;
+  } else if (teamSize <= 15) {
+    return TIERS.TEAM;
+  } else {
+    return TIERS.ENTERPRISE;
   }
-  
-  // Starter tier - check if we can add more (no hard limit, but each costs $8/month)
-  // For now, we'll allow unlimited but track usage for billing
-  return true;
-};
-
-/**
- * Calculate additional researcher seats needed
- * @param {object} organization - Organization document
- * @returns {number}
- */
-export const getAdditionalResearcherSeats = (organization) => {
-  if (!organization) return 0;
-  
-  const tierConfig = TIER_CONFIG[organization.tier] || TIER_CONFIG[TIERS.STARTER];
-  const included = organization.researcherSeatsIncluded || tierConfig.researcherSeatsIncluded;
-  const used = organization.researcherSeatsUsed || 0;
-  
-  return Math.max(0, used - included);
-};
-
-/**
- * Calculate monthly cost for additional seats
- * @param {object} organization - Organization document
- * @returns {number}
- */
-export const calculateAdditionalSeatCost = (organization) => {
-  if (!organization) return 0;
-  
-  const additionalSeats = getAdditionalResearcherSeats(organization);
-  if (additionalSeats === 0) return 0;
-  
-  const tierConfig = TIER_CONFIG[organization.tier] || TIER_CONFIG[TIERS.STARTER];
-  return additionalSeats * tierConfig.researcherSeatPrice;
 };
 
 /**
@@ -74,7 +25,7 @@ export const calculateAdditionalSeatCost = (organization) => {
 export const canCreateWorkspace = (organization, currentWorkspaceCount) => {
   if (!organization) return false;
   
-  const tierConfig = TIER_CONFIG[organization.tier] || TIER_CONFIG[TIERS.STARTER];
+  const tierConfig = TIER_CONFIG[organization.tier] || TIER_CONFIG[TIERS.SMALL_TEAM];
   const limit = tierConfig.workspaceLimit;
   
   // null means unlimited (Enterprise)
@@ -91,7 +42,7 @@ export const canCreateWorkspace = (organization, currentWorkspaceCount) => {
 export const getWorkspaceLimit = (organization) => {
   if (!organization) return 1;
   
-  const tierConfig = TIER_CONFIG[organization.tier] || TIER_CONFIG[TIERS.STARTER];
+  const tierConfig = TIER_CONFIG[organization.tier] || TIER_CONFIG[TIERS.SMALL_TEAM];
   return tierConfig.workspaceLimit;
 };
 
@@ -134,33 +85,32 @@ export const calculateTrialEndDate = () => {
 };
 
 /**
- * Get seat usage summary
+ * Get team size and tier information
  * @param {object} organization - Organization document
+ * @param {number} teamSize - Current team size (number of members)
  * @returns {object}
  */
-export const getSeatUsage = (organization) => {
+export const getTeamInfo = (organization, teamSize = 0) => {
   if (!organization) {
     return {
-      researcherSeatsUsed: 0,
-      researcherSeatsIncluded: 1,
-      researcherSeatsAvailable: 1,
-      contributorSeatsUsed: 0,
-      contributorSeatsUnlimited: false
+      teamSize: 0,
+      currentTier: TIERS.SMALL_TEAM,
+      recommendedTier: TIERS.SMALL_TEAM,
+      tierConfig: TIER_CONFIG[TIERS.SMALL_TEAM]
     };
   }
   
-  const tierConfig = TIER_CONFIG[organization.tier] || TIER_CONFIG[TIERS.STARTER];
-  const researcherSeatsIncluded = organization.researcherSeatsIncluded || tierConfig.researcherSeatsIncluded;
-  const researcherSeatsUsed = organization.researcherSeatsUsed || 0;
-  const contributorSeatsUsed = organization.contributorSeatsUsed || 0;
-  const contributorSeatsUnlimited = organization.tier === TIERS.TEAM || organization.tier === TIERS.ENTERPRISE;
+  const currentTier = organization.tier || TIERS.SMALL_TEAM;
+  const recommendedTier = calculateTierFromTeamSize(teamSize);
+  const tierConfig = TIER_CONFIG[currentTier] || TIER_CONFIG[TIERS.SMALL_TEAM];
   
   return {
-    researcherSeatsUsed,
-    researcherSeatsIncluded,
-    researcherSeatsAvailable: Math.max(0, researcherSeatsIncluded - researcherSeatsUsed),
-    contributorSeatsUsed,
-    contributorSeatsUnlimited
+    teamSize,
+    currentTier,
+    recommendedTier,
+    tierConfig,
+    shouldUpgrade: recommendedTier !== currentTier && 
+      (recommendedTier === TIERS.TEAM || recommendedTier === TIERS.ENTERPRISE)
   };
 };
 

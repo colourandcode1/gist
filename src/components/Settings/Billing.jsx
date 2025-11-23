@@ -15,8 +15,8 @@ import {
   getTierConfig 
 } from '@/lib/pricingConstants';
 import { 
-  getSeatUsage, 
-  calculateAdditionalSeatCost,
+  getTeamInfo,
+  calculateTierFromTeamSize,
   isInTrialPeriod,
   getTrialDaysRemaining 
 } from '@/lib/subscriptionUtils';
@@ -71,7 +71,7 @@ const Billing = () => {
 
     try {
       // Check if user can manage billing
-      if (!canManageBilling(userProfile?.role)) {
+      if (!canManageBilling(userProfile?.role, userProfile?.is_admin)) {
         setError('You do not have permission to manage billing');
         setIsProcessing(false);
         return;
@@ -163,10 +163,11 @@ const Billing = () => {
     );
   }
 
-  const canManage = canManageBilling(userProfile?.role);
+  const canManage = canManageBilling(userProfile?.role, userProfile?.is_admin);
   const tierConfig = getTierConfig(userOrganization.tier);
-  const seatUsage = getSeatUsage(userOrganization);
-  const additionalSeatCost = calculateAdditionalSeatCost(userOrganization);
+  // Count members (excluding viewers) for team size
+  const memberCount = organizationMembers.filter(m => m.role !== 'viewer').length;
+  const teamInfo = getTeamInfo(userOrganization, memberCount);
   const inTrial = isInTrialPeriod(userOrganization);
   const trialDaysRemaining = getTrialDaysRemaining(userOrganization);
   const currentPeriodEnd = subscription?.currentPeriodEnd 
@@ -211,9 +212,9 @@ const Billing = () => {
                 )}
               </div>
               <div className="text-sm text-muted-foreground">
-                ${tierConfig.price}/{userOrganization.tier === TIERS.ENTERPRISE ? 'month (base)' : 'month'}
-                {additionalSeatCost > 0 && (
-                  <span className="ml-2">+ ${additionalSeatCost}/month for additional seats</span>
+                ${tierConfig.price}/month
+                {tierConfig.teamSizeRange && (
+                  <span className="ml-2">({tierConfig.teamSizeRange})</span>
                 )}
               </div>
             </div>
@@ -265,61 +266,38 @@ const Billing = () => {
         </CardContent>
       </Card>
 
-      {/* Seat Usage */}
+      {/* Team Size */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
-            Seat Usage
+            Team Size
           </CardTitle>
-          <CardDescription>Track your current seat usage against plan limits</CardDescription>
+          <CardDescription>Your current team size and tier information</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Researcher Seats */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium">Researcher Seats</div>
+              <div className="text-sm font-medium">Team Members</div>
               <div className="text-sm text-muted-foreground">
-                {seatUsage.researcherSeatsUsed} / {seatUsage.researcherSeatsIncluded === null ? 'Unlimited' : seatUsage.researcherSeatsIncluded}
+                {memberCount} {memberCount === 1 ? 'member' : 'members'}
               </div>
             </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className="bg-primary h-2 rounded-full"
-                style={{ 
-                  width: seatUsage.researcherSeatsIncluded === null 
-                    ? '100%' 
-                    : `${Math.min(100, (seatUsage.researcherSeatsUsed / seatUsage.researcherSeatsIncluded) * 100)}%` 
-                }}
-              />
+            <div className="text-sm text-muted-foreground mb-4">
+              Current tier: <span className="font-medium">{tierConfig.name}</span> ({tierConfig.teamSizeRange || 'N/A'})
             </div>
-            {seatUsage.researcherSeatsUsed > seatUsage.researcherSeatsIncluded && (
-              <p className="text-xs text-destructive mt-1">
-                {seatUsage.researcherSeatsUsed - seatUsage.researcherSeatsIncluded} additional seat(s) at ${tierConfig.researcherSeatPrice}/month each
-              </p>
-            )}
-          </div>
-
-          {/* Contributor Seats */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Contributor Seats
+            {teamInfo.shouldUpgrade && (
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <TrendingUp className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <div className="font-medium text-primary mb-1">Recommended Tier Update</div>
+                    <div className="text-muted-foreground">
+                      Your team size ({memberCount} members) is better suited for the <span className="font-medium">{TIER_CONFIG[teamInfo.recommendedTier].name}</span> tier.
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground">
-                {seatUsage.contributorSeatsUsed} / {seatUsage.contributorSeatsUnlimited ? 'Unlimited' : 'Unlimited (billed per seat)'}
-              </div>
-            </div>
-            {!seatUsage.contributorSeatsUnlimited && seatUsage.contributorSeatsUsed > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
-                ${tierConfig.contributorSeatPrice}/month per contributor seat
-              </p>
-            )}
-            {seatUsage.contributorSeatsUnlimited && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Unlimited contributors included in your plan
-              </p>
             )}
           </div>
         </CardContent>

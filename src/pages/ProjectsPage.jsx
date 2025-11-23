@@ -160,8 +160,8 @@ const ProjectsPage = () => {
             <UpgradePrompt
               feature="Project Creation"
               requiredTier="starter"
-              currentTier={userOrganization?.tier || 'starter'}
-              description="Only Researchers and Admins can create projects. Upgrade your role or plan to access this feature."
+              currentTier={userOrganization?.tier || 'small_team'}
+              description="Only Members can create projects. Upgrade your role or plan to access this feature."
               showInCard={false}
             />
           )}
