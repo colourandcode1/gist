@@ -49,17 +49,40 @@ const ProjectsPage = () => {
       }
 
       // Enrich projects with session and insight counts
-      const enrichedProjects = await Promise.all(
+      // Use Promise.allSettled to prevent one project's enrichment failure from blocking others
+      const enrichmentResults = await Promise.allSettled(
         loadedProjects.map(async (project) => {
-          const sessions = await getSessionsByProject(project.id, currentUser.uid);
-          const nuggets = await getAllNuggets(currentUser.uid, null, project.id);
-          return {
-            ...project,
-            sessionCount: sessions.length,
-            insightCount: nuggets.length
-          };
+          try {
+            const sessions = await getSessionsByProject(project.id, currentUser.uid).catch(() => []);
+            const nuggets = await getAllNuggets(currentUser.uid, null, project.id).catch(() => []);
+            return {
+              ...project,
+              sessionCount: sessions.length,
+              insightCount: nuggets.length
+            };
+          } catch (error) {
+            // Return project with zero counts if enrichment fails
+            return {
+              ...project,
+              sessionCount: 0,
+              insightCount: 0
+            };
+          }
         })
       );
+
+      // Extract successful enrichments, fallback to original project if enrichment failed
+      const enrichedProjects = enrichmentResults.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        } else {
+          return {
+            ...loadedProjects[index],
+            sessionCount: 0,
+            insightCount: 0
+          };
+        }
+      });
 
       setProjects(enrichedProjects);
       setFilteredProjects(enrichedProjects);
@@ -75,6 +98,14 @@ const ProjectsPage = () => {
   const handleCreateProject = () => {
     setEditingProject(null);
     setShowProjectForm(true);
+  };
+
+  const handleProjectSaved = async () => {
+    setShowProjectForm(false);
+    setEditingProject(null);
+    // Add a small delay to ensure Firestore has indexed the new document
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await loadProjects();
   };
 
   const handleEditProject = (project) => {
@@ -129,11 +160,7 @@ const ProjectsPage = () => {
     return (
       <ProjectForm
         project={editingProject}
-        onSave={() => {
-          setShowProjectForm(false);
-          setEditingProject(null);
-          loadProjects();
-        }}
+        onSave={handleProjectSaved}
         onCancel={() => {
           setShowProjectForm(false);
           setEditingProject(null);
