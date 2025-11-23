@@ -6,7 +6,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import UserMenu from "@/components/UserMenu";
 import WorkspaceSelector from "@/components/WorkspaceSelector";
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewDashboard } from '@/lib/permissions';
 
 const NavigationHeader = ({ currentView, onNavigate }) => {
   const navigate = useNavigate();
@@ -46,12 +45,9 @@ const NavigationHeader = ({ currentView, onNavigate }) => {
 
   const activeView = getActiveView();
 
-  // Filter nav items based on permissions
+  // Navigation items - dashboard available to all authenticated users
   const navItems = [
-    // Only show dashboard if user has access (Team+ tier)
-    ...(userOrganization && canViewDashboard(userOrganization.tier) 
-      ? [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }]
-      : []),
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { id: 'projects', label: 'Projects', icon: FolderOpen, path: '/projects' },
     { id: 'repository', label: 'Repository', icon: Database, path: '/repository' },
     { id: 'problem-spaces', label: 'Problem Spaces', icon: Target, path: '/problem-spaces' }
@@ -63,12 +59,8 @@ const NavigationHeader = ({ currentView, onNavigate }) => {
         <div className="flex justify-between items-center h-16">
           <button
             onClick={() => {
-              // Redirect to projects if user doesn't have dashboard access
-              if (userOrganization && canViewDashboard(userOrganization.tier)) {
-                handleNavigation('/dashboard');
-              } else {
-                handleNavigation('/projects');
-              }
+              // Always navigate to dashboard
+              handleNavigation('/dashboard');
             }}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-md px-1 -ml-1"
             aria-label="Go to home"

@@ -10,7 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { getOrganizationById, getOrganizationByOwner, getWorkspaces } from '@/lib/firestoreUtils';
+import { getOrganizationById, getOrganizationByOwner, getWorkspaces, createOrganization, createWorkspace } from '@/lib/firestoreUtils';
 import {
   canUploadSessions,
   canCreateNuggets,
@@ -39,6 +39,66 @@ export const AuthProvider = ({ children }) => {
   const [userOrganization, setUserOrganization] = useState(null);
   const [userWorkspaces, setUserWorkspaces] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Helper function to create organization and default workspace for a user
+  const createUserOrganization = async (userId, userEmail) => {
+    try {
+      // Generate organization name from email domain or use default
+      let orgName = 'My Organization';
+      if (userEmail && userEmail.includes('@')) {
+        const domain = userEmail.split('@')[1];
+        orgName = `${domain.charAt(0).toUpperCase() + domain.slice(1)} Organization`;
+      }
+
+      // Create organization
+      const orgResult = await createOrganization(
+        {
+          name: orgName,
+          tier: 'small_team',
+          workspaceLimit: 1
+        },
+        userId
+      );
+
+      if (!orgResult.success) {
+        console.error('Failed to create organization:', orgResult.error);
+        return null;
+      }
+
+      // Create default workspace
+      const workspaceResult = await createWorkspace(
+        {
+          name: 'Default Workspace',
+          description: 'Default workspace for your organization'
+        },
+        userId,
+        orgResult.id
+      );
+
+      if (!workspaceResult.success) {
+        console.error('Failed to create default workspace:', workspaceResult.error);
+        // Organization was created but workspace failed - still return org
+        return { organizationId: orgResult.id, workspaceId: null };
+      }
+
+      // Update user profile with organizationId and workspaceIds
+      await setDoc(
+        doc(db, 'users', userId),
+        {
+          organizationId: orgResult.id,
+          workspaceIds: [workspaceResult.id],
+          is_admin: true, // User is admin of their own organization
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
+
+      return { organizationId: orgResult.id, workspaceId: workspaceResult.id };
+    } catch (error) {
+      console.error('Error creating user organization:', error);
+      return null;
+    }
+  };
 
   // Migrate old roles to new role structure
   const migrateUserRole = (profileData) => {
@@ -134,11 +194,27 @@ export const AuthProvider = ({ children }) => {
               const workspaces = await getWorkspaces(org.id);
               setUserWorkspaces(workspaces);
             } else {
-              setUserOrganization(null);
-              setUserWorkspaces([]);
+              // User doesn't have an organization - create one
+              const orgResult = await createUserOrganization(user.uid, user.email);
+              if (orgResult && orgResult.organizationId) {
+                // Fetch the newly created organization
+                const newOrg = await getOrganizationById(orgResult.organizationId);
+                if (newOrg) {
+                  setUserOrganization(newOrg);
+                  // Fetch workspaces
+                  const workspaces = await getWorkspaces(newOrg.id);
+                  setUserWorkspaces(workspaces);
+                } else {
+                  setUserOrganization(null);
+                  setUserWorkspaces([]);
+                }
+              } else {
+                setUserOrganization(null);
+                setUserWorkspaces([]);
+              }
             }
           } catch (orgError) {
-            console.error('Error fetching organization:', orgError);
+            console.error('Error fetching or creating organization:', orgError);
             setUserOrganization(null);
             setUserWorkspaces([]);
           }
@@ -157,8 +233,25 @@ export const AuthProvider = ({ children }) => {
         try {
           await setDoc(doc(db, 'users', user.uid), newUserProfile);
           setUserProfile(newUserProfile);
-          setUserOrganization(null);
-          setUserWorkspaces([]);
+          
+          // Create organization and workspace for new user
+          const orgResult = await createUserOrganization(user.uid, user.email);
+          if (orgResult && orgResult.organizationId) {
+            // Fetch the newly created organization
+            const newOrg = await getOrganizationById(orgResult.organizationId);
+            if (newOrg) {
+              setUserOrganization(newOrg);
+              // Fetch workspaces
+              const workspaces = await getWorkspaces(newOrg.id);
+              setUserWorkspaces(workspaces);
+            } else {
+              setUserOrganization(null);
+              setUserWorkspaces([]);
+            }
+          } else {
+            setUserOrganization(null);
+            setUserWorkspaces([]);
+          }
         } catch (profileError) {
           console.error('Error creating user profile:', profileError);
           // If profile creation fails due to permissions, still allow login
@@ -188,7 +281,9 @@ export const AuthProvider = ({ children }) => {
   const signup = async (email, password) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      // User profile will be created automatically in fetchUserProfile
+      // User profile and organization will be created automatically in fetchUserProfile
+      // Wait for profile to be fetched to ensure organization is created
+      await fetchUserProfile(userCredential.user);
       return { success: true, user: userCredential.user };
     } catch (error) {
       return { success: false, error: error.message };
@@ -340,8 +435,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const canViewDashboardCheck = () => {
-    if (!userOrganization) return false;
-    return canViewDashboard(userOrganization.tier);
+    // Dashboard is available to all authenticated users
+    return !!currentUser;
   };
 
   const canUseSSOCheck = () => {

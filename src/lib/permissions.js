@@ -207,12 +207,13 @@ export const canBulkOperations = (tier, role, isAdmin = false) => {
 };
 
 /**
- * Check if user can view dashboard (Team+ only)
- * @param {string} tier - Organization tier
+ * Check if user can view dashboard (available to all authenticated users)
+ * @param {string} tier - Organization tier (kept for API compatibility, but not used)
  * @returns {boolean}
  */
 export const canViewDashboard = (tier) => {
-  return hasFeature(tier, 'dashboard');
+  // Dashboard is available to all authenticated users regardless of tier
+  return true;
 };
 
 /**

@@ -18,17 +18,10 @@ import ProblemSpacesPage from "@/pages/ProblemSpacesPage";
 import ProblemSpaceDetailPage from "@/pages/ProblemSpaceDetailPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WorkspacesPage from "@/pages/WorkspacesPage";
-import { canViewDashboard } from '@/lib/permissions';
 
-// Component to handle catch-all route with permission-based redirect
+// Component to handle catch-all route - always redirect to dashboard
 const DefaultRedirect = () => {
-  const { userOrganization } = useAuth();
-  
-  // Redirect to projects if user doesn't have dashboard access
-  if (userOrganization && canViewDashboard(userOrganization.tier)) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  return <Navigate to="/projects" replace />;
+  return <Navigate to="/dashboard" replace />;
 };
 
 function App() {

@@ -7,7 +7,6 @@ import RecentActivity from '@/components/Dashboard/RecentActivity';
 import ActivityChart from '@/components/Dashboard/ActivityChart';
 import { getSessions, getProjects, getProblemSpaces, getAllNuggets } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
-import { canViewDashboard } from '@/lib/permissions';
 import { Building2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -43,8 +42,8 @@ const DashboardPage = () => {
   }, [userWorkspaces]);
 
   useEffect(() => {
-    // Only load data if user has dashboard access
-    if (currentUser && userOrganization && canViewDashboard(userOrganization.tier)) {
+    // Load data for all authenticated users
+    if (currentUser) {
       loadDashboardData();
     }
   }, [currentUser, selectedWorkspaceId, userOrganization]);
@@ -132,19 +131,7 @@ const DashboardPage = () => {
     }
   };
 
-  // Redirect to projects if user doesn't have access to dashboard
-  useEffect(() => {
-    if (userOrganization && !canViewDashboard(userOrganization.tier)) {
-      navigate('/projects', { replace: true });
-    } else if (!userOrganization) {
-      navigate('/projects', { replace: true });
-    }
-  }, [userOrganization, navigate]);
-
-  // Don't render anything if user doesn't have access (redirect is in progress)
-  if (!userOrganization || !canViewDashboard(userOrganization.tier)) {
-    return null;
-  }
+  // Dashboard is available to all authenticated users
 
   if (isLoading) {
     return (
