@@ -13,30 +13,30 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { getProblemSpaceById } from './problemSpaces';
+import { getThemeById } from './themes';
 
-// Create a share link for a problem space
-export const createShareLink = async (problemSpaceId, shareData, userId) => {
+// Create a share link for a theme
+export const createShareLink = async (themeId, shareData, userId) => {
   try {
     if (!userId) {
       return { success: false, error: 'User ID required' };
     }
 
-    const problemSpaceData = await getProblemSpaceById(problemSpaceId);
-    if (!problemSpaceData) {
-      return { success: false, error: 'Problem space not found' };
+    const themeData = await getThemeById(themeId);
+    if (!themeData) {
+      return { success: false, error: 'Theme not found' };
     }
 
     // Check permissions (only owner or contributors can share)
-    if (problemSpaceData.userId !== userId && !problemSpaceData.contributors?.includes(userId)) {
+    if (themeData.userId !== userId && !themeData.contributors?.includes(userId)) {
       return { success: false, error: 'Permission denied' };
     }
 
     // Generate a unique share token
-    const shareToken = `${problemSpaceId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const shareToken = `${themeId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     const sharePayload = {
-      problemSpaceId,
+      themeId,
       shareToken,
       createdBy: userId,
       password: shareData.password || null,
@@ -90,26 +90,26 @@ export const getShareLinkByToken = async (shareToken) => {
   }
 };
 
-// Get all share links for a problem space
-export const getShareLinks = async (problemSpaceId, userId) => {
+// Get all share links for a theme
+export const getShareLinks = async (themeId, userId) => {
   try {
     if (!userId) {
       return [];
     }
 
-    const problemSpaceData = await getProblemSpaceById(problemSpaceId);
-    if (!problemSpaceData) {
+    const themeData = await getThemeById(themeId);
+    if (!themeData) {
       return [];
     }
 
     // Check permissions
-    if (problemSpaceData.userId !== userId && !problemSpaceData.contributors?.includes(userId)) {
+    if (themeData.userId !== userId && !themeData.contributors?.includes(userId)) {
       return [];
     }
 
     const q = query(
       collection(db, 'shareLinks'),
-      where('problemSpaceId', '==', problemSpaceId),
+      where('themeId', '==', themeId),
       orderBy('createdAt', 'desc')
     );
 

@@ -23,8 +23,8 @@ export const createActivity = async (activityData, userId) => {
     }
 
     const activityPayload = {
-      type: activityData.type, // 'insight_added', 'comment', 'problem_space_updated', 'project_changed'
-      problemSpaceId: activityData.problemSpaceId || null,
+      type: activityData.type, // 'insight_added', 'comment', 'theme_updated', 'project_changed'
+      themeId: activityData.themeId || null,
       projectId: activityData.projectId || null,
       insightId: activityData.insightId || null,
       commentId: activityData.commentId || null,
@@ -42,12 +42,12 @@ export const createActivity = async (activityData, userId) => {
   }
 };
 
-// Get activities for a problem space
-export const getActivities = async (problemSpaceId, limit = 50) => {
+// Get activities for a theme
+export const getActivities = async (themeId, limit = 50) => {
   try {
     const q = query(
       collection(db, 'activities'),
-      where('problemSpaceId', '==', problemSpaceId),
+      where('themeId', '==', themeId),
       orderBy('createdAt', 'desc')
     );
 
@@ -116,10 +116,10 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
     // Filter by action type (map to activity type)
     if (filters.actionType && filters.actionType !== 'all') {
       const actionTypeMap = {
-        'create': ['session_created', 'project_created', 'problem_space_created', 'insight_added'],
-        'update': ['session_updated', 'project_updated', 'problem_space_updated', 'insight_updated'],
-        'delete': ['session_deleted', 'project_deleted', 'problem_space_deleted', 'insight_deleted'],
-        'view': ['session_viewed', 'project_viewed', 'problem_space_viewed']
+        'create': ['session_created', 'project_created', 'theme_created', 'insight_added'],
+        'update': ['session_updated', 'project_updated', 'theme_updated', 'insight_updated'],
+        'delete': ['session_deleted', 'project_deleted', 'theme_deleted', 'insight_deleted'],
+        'view': ['session_viewed', 'project_viewed', 'theme_viewed']
       };
       
       const types = actionTypeMap[filters.actionType] || [];
@@ -134,7 +134,7 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
       const resourceFieldMap = {
         'session': 'sessionId',
         'project': 'projectId',
-        'problemSpace': 'problemSpaceId',
+        'theme': 'themeId',
         'insight': 'insightId'
       };
       
@@ -194,7 +194,7 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
         const resourceFieldMap = {
           'session': 'sessionId',
           'project': 'projectId',
-          'problemSpace': 'problemSpaceId',
+          'theme': 'themeId',
           'insight': 'insightId'
         };
         
@@ -219,10 +219,10 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
         'project_updated': 'Update',
         'project_deleted': 'Delete',
         'project_viewed': 'View',
-        'problem_space_created': 'Create',
-        'problem_space_updated': 'Update',
-        'problem_space_deleted': 'Delete',
-        'problem_space_viewed': 'View',
+        'theme_created': 'Create',
+        'theme_updated': 'Update',
+        'theme_deleted': 'Delete',
+        'theme_viewed': 'View',
         'insight_added': 'Create',
         'insight_updated': 'Update',
         'insight_deleted': 'Delete',
@@ -238,10 +238,10 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
         'project_updated': 'Project',
         'project_deleted': 'Project',
         'project_viewed': 'Project',
-        'problem_space_created': 'Problem Space',
-        'problem_space_updated': 'Problem Space',
-        'problem_space_deleted': 'Problem Space',
-        'problem_space_viewed': 'Problem Space',
+        'theme_created': 'Theme',
+        'theme_updated': 'Theme',
+        'theme_deleted': 'Theme',
+        'theme_viewed': 'Theme',
         'insight_added': 'Insight',
         'insight_updated': 'Insight',
         'insight_deleted': 'Insight',

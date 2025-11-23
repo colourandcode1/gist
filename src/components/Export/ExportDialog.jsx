@@ -14,7 +14,7 @@ import {
 } from '@/lib/exportUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
-const ExportDialog = ({ problemSpaceId, onClose }) => {
+const ExportDialog = ({ themeId, onClose }) => {
   const { currentUser } = useAuth();
   const [exportFormat, setExportFormat] = useState('pdf');
   const [includeComments, setIncludeComments] = useState(false);
@@ -25,7 +25,7 @@ const ExportDialog = ({ problemSpaceId, onClose }) => {
   const [copied, setCopied] = useState(false);
 
   const handleExport = async () => {
-    if (!currentUser || !problemSpaceId) return;
+    if (!currentUser || !themeId) return;
 
     setIsExporting(true);
     try {
@@ -36,16 +36,16 @@ const ExportDialog = ({ problemSpaceId, onClose }) => {
 
       switch (exportFormat) {
         case 'pdf':
-          await exportToPDF(problemSpaceId, currentUser.uid, options);
+          await exportToPDF(themeId, currentUser.uid, options);
           break;
         case 'csv':
-          await exportToCSV(problemSpaceId, currentUser.uid, options);
+          await exportToCSV(themeId, currentUser.uid, options);
           break;
         case 'powerpoint':
-          await exportToPowerPoint(problemSpaceId, currentUser.uid, options);
+          await exportToPowerPoint(themeId, currentUser.uid, options);
           break;
         case 'embed':
-          const embedResult = await generateEmbedCode(problemSpaceId, currentUser.uid, embedPlatform);
+          const embedResult = await generateEmbedCode(themeId, currentUser.uid, embedPlatform);
           if (embedResult) {
             setEmbedCode(embedResult.code);
           }
@@ -78,11 +78,11 @@ const ExportDialog = ({ problemSpaceId, onClose }) => {
   };
 
   const handleGenerateEmbed = async () => {
-    if (!currentUser || !problemSpaceId) return;
+    if (!currentUser || !themeId) return;
 
     setIsExporting(true);
     try {
-      const embedResult = await generateEmbedCode(problemSpaceId, currentUser.uid, embedPlatform);
+      const embedResult = await generateEmbedCode(themeId, currentUser.uid, embedPlatform);
       if (embedResult) {
         setEmbedCode(embedResult.code);
       }
@@ -99,7 +99,7 @@ const ExportDialog = ({ problemSpaceId, onClose }) => {
       <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Export Problem Space</CardTitle>
+            <CardTitle>Export Theme</CardTitle>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-4 h-4" />
             </Button>

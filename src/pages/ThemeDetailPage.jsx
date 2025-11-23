@@ -3,18 +3,18 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import NavigationHeader from '@/components/NavigationHeader';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import ProblemSpaceInsightManager from '@/components/ProblemSpaceInsightManager';
+import ThemeInsightManager from '@/components/ThemeInsightManager';
 import CommentsThread from '@/components/Comments/CommentsThread';
 import ShareDialog from '@/components/Sharing/ShareDialog';
 import ExportDialog from '@/components/Export/ExportDialog';
-import { ProblemSpaceHeader } from '@/components/ProblemSpace/ProblemSpaceHeader';
-import { ProblemSpaceOverviewTab } from '@/components/ProblemSpace/ProblemSpaceOverviewTab';
-import { ProblemSpaceSettingsTab } from '@/components/ProblemSpace/ProblemSpaceSettingsTab';
-import { useProblemSpace } from '@/hooks/useProblemSpace';
+import { ThemeHeader } from '@/components/Theme/ThemeHeader';
+import { ThemeOverviewTab } from '@/components/Theme/ThemeOverviewTab';
+import { ThemeSettingsTab } from '@/components/Theme/ThemeSettingsTab';
+import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/contexts/AuthContext';
-import { canEditProblemSpaces } from '@/lib/permissions';
+import { canEditThemes } from '@/lib/permissions';
 
-const ProblemSpaceDetailPage = () => {
+const ThemeDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -24,7 +24,7 @@ const ProblemSpaceDetailPage = () => {
   const [showExportDialog, setShowExportDialog] = useState(false);
 
   const {
-    problemSpace,
+    theme,
     isLoading,
     isEditing,
     setIsEditing,
@@ -34,14 +34,14 @@ const ProblemSpaceDetailPage = () => {
     newQuestion,
     setNewQuestion,
     isSaving,
-    loadProblemSpace,
+    loadTheme,
     handleSave,
     handlePrivacyChange,
     handleDelete,
     handleDuplicate,
     handleAddQuestion,
     handleRemoveQuestion
-  } = useProblemSpace(id, currentUser);
+  } = useTheme(id, currentUser);
 
   React.useEffect(() => {
     const tab = searchParams.get('tab');
@@ -57,41 +57,41 @@ const ProblemSpaceDetailPage = () => {
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
-            <p className="text-muted-foreground">Loading problem space...</p>
+            <p className="text-muted-foreground">Loading theme...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  if (!problemSpace) {
+  if (!theme) {
     return (
       <div className="bg-background min-h-screen">
         <NavigationHeader />
         <div className="max-w-7xl mx-auto p-6">
-          <p className="text-muted-foreground">Problem space not found</p>
+          <p className="text-muted-foreground">Theme not found</p>
         </div>
       </div>
     );
   }
 
-  const canEdit = problemSpace && canEditProblemSpaces(
+  const canEdit = theme && canEditThemes(
     userProfile?.role,
-    problemSpace.userId,
+    theme.userId,
     currentUser?.uid,
-    problemSpace.contributors || []
+    theme.contributors || []
   ) && (
-    problemSpace.userId === currentUser?.uid || 
-    problemSpace.contributors?.includes(currentUser?.uid)
+    theme.userId === currentUser?.uid || 
+    theme.contributors?.includes(currentUser?.uid)
   );
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditData({
-      name: problemSpace.name || '',
-      description: problemSpace.description || '',
-      problemStatement: problemSpace.problemStatement || '',
-      keyQuestions: problemSpace.keyQuestions || []
+      name: theme.name || '',
+      description: theme.description || '',
+      problemStatement: theme.problemStatement || '',
+      keyQuestions: theme.keyQuestions || []
     });
   };
 
@@ -102,14 +102,14 @@ const ProblemSpaceDetailPage = () => {
         {/* Breadcrumbs */}
         <Breadcrumbs
           items={[
-            { label: 'Problem Spaces', path: '/problem-spaces' },
-            { label: problemSpace.name }
+            { label: 'Themes', path: '/themes' },
+            { label: theme.name }
           ]}
         />
         
         {/* Header */}
-        <ProblemSpaceHeader
-          problemSpace={problemSpace}
+        <ThemeHeader
+          theme={theme}
           isEditing={isEditing}
           editData={editData}
           setEditData={setEditData}
@@ -136,8 +136,8 @@ const ProblemSpaceDetailPage = () => {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="mt-6">
-            <ProblemSpaceOverviewTab
-              problemSpace={problemSpace}
+            <ThemeOverviewTab
+              theme={theme}
               isEditing={isEditing}
               editData={editData}
               setEditData={setEditData}
@@ -151,9 +151,9 @@ const ProblemSpaceDetailPage = () => {
 
           {/* Insights Tab */}
           <TabsContent value="insights" className="mt-6">
-            <ProblemSpaceInsightManager 
-              problemSpace={problemSpace} 
-              onUpdate={loadProblemSpace}
+            <ThemeInsightManager 
+              theme={theme} 
+              onUpdate={loadTheme}
             />
           </TabsContent>
 
@@ -161,14 +161,14 @@ const ProblemSpaceDetailPage = () => {
           <TabsContent value="comments" className="mt-6">
             <div className="bg-card rounded-lg border p-6">
               <h3 className="text-lg font-semibold mb-4">Comments</h3>
-              <CommentsThread problemSpaceId={problemSpace.id} />
+              <CommentsThread themeId={theme.id} />
             </div>
           </TabsContent>
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6">
-            <ProblemSpaceSettingsTab
-              problemSpace={problemSpace}
+            <ThemeSettingsTab
+              theme={theme}
               canEdit={canEdit}
               currentUser={currentUser}
               onPrivacyChange={handlePrivacyChange}
@@ -180,7 +180,7 @@ const ProblemSpaceDetailPage = () => {
       {/* Share Dialog */}
       {showShareDialog && (
         <ShareDialog
-          problemSpaceId={problemSpace.id}
+          themeId={theme.id}
           onClose={() => setShowShareDialog(false)}
         />
       )}
@@ -188,7 +188,7 @@ const ProblemSpaceDetailPage = () => {
       {/* Export Dialog */}
       {showExportDialog && (
         <ExportDialog
-          problemSpaceId={problemSpace.id}
+          themeId={theme.id}
           onClose={() => setShowExportDialog(false)}
         />
       )}
@@ -196,4 +196,5 @@ const ProblemSpaceDetailPage = () => {
   );
 };
 
-export default ProblemSpaceDetailPage;
+export default ThemeDetailPage;
+

@@ -53,19 +53,19 @@ Based on the query patterns in the application, the following composite indexes 
   - `createdAt` (Descending)
 - **Note**: Only needed when team collaboration features are enabled
 
-### 2. Problem Spaces Collection
+### 2. Themes Collection
 
 #### Index 1: `(userId, updatedAt)` - **Required**
-- **Purpose**: For `getProblemSpaces()` query - fetching all problem spaces for a user
-- **Collection**: `problemSpaces`
+- **Purpose**: For `getThemes()` query - fetching all themes for a user
+- **Collection**: `themes`
 - **Fields**:
   - `userId` (Ascending)
   - `updatedAt` (Descending)
 - **Used by**: Problem spaces list page, Dashboard
 
 #### Index 2: `(teamId, updatedAt)` - **Optional** (Future team features)
-- **Purpose**: For team problem spaces query
-- **Collection**: `problemSpaces`
+- **Purpose**: For team themes query
+- **Collection**: `themes`
 - **Fields**:
   - `teamId` (Ascending)
   - `updatedAt` (Descending)
@@ -125,7 +125,7 @@ If you prefer to create indexes manually or the automatic links don't work:
 3. **Create Each Index**
    - Click **"Create Index"** button (top right)
    - For each required index:
-     - **Collection ID**: Enter the collection name (e.g., `projects`, `problemSpaces`, `sessions`)
+     - **Collection ID**: Enter the collection name (e.g., `projects`, `themes`, `sessions`)
      - **Fields**: Click "Add field" for each field in the index
        - Enter the field name (e.g., `userId`, `createdAt`)
        - Select sort order: **Ascending** or **Descending**
@@ -161,8 +161,8 @@ These indexes are required for core functionality:
    - Collection: `projects`
    - Fields: `userId` (Ascending), `status` (Ascending), `createdAt` (Descending)
 
-3. **Problem Spaces - User Problem Spaces**
-   - Collection: `problemSpaces`
+3. **Themes - User Themes**
+   - Collection: `themes`
    - Fields: `userId` (Ascending), `updatedAt` (Descending)
 
 4. **Sessions - Sessions by Project**
@@ -260,7 +260,7 @@ Creating these indexes provides:
 **Required Indexes (Create These):**
 1. `projects`: `(userId, createdAt)`
 2. `projects`: `(userId, status, createdAt)`
-3. `problemSpaces`: `(userId, updatedAt)`
+3. `themes`: `(userId, updatedAt)`
 4. `sessions`: `(projectId, userId, createdAt)`
 
 **Optional Indexes (Create When Needed):**

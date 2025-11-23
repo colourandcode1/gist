@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  getProblemSpaceById, 
-  updateProblemSpace, 
-  updateProblemSpacePrivacy,
-  deleteProblemSpace,
+  getThemeById, 
+  updateTheme, 
+  updateThemePrivacy,
+  deleteTheme,
   createActivity,
-  createProblemSpace
+  createTheme
 } from '@/lib/firestoreUtils';
 import { getProjects } from '@/lib/firestoreUtils';
 
-export const useProblemSpace = (id, currentUser) => {
+export const useTheme = (id, currentUser) => {
   const navigate = useNavigate();
-  const [problemSpace, setProblemSpace] = useState(null);
+  const [theme, setTheme] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
@@ -20,18 +20,18 @@ export const useProblemSpace = (id, currentUser) => {
   const [newQuestion, setNewQuestion] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const loadProblemSpace = async () => {
+  const loadTheme = async () => {
     if (!currentUser) return;
 
     setIsLoading(true);
     try {
-      const space = await getProblemSpaceById(id);
+      const space = await getThemeById(id);
       if (!space) {
-        navigate('/problem-spaces');
+        navigate('/themes');
         return;
       }
 
-      setProblemSpace(space);
+      setTheme(space);
       setEditData({
         name: space.name || '',
         description: space.description || '',
@@ -39,7 +39,7 @@ export const useProblemSpace = (id, currentUser) => {
         keyQuestions: space.keyQuestions || []
       });
     } catch (error) {
-      console.error('Error loading problem space:', error);
+      console.error('Error loading theme:', error);
     } finally {
       setIsLoading(false);
     }
@@ -57,24 +57,24 @@ export const useProblemSpace = (id, currentUser) => {
 
   useEffect(() => {
     if (id && currentUser) {
-      loadProblemSpace();
+      loadTheme();
       loadProjects();
     }
   }, [id, currentUser]);
 
   const handleSave = async () => {
-    if (!currentUser || !problemSpace) return;
+    if (!currentUser || !theme) return;
 
     setIsSaving(true);
     try {
-      const result = await updateProblemSpace(problemSpace.id, editData, currentUser.uid);
+      const result = await updateTheme(theme.id, editData, currentUser.uid);
       if (result.success) {
         // Track activity
         await createActivity(
           {
-            type: 'problem_space_updated',
-            problemSpaceId: problemSpace.id,
-            description: `${currentUser.email?.split('@')[0] || 'User'} updated the problem space`,
+            type: 'theme_updated',
+            themeId: theme.id,
+            description: `${currentUser.email?.split('@')[0] || 'User'} updated the theme`,
             metadata: {
               updatedFields: Object.keys(editData)
             }
@@ -82,7 +82,7 @@ export const useProblemSpace = (id, currentUser) => {
           currentUser.uid
         );
 
-        await loadProblemSpace();
+        await loadTheme();
         setIsEditing(false);
       } else {
         alert(`Failed to update: ${result.error}`);
@@ -96,17 +96,17 @@ export const useProblemSpace = (id, currentUser) => {
   };
 
   const handlePrivacyChange = async (privacy) => {
-    if (!currentUser || !problemSpace) return;
+    if (!currentUser || !theme) return;
 
     try {
-      const result = await updateProblemSpacePrivacy(
-        problemSpace.id, 
+      const result = await updateThemePrivacy(
+        theme.id, 
         privacy, 
-        problemSpace.teamId, 
+        theme.teamId, 
         currentUser.uid
       );
       if (result.success) {
-        await loadProblemSpace();
+        await loadTheme();
       } else {
         alert(`Failed to update privacy: ${result.error}`);
       }
@@ -117,44 +117,44 @@ export const useProblemSpace = (id, currentUser) => {
   };
 
   const handleDelete = async () => {
-    if (!currentUser || !problemSpace) return;
+    if (!currentUser || !theme) return;
 
-    if (!window.confirm('Are you sure you want to delete this problem space? This action cannot be undone.')) {
+    if (!window.confirm('Are you sure you want to delete this theme? This action cannot be undone.')) {
       return;
     }
 
     try {
-      const result = await deleteProblemSpace(problemSpace.id, currentUser.uid);
+      const result = await deleteTheme(theme.id, currentUser.uid);
       if (result.success) {
-        navigate('/problem-spaces');
+        navigate('/themes');
       } else {
         alert(`Failed to delete: ${result.error}`);
       }
     } catch (error) {
       console.error('Error deleting:', error);
-      alert('Failed to delete problem space');
+      alert('Failed to delete theme');
     }
   };
 
   const handleDuplicate = async () => {
-    if (!currentUser || !problemSpace) return;
+    if (!currentUser || !theme) return;
 
-    const duplicatedSpace = {
-      name: `${problemSpace.name} (Copy)`,
-      description: problemSpace.description,
-      privacy: problemSpace.privacy,
-      teamId: problemSpace.teamId,
+    const duplicatedTheme = {
+      name: `${theme.name} (Copy)`,
+      description: theme.description,
+      privacy: theme.privacy,
+      teamId: theme.teamId,
       contributors: [currentUser.uid],
-      outputType: problemSpace.outputType,
-      problemStatement: problemSpace.problemStatement,
-      keyQuestions: problemSpace.keyQuestions || [],
+      outputType: theme.outputType,
+      problemStatement: theme.problemStatement,
+      keyQuestions: theme.keyQuestions || [],
       linkedProjects: [],
       insightIds: []
     };
 
-    const result = await createProblemSpace(duplicatedSpace, currentUser.uid);
+    const result = await createTheme(duplicatedTheme, currentUser.uid);
     if (result.success) {
-      navigate(`/problem-spaces/${result.id}`);
+      navigate(`/themes/${result.id}`);
     } else {
       alert(`Failed to duplicate: ${result.error}`);
     }
@@ -178,7 +178,7 @@ export const useProblemSpace = (id, currentUser) => {
   };
 
   return {
-    problemSpace,
+    theme,
     isLoading,
     isEditing,
     setIsEditing,
@@ -188,7 +188,7 @@ export const useProblemSpace = (id, currentUser) => {
     newQuestion,
     setNewQuestion,
     isSaving,
-    loadProblemSpace,
+    loadTheme,
     handleSave,
     handlePrivacyChange,
     handleDelete,

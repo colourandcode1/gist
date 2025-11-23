@@ -1,4 +1,4 @@
-// Firestore utility functions for problemSpaces
+// Firestore utility functions for themes
 import {
   collection,
   doc,
@@ -14,42 +14,42 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// Create a new problem space
-export const createProblemSpace = async (problemSpaceData, userId) => {
+// Create a new theme
+export const createTheme = async (themeData, userId) => {
   try {
     if (!userId) {
-      throw new Error('User ID is required to create problem space');
+      throw new Error('User ID is required to create theme');
     }
 
-    const problemSpacePayload = {
-      name: problemSpaceData.name,
-      description: problemSpaceData.description || '',
-      privacy: problemSpaceData.privacy || 'private', // private, team
-      userId, // Owner of the problem space
-      teamId: problemSpaceData.teamId || null, // null = private, will be set when added to team
-      workspaceId: problemSpaceData.workspaceId || null, // Workspace ID for organization structure
-      contributors: problemSpaceData.contributors || [userId], // Include creator as initial contributor
-      outputType: problemSpaceData.outputType || null, // Optional output type
-      problemStatement: problemSpaceData.problemStatement || '',
-      keyQuestions: problemSpaceData.keyQuestions || [],
-      linkedProjects: problemSpaceData.linkedProjects || [],
-      insightIds: problemSpaceData.insightIds || [], // Array of insight references (sessionId:nuggetId)
+    const themePayload = {
+      name: themeData.name,
+      description: themeData.description || '',
+      privacy: themeData.privacy || 'private', // private, team
+      userId, // Owner of the theme
+      teamId: themeData.teamId || null, // null = private, will be set when added to team
+      workspaceId: themeData.workspaceId || null, // Workspace ID for organization structure
+      contributors: themeData.contributors || [userId], // Include creator as initial contributor
+      outputType: themeData.outputType || null, // Optional output type
+      problemStatement: themeData.problemStatement || '',
+      keyQuestions: themeData.keyQuestions || [],
+      linkedProjects: themeData.linkedProjects || [],
+      insightIds: themeData.insightIds || [], // Array of insight references (sessionId:nuggetId)
       createdBy: userId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
 
-    const docRef = await addDoc(collection(db, 'problemSpaces'), problemSpacePayload);
-    console.log('Problem space created successfully with ID:', docRef.id);
+    const docRef = await addDoc(collection(db, 'themes'), themePayload);
+    console.log('Theme created successfully with ID:', docRef.id);
     return { success: true, id: docRef.id };
   } catch (error) {
-    console.error('Error creating problem space:', error);
+    console.error('Error creating theme:', error);
     return { success: false, error: error.message || 'Unknown error occurred' };
   }
 };
 
-// Get all problem spaces for a user (and optionally a team)
-export const getProblemSpaces = async (userId, teamId = null) => {
+// Get all themes for a user (and optionally a team)
+export const getThemes = async (userId, teamId = null) => {
   try {
     if (!userId) {
       return [];
@@ -57,33 +57,33 @@ export const getProblemSpaces = async (userId, teamId = null) => {
 
     let q;
     if (teamId) {
-      // Get problem spaces for specific team
+      // Get themes for specific team
       q = query(
-        collection(db, 'problemSpaces'),
+        collection(db, 'themes'),
         where('teamId', '==', teamId),
         orderBy('updatedAt', 'desc')
       );
     } else {
-      // Get user's own problem spaces (userId matches or user is contributor)
+      // Get user's own themes (userId matches or user is contributor)
       // Note: Firestore doesn't support OR queries easily, so we'll fetch and filter
       q = query(
-        collection(db, 'problemSpaces'),
+        collection(db, 'themes'),
         where('userId', '==', userId),
         orderBy('updatedAt', 'desc')
       );
     }
 
     const querySnapshot = await getDocs(q);
-    const problemSpaces = [];
+    const themes = [];
 
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      // Filter out team problem spaces if teamId is null (private only)
+      // Filter out team themes if teamId is null (private only)
       if (!teamId && data.teamId !== null) {
         return;
       }
       
-      problemSpaces.push({
+      themes.push({
         id: doc.id,
         ...data,
         // Convert Firestore timestamps
@@ -92,21 +92,21 @@ export const getProblemSpaces = async (userId, teamId = null) => {
       });
     });
 
-    // Also get problem spaces where user is a contributor (if not team query)
+    // Also get themes where user is a contributor (if not team query)
     if (!teamId) {
       try {
         const contributorQuery = query(
-          collection(db, 'problemSpaces'),
+          collection(db, 'themes'),
           orderBy('updatedAt', 'desc')
         );
         const contributorSnapshot = await getDocs(contributorQuery);
         contributorSnapshot.forEach((doc) => {
           const data = doc.data();
-          // Check if user is a contributor and it's a team problem space
+          // Check if user is a contributor and it's a team theme
           if (data.teamId !== null && data.contributors?.includes(userId)) {
             // Avoid duplicates
-            if (!problemSpaces.find(ps => ps.id === doc.id)) {
-              problemSpaces.push({
+            if (!themes.find(t => t.id === doc.id)) {
+              themes.push({
                 id: doc.id,
                 ...data,
                 createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
@@ -121,16 +121,16 @@ export const getProblemSpaces = async (userId, teamId = null) => {
           console.warn('Firestore index may be missing for contributor query. Using fallback.');
           try {
             const fallbackContributorQuery = query(
-              collection(db, 'problemSpaces')
+              collection(db, 'themes')
             );
             const fallbackContributorSnapshot = await getDocs(fallbackContributorQuery);
             fallbackContributorSnapshot.forEach((doc) => {
               const data = doc.data();
-              // Check if user is a contributor and it's a team problem space
+              // Check if user is a contributor and it's a team theme
               if (data.teamId !== null && data.contributors?.includes(userId)) {
                 // Avoid duplicates
-                if (!problemSpaces.find(ps => ps.id === doc.id)) {
-                  problemSpaces.push({
+                if (!themes.find(t => t.id === doc.id)) {
+                  themes.push({
                     id: doc.id,
                     ...data,
                     createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
@@ -143,20 +143,20 @@ export const getProblemSpaces = async (userId, teamId = null) => {
             console.error('Fallback contributor query also failed:', fallbackError);
           }
         } else {
-          console.error('Error loading contributor problem spaces:', contributorError);
+          console.error('Error loading contributor themes:', contributorError);
         }
       }
       // Re-sort by updatedAt (always sort in memory to ensure correct order)
-      problemSpaces.sort((a, b) => {
+      themes.sort((a, b) => {
         const dateA = new Date(a.updatedAt || 0);
         const dateB = new Date(b.updatedAt || 0);
         return dateB - dateA;
       });
     }
 
-    return problemSpaces;
+    return themes;
   } catch (error) {
-    console.error('Error loading problem spaces:', error);
+    console.error('Error loading themes:', error);
     console.error('Error code:', error.code);
     console.error('Error message:', error.message);
     
@@ -173,24 +173,24 @@ export const getProblemSpaces = async (userId, teamId = null) => {
         let fallbackQuery;
         if (teamId) {
           fallbackQuery = query(
-            collection(db, 'problemSpaces'),
+            collection(db, 'themes'),
             where('teamId', '==', teamId)
           );
         } else {
           fallbackQuery = query(
-            collection(db, 'problemSpaces'),
+            collection(db, 'themes'),
             where('userId', '==', userId)
           );
         }
         const fallbackSnapshot = await getDocs(fallbackQuery);
-        const fallbackProblemSpaces = [];
+        const fallbackThemes = [];
         fallbackSnapshot.forEach((doc) => {
           const data = doc.data();
-          // Filter out team problem spaces if teamId is null (private only)
+          // Filter out team themes if teamId is null (private only)
           if (!teamId && data.teamId !== null) {
             return;
           }
-          fallbackProblemSpaces.push({
+          fallbackThemes.push({
             id: doc.id,
             ...data,
             createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
@@ -198,20 +198,20 @@ export const getProblemSpaces = async (userId, teamId = null) => {
           });
         });
         
-        // Also try to get contributor problem spaces (without orderBy)
+        // Also try to get contributor themes (without orderBy)
         if (!teamId) {
           try {
             const fallbackContributorQuery = query(
-              collection(db, 'problemSpaces')
+              collection(db, 'themes')
             );
             const fallbackContributorSnapshot = await getDocs(fallbackContributorQuery);
             fallbackContributorSnapshot.forEach((doc) => {
               const data = doc.data();
-              // Check if user is a contributor and it's a team problem space
+              // Check if user is a contributor and it's a team theme
               if (data.teamId !== null && data.contributors?.includes(userId)) {
                 // Avoid duplicates
-                if (!fallbackProblemSpaces.find(ps => ps.id === doc.id)) {
-                  fallbackProblemSpaces.push({
+                if (!fallbackThemes.find(t => t.id === doc.id)) {
+                  fallbackThemes.push({
                     id: doc.id,
                     ...data,
                     createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
@@ -226,13 +226,13 @@ export const getProblemSpaces = async (userId, teamId = null) => {
         }
         
         // Sort in memory
-        fallbackProblemSpaces.sort((a, b) => {
+        fallbackThemes.sort((a, b) => {
           const dateA = new Date(a.updatedAt || 0);
           const dateB = new Date(b.updatedAt || 0);
           return dateB - dateA; // descending order
         });
-        console.warn('Loaded problem spaces without index (sorted in memory). Please create the index for better performance.');
-        return fallbackProblemSpaces;
+        console.warn('Loaded themes without index (sorted in memory). Please create the index for better performance.');
+        return fallbackThemes;
       } catch (fallbackError) {
         console.error('Fallback query also failed:', fallbackError);
       }
@@ -242,15 +242,15 @@ export const getProblemSpaces = async (userId, teamId = null) => {
   }
 };
 
-// Get a problem space by ID
-export const getProblemSpaceById = async (problemSpaceId) => {
+// Get a theme by ID
+export const getThemeById = async (themeId) => {
   try {
-    const problemSpaceRef = doc(db, 'problemSpaces', problemSpaceId);
-    const problemSpaceSnap = await getDoc(problemSpaceRef);
-    if (problemSpaceSnap.exists()) {
-      const data = problemSpaceSnap.data();
+    const themeRef = doc(db, 'themes', themeId);
+    const themeSnap = await getDoc(themeRef);
+    if (themeSnap.exists()) {
+      const data = themeSnap.data();
       return { 
-        id: problemSpaceSnap.id, 
+        id: themeSnap.id, 
         ...data,
         // Convert Firestore timestamps
         createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
@@ -259,128 +259,128 @@ export const getProblemSpaceById = async (problemSpaceId) => {
     }
     return null;
   } catch (error) {
-    console.error('Error getting problem space:', error);
+    console.error('Error getting theme:', error);
     return null;
   }
 };
 
-// Update a problem space
-export const updateProblemSpace = async (problemSpaceId, updates, userId) => {
+// Update a theme
+export const updateTheme = async (themeId, updates, userId) => {
   try {
     if (!userId) {
       return { success: false, error: 'User ID required' };
     }
 
-    const problemSpaceData = await getProblemSpaceById(problemSpaceId);
-    if (!problemSpaceData) {
-      return { success: false, error: 'Problem space not found' };
+    const themeData = await getThemeById(themeId);
+    if (!themeData) {
+      return { success: false, error: 'Theme not found' };
     }
 
     // Check permissions (owner or contributor)
-    if (problemSpaceData.userId !== userId && !problemSpaceData.contributors?.includes(userId)) {
+    if (themeData.userId !== userId && !themeData.contributors?.includes(userId)) {
       return { success: false, error: 'Permission denied' };
     }
 
-    const problemSpaceRef = doc(db, 'problemSpaces', problemSpaceId);
-    await updateDoc(problemSpaceRef, {
+    const themeRef = doc(db, 'themes', themeId);
+    await updateDoc(themeRef, {
       ...updates,
       updatedAt: serverTimestamp()
     });
 
     return { success: true };
   } catch (error) {
-    console.error('Error updating problem space:', error);
+    console.error('Error updating theme:', error);
     return { success: false, error: error.message };
   }
 };
 
-// Add an insight to a problem space
-export const addInsightToProblemSpace = async (problemSpaceId, insightId, userId) => {
+// Add an insight to a theme
+export const addInsightToTheme = async (themeId, insightId, userId) => {
   try {
     if (!userId) {
       return { success: false, error: 'User ID required' };
     }
 
-    const problemSpaceData = await getProblemSpaceById(problemSpaceId);
-    if (!problemSpaceData) {
-      return { success: false, error: 'Problem space not found' };
+    const themeData = await getThemeById(themeId);
+    if (!themeData) {
+      return { success: false, error: 'Theme not found' };
     }
 
     // Check permissions
-    if (problemSpaceData.userId !== userId && !problemSpaceData.contributors?.includes(userId)) {
+    if (themeData.userId !== userId && !themeData.contributors?.includes(userId)) {
       return { success: false, error: 'Permission denied' };
     }
 
-    const currentInsightIds = problemSpaceData.insightIds || [];
+    const currentInsightIds = themeData.insightIds || [];
     if (currentInsightIds.includes(insightId)) {
-      return { success: true, message: 'Insight already in problem space' };
+      return { success: true, message: 'Insight already in theme' };
     }
 
-    const problemSpaceRef = doc(db, 'problemSpaces', problemSpaceId);
-    await updateDoc(problemSpaceRef, {
+    const themeRef = doc(db, 'themes', themeId);
+    await updateDoc(themeRef, {
       insightIds: [...currentInsightIds, insightId],
       updatedAt: serverTimestamp()
     });
 
     return { success: true };
   } catch (error) {
-    console.error('Error adding insight to problem space:', error);
+    console.error('Error adding insight to theme:', error);
     return { success: false, error: error.message };
   }
 };
 
-// Remove an insight from a problem space
-export const removeInsightFromProblemSpace = async (problemSpaceId, insightId, userId) => {
+// Remove an insight from a theme
+export const removeInsightFromTheme = async (themeId, insightId, userId) => {
   try {
     if (!userId) {
       return { success: false, error: 'User ID required' };
     }
 
-    const problemSpaceData = await getProblemSpaceById(problemSpaceId);
-    if (!problemSpaceData) {
-      return { success: false, error: 'Problem space not found' };
+    const themeData = await getThemeById(themeId);
+    if (!themeData) {
+      return { success: false, error: 'Theme not found' };
     }
 
     // Check permissions
-    if (problemSpaceData.userId !== userId && !problemSpaceData.contributors?.includes(userId)) {
+    if (themeData.userId !== userId && !themeData.contributors?.includes(userId)) {
       return { success: false, error: 'Permission denied' };
     }
 
-    const currentInsightIds = problemSpaceData.insightIds || [];
+    const currentInsightIds = themeData.insightIds || [];
     const updatedInsightIds = currentInsightIds.filter(id => id !== insightId);
 
-    const problemSpaceRef = doc(db, 'problemSpaces', problemSpaceId);
-    await updateDoc(problemSpaceRef, {
+    const themeRef = doc(db, 'themes', themeId);
+    await updateDoc(themeRef, {
       insightIds: updatedInsightIds,
       updatedAt: serverTimestamp()
     });
 
     return { success: true };
   } catch (error) {
-    console.error('Error removing insight from problem space:', error);
+    console.error('Error removing insight from theme:', error);
     return { success: false, error: error.message };
   }
 };
 
-// Update problem space privacy settings
-export const updateProblemSpacePrivacy = async (problemSpaceId, privacy, teamId, userId) => {
+// Update theme privacy settings
+export const updateThemePrivacy = async (themeId, privacy, teamId, userId) => {
   try {
     if (!userId) {
       return { success: false, error: 'User ID required' };
     }
 
-    const problemSpaceData = await getProblemSpaceById(problemSpaceId);
-    if (!problemSpaceData) {
-      return { success: false, error: 'Problem space not found' };
+    const themeData = await getThemeById(themeId);
+    if (!themeData) {
+      return { success: false, error: 'Theme not found' };
     }
 
     // Only owner can change privacy
-    if (problemSpaceData.userId !== userId) {
+    if (themeData.userId !== userId) {
       return { success: false, error: 'Permission denied - only owner can change privacy' };
     }
 
-    const problemSpaceRef = doc(db, 'problemSpaces', problemSpaceId);
-    await updateDoc(problemSpaceRef, {
+    const themeRef = doc(db, 'themes', themeId);
+    await updateDoc(themeRef, {
       privacy,
       teamId: privacy === 'team' ? teamId : null,
       updatedAt: serverTimestamp()
@@ -388,34 +388,35 @@ export const updateProblemSpacePrivacy = async (problemSpaceId, privacy, teamId,
 
     return { success: true };
   } catch (error) {
-    console.error('Error updating problem space privacy:', error);
+    console.error('Error updating theme privacy:', error);
     return { success: false, error: error.message };
   }
 };
 
-// Delete a problem space
-export const deleteProblemSpace = async (problemSpaceId, userId) => {
+// Delete a theme
+export const deleteTheme = async (themeId, userId) => {
   try {
     if (!userId) {
       return { success: false, error: 'User ID required' };
     }
 
-    const problemSpaceData = await getProblemSpaceById(problemSpaceId);
-    if (!problemSpaceData) {
-      return { success: false, error: 'Problem space not found' };
+    const themeData = await getThemeById(themeId);
+    if (!themeData) {
+      return { success: false, error: 'Theme not found' };
     }
 
     // Check permissions (only owner can delete)
-    if (problemSpaceData.userId !== userId) {
+    if (themeData.userId !== userId) {
       return { success: false, error: 'Permission denied' };
     }
 
-    const problemSpaceRef = doc(db, 'problemSpaces', problemSpaceId);
-    await deleteDoc(problemSpaceRef);
+    const themeRef = doc(db, 'themes', themeId);
+    await deleteDoc(themeRef);
 
     return { success: true };
   } catch (error) {
-    console.error('Error deleting problem space:', error);
+    console.error('Error deleting theme:', error);
     return { success: false, error: error.message };
   }
 };
+

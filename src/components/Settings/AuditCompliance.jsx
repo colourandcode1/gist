@@ -134,7 +134,7 @@ const AuditCompliance = () => {
                 <option value="all">All Resources</option>
                 <option value="session">Session</option>
                 <option value="project">Project</option>
-                <option value="problemSpace">Problem Space</option>
+                <option value="theme">Theme</option>
                 <option value="insight">Insight</option>
               </select>
             </div>

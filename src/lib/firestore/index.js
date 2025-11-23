@@ -30,17 +30,17 @@ export {
   deleteProject
 } from './projects';
 
-// Problem Spaces
+// Themes
 export {
-  createProblemSpace,
-  getProblemSpaces,
-  getProblemSpaceById,
-  updateProblemSpace,
-  addInsightToProblemSpace,
-  removeInsightFromProblemSpace,
-  updateProblemSpacePrivacy,
-  deleteProblemSpace
-} from './problemSpaces';
+  createTheme,
+  getThemes,
+  getThemeById,
+  updateTheme,
+  addInsightToTheme,
+  removeInsightFromTheme,
+  updateThemePrivacy,
+  deleteTheme
+} from './themes';
 
 // Comments
 export {

@@ -14,8 +14,8 @@ import ProjectDetailPage from "@/pages/ProjectDetailPage";
 import SessionsPage from "@/pages/SessionsPage";
 import SessionDetailPage from "@/pages/SessionDetailPage";
 import RepositoryPage from "@/pages/RepositoryPage";
-import ProblemSpacesPage from "@/pages/ProblemSpacesPage";
-import ProblemSpaceDetailPage from "@/pages/ProblemSpaceDetailPage";
+import ThemesPage from "@/pages/ThemesPage";
+import ThemeDetailPage from "@/pages/ThemeDetailPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WorkspacesPage from "@/pages/WorkspacesPage";
 
@@ -89,18 +89,18 @@ function App() {
             }
           />
           <Route
-            path="/problem-spaces"
+            path="/themes"
             element={
               <ProtectedRoute>
-                <ProblemSpacesPage />
+                <ThemesPage />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/problem-spaces/:id"
+            path="/themes/:id"
             element={
               <ProtectedRoute>
-                <ProblemSpaceDetailPage />
+                <ThemeDetailPage />
               </ProtectedRoute>
             }
           />

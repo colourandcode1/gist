@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { createComment, createActivity } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
-const CommentForm = ({ problemSpaceId, insightId = null, onCommentAdded, onCancel }) => {
+const CommentForm = ({ themeId, insightId = null, onCommentAdded, onCancel }) => {
   const { currentUser } = useAuth();
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,7 +18,7 @@ const CommentForm = ({ problemSpaceId, insightId = null, onCommentAdded, onCance
     try {
       const result = await createComment(
         {
-          problemSpaceId,
+          themeId,
           insightId,
           content: content.trim()
         },
@@ -30,7 +30,7 @@ const CommentForm = ({ problemSpaceId, insightId = null, onCommentAdded, onCance
         await createActivity(
           {
             type: 'comment',
-            problemSpaceId,
+            themeId,
             insightId,
             commentId: result.id,
             description: `${currentUser.email?.split('@')[0] || 'User'} added a comment`,

@@ -109,26 +109,26 @@ export const canEditOthersNuggets = (role) => {
 };
 
 /**
- * Check if user can create problem spaces
+ * Check if user can create themes
  * @param {string} role - User role
  * @returns {boolean}
  */
-export const canCreateProblemSpaces = (role) => {
-  return hasPermission(role, 'canCreateProblemSpaces');
+export const canCreateThemes = (role) => {
+  return hasPermission(role, 'canCreateThemes');
 };
 
 /**
- * Check if user can edit problem spaces
+ * Check if user can edit themes
  * @param {string} role - User role
- * @param {string} problemSpaceOwnerId - ID of the problem space owner
+ * @param {string} themeOwnerId - ID of the theme owner
  * @param {string} userId - Current user ID
- * @param {array} contributors - Array of contributor IDs (for problem space collaborators)
+ * @param {array} contributors - Array of contributor IDs (for theme collaborators)
  * @param {boolean} isAdmin - is_admin flag (for Member role)
  * @returns {boolean}
  */
-export const canEditProblemSpaces = (role, problemSpaceOwnerId = null, userId = null, contributors = [], isAdmin = false) => {
-  // Members can edit all problem spaces
-  return hasPermission(role, 'canEditProblemSpaces', isAdmin);
+export const canEditThemes = (role, themeOwnerId = null, userId = null, contributors = [], isAdmin = false) => {
+  // Members can edit all themes
+  return hasPermission(role, 'canEditThemes', isAdmin);
 };
 
 /**

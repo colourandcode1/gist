@@ -30,7 +30,7 @@ const PrivacySecurity = () => {
     nuggets: { enabled: true, days: 730 },
     sessionRecordings: { enabled: true, days: 90 },
     auditLogs: { enabled: true, days: 2555 }, // 7 years
-    problemSpaces: { enabled: false, days: 0 }
+    themes: { enabled: false, days: 0 }
   });
 
   const [dataResidency, setDataResidency] = useState({
@@ -42,7 +42,7 @@ const PrivacySecurity = () => {
     allowedIPs: [],
     sessionTimeout: 30, // minutes
     twoFactorAuth: false,
-    problemSpaceSharing: 'team' // 'team', 'public', 'private'
+    themeSharing: 'team' // 'team', 'public', 'private'
   });
 
   const [newIP, setNewIP] = useState('');
@@ -350,8 +350,8 @@ const PrivacySecurity = () => {
           <div className="border-t pt-4 space-y-2">
             <label className="text-sm font-medium">Problem Space Sharing</label>
             <select
-              value={accessControls.problemSpaceSharing}
-              onChange={(e) => setAccessControls({ ...accessControls, problemSpaceSharing: e.target.value })}
+              value={accessControls.themeSharing}
+              onChange={(e) => setAccessControls({ ...accessControls, themeSharing: e.target.value })}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
             >
               <option value="team">Team Only</option>

@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import RepositoryNuggetCard from '@/components/RepositoryNuggetCard';
-import { getAllNuggets, addInsightToProblemSpace, removeInsightFromProblemSpace, createActivity } from '@/lib/firestoreUtils';
+import { getAllNuggets, addInsightToTheme, removeInsightFromTheme, createActivity } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
-const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
+const ThemeInsightManager = ({ theme, onUpdate }) => {
   const { currentUser } = useAuth();
   const [allNuggets, setAllNuggets] = useState([]);
   const [currentInsights, setCurrentInsights] = useState([]);
@@ -18,13 +18,13 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (problemSpace && currentUser) {
+    if (theme && currentUser) {
       loadInsights();
     }
-  }, [problemSpace, currentUser]);
+  }, [theme, currentUser]);
 
   const loadInsights = async () => {
-    if (!currentUser || !problemSpace) return;
+    if (!currentUser || !theme) return;
 
     setIsLoading(true);
     try {
@@ -32,8 +32,8 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
       const nuggets = await getAllNuggets(currentUser.uid);
       setAllNuggets(nuggets);
 
-      // Load current insights from problem space
-      const insightIds = problemSpace.insightIds || [];
+      // Load current insights from theme
+      const insightIds = theme.insightIds || [];
       const insights = nuggets.filter(nugget => {
         const insightId = `${nugget.session_id}:${nugget.id}`;
         return insightIds.includes(insightId);
@@ -47,20 +47,20 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
   };
 
   const handleAddInsights = async () => {
-    if (!currentUser || !problemSpace || selectedNuggets.length === 0) return;
+    if (!currentUser || !theme || selectedNuggets.length === 0) return;
 
     try {
       for (const nugget of selectedNuggets) {
         const insightId = `${nugget.session_id}:${nugget.id}`;
-        await addInsightToProblemSpace(problemSpace.id, insightId, currentUser.uid);
+        await addInsightToTheme(theme.id, insightId, currentUser.uid);
       }
       
       // Track activity
       await createActivity(
         {
           type: 'insight_added',
-          problemSpaceId: problemSpace.id,
-          description: `${currentUser.email?.split('@')[0] || 'User'} added ${selectedNuggets.length} insight${selectedNuggets.length > 1 ? 's' : ''} to the problem space`,
+          themeId: theme.id,
+          description: `${currentUser.email?.split('@')[0] || 'User'} added ${selectedNuggets.length} insight${selectedNuggets.length > 1 ? 's' : ''} to the theme`,
           metadata: {
             insightCount: selectedNuggets.length
           }
@@ -79,13 +79,13 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
   };
 
   const handleRemoveInsight = async (nugget) => {
-    if (!currentUser || !problemSpace) return;
+    if (!currentUser || !theme) return;
 
-    if (!window.confirm('Remove this insight from the problem space?')) return;
+    if (!window.confirm('Remove this insight from the theme?')) return;
 
     try {
       const insightId = `${nugget.session_id}:${nugget.id}`;
-      await removeInsightFromProblemSpace(problemSpace.id, insightId, currentUser.uid);
+      await removeInsightFromTheme(theme.id, insightId, currentUser.uid);
       await loadInsights();
       if (onUpdate) onUpdate();
     } catch (error) {
@@ -95,7 +95,7 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
   };
 
   const getAvailableNuggets = () => {
-    const insightIds = problemSpace?.insightIds || [];
+    const insightIds = theme?.insightIds || [];
     return allNuggets.filter(nugget => {
       const insightId = `${nugget.session_id}:${nugget.id}`;
       return !insightIds.includes(insightId);
@@ -136,7 +136,7 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
             Insights ({currentInsights.length})
           </h3>
           <p className="text-sm text-muted-foreground">
-            Manage insights in this problem space
+            Manage insights in this theme
           </p>
         </div>
         <Button onClick={() => setShowAddDialog(true)} className="flex items-center gap-2">
@@ -161,7 +161,7 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground mb-4">
-              {searchQuery ? 'No insights match your search' : 'No insights in this problem space yet'}
+              {searchQuery ? 'No insights match your search' : 'No insights in this theme yet'}
             </p>
             {!searchQuery && (
               <Button onClick={() => setShowAddDialog(true)} variant="outline">
@@ -202,7 +202,7 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
           <Card className="w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
             <CardContent className="p-6 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Add Insights to Problem Space</h3>
+                <h3 className="text-lg font-semibold">Add Insights to Theme</h3>
                 <Button variant="ghost" size="icon" onClick={() => {
                   setShowAddDialog(false);
                   setSelectedNuggets([]);
@@ -225,7 +225,7 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
 
               {availableNuggets.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
-                  {searchQuery ? 'No insights match your search' : 'All available insights are already in this problem space'}
+                  {searchQuery ? 'No insights match your search' : 'All available insights are already in this theme'}
                 </p>
               ) : (
                 <div className="space-y-4 max-h-[60vh] overflow-y-auto">
@@ -287,5 +287,5 @@ const ProblemSpaceInsightManager = ({ problemSpace, onUpdate }) => {
   );
 };
 
-export default ProblemSpaceInsightManager;
+export default ThemeInsightManager;
 

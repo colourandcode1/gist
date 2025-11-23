@@ -7,10 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import NavigationHeader from '@/components/NavigationHeader';
-import { createProblemSpace, updateProblemSpace } from '@/lib/firestoreUtils';
+import { createTheme, updateTheme } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
-const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
+const ThemeForm = ({ theme, onSave, onCancel }) => {
   const { currentUser, userWorkspaces } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
@@ -38,19 +38,19 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
   }, [userWorkspaces]);
 
   useEffect(() => {
-    if (problemSpace) {
+    if (theme) {
       setFormData({
-        name: problemSpace.name || '',
-        description: problemSpace.description || '',
-        privacy: problemSpace.privacy || 'private',
-        outputType: problemSpace.outputType || '',
-        problemStatement: problemSpace.problemStatement || '',
-        keyQuestions: problemSpace.keyQuestions || [],
+        name: theme.name || '',
+        description: theme.description || '',
+        privacy: theme.privacy || 'private',
+        outputType: theme.outputType || '',
+        problemStatement: theme.problemStatement || '',
+        keyQuestions: theme.keyQuestions || [],
         initialInsights: [],
-        workspaceId: problemSpace.workspaceId || null
+        workspaceId: theme.workspaceId || null
       });
     }
-  }, [problemSpace]);
+  }, [theme]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -78,19 +78,19 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
       };
 
       let result;
-      if (problemSpace) {
-        result = await updateProblemSpace(problemSpace.id, payload, currentUser.uid);
+      if (theme) {
+        result = await updateTheme(theme.id, payload, currentUser.uid);
       } else {
-        result = await createProblemSpace(payload, currentUser.uid);
+        result = await createTheme(payload, currentUser.uid);
       }
 
       if (result.success) {
         onSave();
       } else {
-        setError(result.error || 'Failed to save problem space');
+        setError(result.error || 'Failed to save theme');
       }
     } catch (err) {
-      console.error('Error saving problem space:', err);
+      console.error('Error saving theme:', err);
       setError(err.message || 'An unexpected error occurred');
     } finally {
       setIsSaving(false);
@@ -131,7 +131,7 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-2xl">
-                {problemSpace ? 'Edit Problem Space' : 'Create Problem Space'}
+                {theme ? 'Edit Theme' : 'Create Theme'}
               </CardTitle>
               <Button variant="ghost" size="icon" onClick={onCancel}>
                 <X className="w-5 h-5" />
@@ -167,7 +167,7 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Brief description of this problem space"
+                  placeholder="Brief description of this theme"
                   rows={3}
                 />
               </div>
@@ -191,7 +191,7 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
                     ))}
                   </select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Select the workspace this problem space belongs to
+                    Select the workspace this theme belongs to
                   </p>
                 </div>
               )}
@@ -219,8 +219,8 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {formData.privacy === 'private' 
-                    ? 'Only you can view and edit this problem space'
-                    : 'Team members can view and contribute to this problem space'}
+                    ? 'Only you can view and edit this theme'
+                    : 'Team members can view and contribute to this theme'}
                 </p>
               </div>
 
@@ -240,7 +240,7 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
                   ))}
                 </select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  What type of deliverable will this problem space become?
+                  What type of deliverable will this theme become?
                 </p>
               </div>
 
@@ -305,7 +305,7 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : problemSpace ? 'Update Problem Space' : 'Create Problem Space'}
+                  {isSaving ? 'Saving...' : theme ? 'Update Theme' : 'Create Theme'}
                 </Button>
               </div>
             </form>
@@ -316,5 +316,5 @@ const ProblemSpaceForm = ({ problemSpace, onSave, onCancel }) => {
   );
 };
 
-export default ProblemSpaceForm;
+export default ThemeForm;
 

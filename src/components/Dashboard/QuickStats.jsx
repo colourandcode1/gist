@@ -8,7 +8,7 @@ const QuickStats = ({ stats }) => {
     sessionsThisMonth = 0,
     totalInsights = 0,
     activeProjects = 0,
-    activeProblemSpaces = 0
+    activeThemes = 0
   } = stats || {};
 
   const statCards = [
@@ -34,10 +34,10 @@ const QuickStats = ({ stats }) => {
       color: 'text-green-600 dark:text-green-400'
     },
     {
-      title: 'Problem Spaces',
-      value: activeProblemSpaces,
+      title: 'Themes',
+      value: activeThemes,
       icon: Target,
-      description: 'Active spaces',
+      description: 'Active themes',
       color: 'text-purple-600 dark:text-purple-400'
     }
   ];

@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-export const ProblemSpaceHeader = ({
-  problemSpace,
+export const ThemeHeader = ({
+  theme,
   isEditing,
   editData,
   setEditData,
@@ -44,13 +44,13 @@ export const ProblemSpaceHeader = ({
             </div>
           ) : (
             <div>
-              <h1 className="text-2xl font-bold text-foreground mb-2">{problemSpace.name}</h1>
-              <p className="text-muted-foreground">{problemSpace.description || 'No description'}</p>
+              <h1 className="text-2xl font-bold text-foreground mb-2">{theme.name}</h1>
+              <p className="text-muted-foreground">{theme.description || 'No description'}</p>
             </div>
           )}
           <div className="flex items-center gap-3 mt-4">
-            <Badge variant={problemSpace.privacy === 'private' ? 'outline' : 'secondary'}>
-              {problemSpace.privacy === 'private' ? (
+            <Badge variant={theme.privacy === 'private' ? 'outline' : 'secondary'}>
+              {theme.privacy === 'private' ? (
                 <>
                   <Lock className="w-3 h-3 mr-1" />
                   Private
@@ -62,11 +62,11 @@ export const ProblemSpaceHeader = ({
                 </>
               )}
             </Badge>
-            {problemSpace.outputType && (
-              <Badge variant="outline">{problemSpace.outputType}</Badge>
+            {theme.outputType && (
+              <Badge variant="outline">{theme.outputType}</Badge>
             )}
             <span className="text-sm text-muted-foreground">
-              {problemSpace.insightIds?.length || 0} insights
+              {theme.insightIds?.length || 0} insights
             </span>
           </div>
         </div>
@@ -102,7 +102,7 @@ export const ProblemSpaceHeader = ({
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
-              {canEdit && problemSpace.userId === currentUser?.uid && (
+              {canEdit && theme.userId === currentUser?.uid && (
                 <Button variant="destructive" onClick={onDelete}>
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete

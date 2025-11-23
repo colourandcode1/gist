@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   canUploadSessions, 
   canCreateProjects, 
-  canCreateProblemSpaces 
+  canCreateThemes 
 } from '@/lib/permissions';
 
 const QuickActions = () => {
@@ -34,10 +34,10 @@ const QuickActions = () => {
     {
       label: 'New Problem Space',
       icon: Target,
-      onClick: () => navigate('/problem-spaces'),
+      onClick: () => navigate('/themes'),
       description: 'Start organizing insights',
       color: 'bg-purple-500 hover:bg-purple-600',
-      permission: () => canCreateProblemSpaces(userProfile?.role, userProfile?.is_admin)
+      permission: () => canCreateThemes(userProfile?.role, userProfile?.is_admin)
     }
   ].filter(action => action.permission());
 

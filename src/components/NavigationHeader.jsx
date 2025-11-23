@@ -37,7 +37,7 @@ const NavigationHeader = ({ currentView, onNavigate }) => {
     if (path === '/' || (path.startsWith('/sessions/') && path !== '/sessions')) return 'upload';
     if (path.startsWith('/projects')) return 'projects';
     if (path === '/sessions') return 'sessions';
-    if (path.startsWith('/problem-spaces')) return 'problem-spaces';
+    if (path.startsWith('/themes')) return 'themes';
     if (path.startsWith('/settings')) return 'settings';
     if (path.startsWith('/dashboard')) return 'dashboard';
     return '';
@@ -50,7 +50,7 @@ const NavigationHeader = ({ currentView, onNavigate }) => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { id: 'projects', label: 'Projects', icon: FolderOpen, path: '/projects' },
     { id: 'repository', label: 'Repository', icon: Database, path: '/repository' },
-    { id: 'problem-spaces', label: 'Problem Spaces', icon: Target, path: '/problem-spaces' }
+    { id: 'themes', label: 'Themes', icon: Target, path: '/themes' }
   ];
 
   return (

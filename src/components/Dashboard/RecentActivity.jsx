@@ -5,7 +5,7 @@ import { FileText, FolderOpen, Target, Clock, ArrowRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-const RecentActivity = ({ recentSessions, recentProjects, recentProblemSpaces }) => {
+const RecentActivity = ({ recentSessions, recentProjects, recentThemes }) => {
   const navigate = useNavigate();
 
   const formatDate = (dateString) => {
@@ -31,7 +31,7 @@ const RecentActivity = ({ recentSessions, recentProjects, recentProblemSpaces })
           return FileText;
         case 'project':
           return FolderOpen;
-        case 'problemSpace':
+        case 'theme':
           return Target;
         default:
           return Clock;
@@ -44,8 +44,8 @@ const RecentActivity = ({ recentSessions, recentProjects, recentProblemSpaces })
           return `/sessions/${item.id}`;
         case 'project':
           return `/projects/${item.id}`;
-        case 'problemSpace':
-          return `/problem-spaces/${item.id}`;
+        case 'theme':
+          return `/themes/${item.id}`;
         default:
           return '#';
       }
@@ -90,7 +90,7 @@ const RecentActivity = ({ recentSessions, recentProjects, recentProblemSpaces })
   const hasRecentActivity = 
     (recentSessions && recentSessions.length > 0) ||
     (recentProjects && recentProjects.length > 0) ||
-    (recentProblemSpaces && recentProblemSpaces.length > 0);
+    (recentThemes && recentThemes.length > 0);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -159,27 +159,27 @@ const RecentActivity = ({ recentSessions, recentProjects, recentProblemSpaces })
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Target className="w-5 h-5" />
-            Recent Problem Spaces
+            Recent Themes
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {recentProblemSpaces && recentProblemSpaces.length > 0 ? (
+          {recentThemes && recentThemes.length > 0 ? (
             <div className="space-y-1">
-              {displayItems(recentProblemSpaces, 'problemSpace')}
-              {recentProblemSpaces.length > 5 && (
+              {displayItems(recentThemes, 'theme')}
+              {recentThemes.length > 5 && (
                 <Button
                   variant="ghost"
                   className="w-full mt-2"
-                  onClick={() => navigate('/problem-spaces')}
+                  onClick={() => navigate('/themes')}
                 >
-                  View All Problem Spaces
+                  View All Themes
                 </Button>
               )}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No recent problem spaces</p>
+              <p className="text-sm">No recent themes</p>
             </div>
           )}
         </CardContent>

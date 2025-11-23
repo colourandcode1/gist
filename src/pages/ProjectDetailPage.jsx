@@ -15,7 +15,7 @@ import { ProjectHeader } from '@/components/Project/ProjectHeader';
 import { ProjectOverviewTab } from '@/components/Project/ProjectOverviewTab';
 import { ProjectSessionsTab } from '@/components/Project/ProjectSessionsTab';
 import { ProjectInsightsTab } from '@/components/Project/ProjectInsightsTab';
-import { ProjectProblemSpacesTab } from '@/components/Project/ProjectProblemSpacesTab';
+import { ProjectThemesTab } from '@/components/Project/ProjectThemesTab';
 import { ProjectSettingsTab } from '@/components/Project/ProjectSettingsTab';
 import { useProject } from '@/hooks/useProject';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +33,7 @@ const ProjectDetailPage = () => {
     project,
     sessions,
     nuggets,
-    problemSpaces,
+    themes,
     isLoading,
     loadProjectData,
     handleArchive,
@@ -124,7 +124,7 @@ const ProjectDetailPage = () => {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="sessions">Sessions ({sessions.length})</TabsTrigger>
             <TabsTrigger value="insights">Insights ({nuggets.length})</TabsTrigger>
-            <TabsTrigger value="problem-spaces">Problem Spaces ({problemSpaces.length})</TabsTrigger>
+            <TabsTrigger value="themes">Themes ({themes.length})</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -140,8 +140,8 @@ const ProjectDetailPage = () => {
             <ProjectInsightsTab nuggets={nuggets} projectId={id} />
           </TabsContent>
 
-          <TabsContent value="problem-spaces">
-            <ProjectProblemSpacesTab problemSpaces={problemSpaces} nuggets={nuggets} />
+          <TabsContent value="themes">
+            <ProjectThemesTab themes={themes} nuggets={nuggets} />
           </TabsContent>
 
           <TabsContent value="settings">

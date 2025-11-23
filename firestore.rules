@@ -121,22 +121,22 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
     
-    // Problem Spaces collection
-    match /problemSpaces/{problemSpaceId} {
-      // Users can create problem spaces if authenticated, set themselves as owner, and are members
+    // Themes collection
+    match /themes/{themeId} {
+      // Users can create themes if authenticated, set themselves as owner, and are members
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid &&
                      request.resource.data.createdBy == request.auth.uid &&
                      isMember();
       
-      // Users can read problem spaces in their organization or ones they contribute to
+      // Users can read themes in their organization or ones they contribute to
       allow read: if isAuthenticated() && 
                   (resource.data.userId == request.auth.uid ||
                    request.auth.uid in resource.data.contributors ||
                    (resource.data.workspaceId != null && 
                     canAccessWorkspace(resource.data.workspaceId)));
       
-      // Users can update their own problem spaces, ones they contribute to, or members can update any in their workspace
+      // Users can update their own themes, ones they contribute to, or members can update any in their workspace
       allow update: if isAuthenticated() && 
                     (resource.data.userId == request.auth.uid ||
                      request.auth.uid in resource.data.contributors ||
@@ -144,11 +144,11 @@ service cloud.firestore {
                       resource.data.workspaceId != null &&
                       canAccessWorkspace(resource.data.workspaceId)));
       
-      // Users can delete their own problem spaces, or admins can delete any
+      // Users can delete their own themes, or admins can delete any
       allow delete: if isAuthenticated() && 
                      (resource.data.userId == request.auth.uid || isAdmin());
       
-      // Admins can read/update/delete any problem space
+      // Admins can read/update/delete any theme
       allow read, update, delete: if isAdmin();
     }
     

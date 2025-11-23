@@ -8,7 +8,7 @@ import { CATEGORIES } from '@/lib/constants';
 /**
  * Component for displaying a nugget card in the repository view
  */
-const RepositoryNuggetCard = ({ nugget, session, project, isSelected = false, onNuggetClick, onWatchClick, onAddToProblemSpace }) => {
+const RepositoryNuggetCard = ({ nugget, session, project, isSelected = false, onNuggetClick, onWatchClick, onAddToTheme }) => {
   const getSentimentColor = (category) => {
     switch (category) {
       case 'sentiment': return 'bg-green-100 text-green-800 border-green-200';
@@ -120,16 +120,16 @@ const RepositoryNuggetCard = ({ nugget, session, project, isSelected = false, on
                 {project.name}
               </Badge>
             )}
-            {onAddToProblemSpace && (
+            {onAddToTheme && (
               <Button 
                 variant="ghost" 
                 size="sm" 
                 className="flex items-center gap-1"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAddToProblemSpace();
+                  onAddToTheme();
                 }}
-                title="Add to Problem Space"
+                title="Add to Theme"
               >
                 <Target className="w-4 h-4" />
               </Button>

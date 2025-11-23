@@ -12,28 +12,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import NavigationHeader from '@/components/NavigationHeader';
-import { getProblemSpaces } from '@/lib/firestoreUtils';
+import { getThemes } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
-import ProblemSpaceForm from '@/components/ProblemSpaceForm';
-import { canCreateProblemSpaces } from '@/lib/permissions';
+import ThemeForm from '@/components/ThemeForm';
+import { canCreateThemes } from '@/lib/permissions';
 import UpgradePrompt from '@/components/UpgradePrompt';
 
-const ProblemSpacesPage = () => {
+const ThemesPage = () => {
   const { currentUser, userProfile, userOrganization } = useAuth();
   const navigate = useNavigate();
-  const [problemSpaces, setProblemSpaces] = useState([]);
-  const [filteredSpaces, setFilteredSpaces] = useState([]);
+  const [themes, setThemes] = useState([]);
+  const [filteredThemes, setFilteredThemes] = useState([]);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'board'
   const [filter, setFilter] = useState('all'); // 'all', 'my', 'team', 'recent'
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editingSpace, setEditingSpace] = useState(null);
+  const [editingTheme, setEditingTheme] = useState(null);
 
   useEffect(() => {
-    loadProblemSpaces();
+    loadThemes();
   }, [currentUser, filter]);
 
-  const loadProblemSpaces = async () => {
+  const loadThemes = async () => {
     if (!currentUser) {
       setIsLoading(false);
       return;
@@ -41,14 +41,14 @@ const ProblemSpacesPage = () => {
 
     setIsLoading(true);
     try {
-      const spaces = await getProblemSpaces(currentUser.uid);
+      const spaces = await getThemes(currentUser.uid);
       
       // Apply filters
       let filtered = spaces;
       if (filter === 'my') {
-        filtered = spaces.filter(ps => ps.userId === currentUser.uid && ps.privacy === 'private');
+        filtered = spaces.filter(t => t.userId === currentUser.uid && t.privacy === 'private');
       } else if (filter === 'team') {
-        filtered = spaces.filter(ps => ps.privacy === 'team' || (ps.teamId !== null && ps.contributors?.includes(currentUser.uid)));
+        filtered = spaces.filter(t => t.privacy === 'team' || (t.teamId !== null && t.contributors?.includes(currentUser.uid)));
       } else if (filter === 'recent') {
         // Sort by updatedAt and take most recent
         filtered = [...spaces].sort((a, b) => {
@@ -58,44 +58,44 @@ const ProblemSpacesPage = () => {
         }).slice(0, 10);
       }
 
-      setProblemSpaces(spaces);
-      setFilteredSpaces(filtered);
+      setThemes(spaces);
+      setFilteredThemes(filtered);
     } catch (error) {
-      console.error('Error loading problem spaces:', error);
-      setProblemSpaces([]);
-      setFilteredSpaces([]);
+      console.error('Error loading themes:', error);
+      setThemes([]);
+      setFilteredThemes([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCreateSpace = () => {
-    setEditingSpace(null);
+  const handleCreateTheme = () => {
+    setEditingTheme(null);
     setShowForm(true);
   };
 
-  const handleDuplicate = async (space) => {
+  const handleDuplicate = async (theme) => {
     if (!currentUser) return;
     
-    const duplicatedSpace = {
-      name: `${space.name} (Copy)`,
-      description: space.description,
-      privacy: space.privacy,
-      teamId: space.teamId,
+    const duplicatedTheme = {
+      name: `${theme.name} (Copy)`,
+      description: theme.description,
+      privacy: theme.privacy,
+      teamId: theme.teamId,
       contributors: [currentUser.uid],
-      outputType: space.outputType,
-      problemStatement: space.problemStatement,
-      keyQuestions: space.keyQuestions || [],
+      outputType: theme.outputType,
+      problemStatement: theme.problemStatement,
+      keyQuestions: theme.keyQuestions || [],
       linkedProjects: [],
       insightIds: []
     };
 
-    const { createProblemSpace } = await import('@/lib/firestoreUtils');
-    const result = await createProblemSpace(duplicatedSpace, currentUser.uid);
+    const { createTheme } = await import('@/lib/firestoreUtils');
+    const result = await createTheme(duplicatedTheme, currentUser.uid);
     if (result.success) {
-      loadProblemSpaces();
+      loadThemes();
     } else {
-      alert(`Failed to duplicate problem space: ${result.error}`);
+      alert(`Failed to duplicate theme: ${result.error}`);
     }
   };
 
@@ -120,16 +120,16 @@ const ProblemSpacesPage = () => {
 
   if (showForm) {
     return (
-      <ProblemSpaceForm
-        problemSpace={editingSpace}
+      <ThemeForm
+        theme={editingTheme}
         onSave={() => {
           setShowForm(false);
-          setEditingSpace(null);
-          loadProblemSpaces();
+          setEditingTheme(null);
+          loadThemes();
         }}
         onCancel={() => {
           setShowForm(false);
-          setEditingSpace(null);
+          setEditingTheme(null);
         }}
       />
     );
@@ -141,20 +141,20 @@ const ProblemSpacesPage = () => {
       <div className="max-w-7xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">Problem Spaces</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Themes</h1>
             <p className="text-muted-foreground">Organize and analyze insights across your research</p>
           </div>
-          {canCreateProblemSpaces(userProfile?.role) ? (
-            <Button onClick={handleCreateSpace} className="flex items-center gap-2">
+          {canCreateThemes(userProfile?.role) ? (
+            <Button onClick={handleCreateTheme} className="flex items-center gap-2">
               <Plus className="w-5 h-5" />
-              New Problem Space
+              New Theme
             </Button>
           ) : (
             <UpgradePrompt
-              feature="Problem Space Creation"
+              feature="Theme Creation"
               requiredTier="starter"
               currentTier={userOrganization?.tier || 'small_team'}
-              description="Only Members can create problem spaces."
+              description="Only Members can create themes."
               showInCard={false}
             />
           )}
@@ -175,14 +175,14 @@ const ProblemSpacesPage = () => {
               size="sm"
               onClick={() => setFilter('my')}
             >
-              My Problem Spaces
+              My Themes
             </Button>
             <Button
               variant={filter === 'team' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('team')}
             >
-              Team Problem Spaces
+              Team Themes
             </Button>
             <Button
               variant={filter === 'recent' ? 'default' : 'outline'}
@@ -217,37 +217,37 @@ const ProblemSpacesPage = () => {
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
-              <p className="text-muted-foreground">Loading problem spaces...</p>
+              <p className="text-muted-foreground">Loading themes...</p>
             </div>
           </div>
-        ) : filteredSpaces.length === 0 ? (
+        ) : filteredThemes.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <LayoutGrid className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">No problem spaces yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first problem space to organize insights</p>
-              <Button onClick={handleCreateSpace} className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-foreground mb-2">No themes yet</h3>
+              <p className="text-muted-foreground mb-4">Create your first theme to organize insights</p>
+              <Button onClick={handleCreateTheme} className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
-                Create Problem Space
+                Create Theme
               </Button>
             </CardContent>
           </Card>
         ) : viewMode === 'list' ? (
           <div className="space-y-4">
-            {filteredSpaces.map((space) => (
-              <Card key={space.id} className="hover:shadow-md transition-shadow">
+            {filteredThemes.map((theme) => (
+              <Card key={theme.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 
                           className="text-lg font-semibold text-foreground cursor-pointer hover:text-primary"
-                          onClick={() => navigate(`/problem-spaces/${space.id}`)}
+                          onClick={() => navigate(`/themes/${theme.id}`)}
                         >
-                          {space.name}
+                          {theme.name}
                         </h3>
-                        <Badge variant={space.privacy === 'private' ? 'outline' : 'secondary'}>
-                          {space.privacy === 'private' ? (
+                        <Badge variant={theme.privacy === 'private' ? 'outline' : 'secondary'}>
+                          {theme.privacy === 'private' ? (
                             <>
                               <Lock className="w-3 h-3 mr-1" />
                               Private
@@ -259,45 +259,45 @@ const ProblemSpacesPage = () => {
                             </>
                           )}
                         </Badge>
-                        {space.outputType && (
+                        {theme.outputType && (
                           <Badge variant="outline" className="flex items-center gap-1">
-                            {getOutputTypeIcon(space.outputType)}
-                            {space.outputType}
+                            {getOutputTypeIcon(theme.outputType)}
+                            {theme.outputType}
                           </Badge>
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                        {space.description || 'No description'}
+                        {theme.description || 'No description'}
                       </p>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <Users className="w-4 h-4" />
-                          {space.contributors?.length || 0} {space.contributors?.length === 1 ? 'contributor' : 'contributors'}
+                          {theme.contributors?.length || 0} {theme.contributors?.length === 1 ? 'contributor' : 'contributors'}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{space.insightIds?.length || 0}</span>
-                          <span>{(space.insightIds?.length || 0) === 1 ? 'insight' : 'insights'}</span>
+                          <span className="font-medium">{theme.insightIds?.length || 0}</span>
+                          <span>{(theme.insightIds?.length || 0) === 1 ? 'insight' : 'insights'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4" />
-                          Updated {formatDate(space.updatedAt || space.createdAt)}
+                          Updated {formatDate(theme.updatedAt || theme.createdAt)}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
-                      {space.contributors && space.contributors.length > 0 && (
+                      {theme.contributors && theme.contributors.length > 0 && (
                         <div className="flex -space-x-2">
-                          {space.contributors.slice(0, 3).map((contributorId, idx) => (
+                          {theme.contributors.slice(0, 3).map((contributorId, idx) => (
                             <Avatar key={idx} className="w-8 h-8 border-2 border-background">
                               <AvatarFallback className="text-xs">
                                 {contributorId.substring(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                           ))}
-                          {space.contributors.length > 3 && (
+                          {theme.contributors.length > 3 && (
                             <Avatar className="w-8 h-8 border-2 border-background">
                               <AvatarFallback className="text-xs">
-                                +{space.contributors.length - 3}
+                                +{theme.contributors.length - 3}
                               </AvatarFallback>
                             </Avatar>
                           )}
@@ -310,15 +310,15 @@ const ProblemSpacesPage = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/problem-spaces/${space.id}`)}>
+                          <DropdownMenuItem onClick={() => navigate(`/themes/${theme.id}`)}>
                             <Eye className="w-4 h-4 mr-2" />
                             View
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDuplicate(space)}>
+                          <DropdownMenuItem onClick={() => handleDuplicate(theme)}>
                             <Copy className="w-4 h-4 mr-2" />
                             Duplicate
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/problem-spaces/${space.id}?tab=settings`)}>
+                          <DropdownMenuItem onClick={() => navigate(`/themes/${theme.id}?tab=settings`)}>
                             <Settings className="w-4 h-4 mr-2" />
                             Share Settings
                           </DropdownMenuItem>
@@ -332,11 +332,11 @@ const ProblemSpacesPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredSpaces.map((space) => (
-              <Card key={space.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/problem-spaces/${space.id}`)}>
+            {filteredThemes.map((theme) => (
+              <Card key={theme.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/themes/${theme.id}`)}>
                 <CardHeader>
                   <div className="flex items-start justify-between mb-2">
-                    <CardTitle className="text-lg">{space.name}</CardTitle>
+                    <CardTitle className="text-lg">{theme.name}</CardTitle>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -344,15 +344,15 @@ const ProblemSpacesPage = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/problem-spaces/${space.id}`)}>
+                        <DropdownMenuItem onClick={() => navigate(`/themes/${theme.id}`)}>
                           <Eye className="w-4 h-4 mr-2" />
                           View
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(space); }}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(theme); }}>
                           <Copy className="w-4 h-4 mr-2" />
                           Duplicate
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/problem-spaces/${space.id}?tab=settings`); }}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/themes/${theme.id}?tab=settings`); }}>
                           <Settings className="w-4 h-4 mr-2" />
                           Share Settings
                         </DropdownMenuItem>
@@ -360,8 +360,8 @@ const ProblemSpacesPage = () => {
                     </DropdownMenu>
                   </div>
                   <div className="flex items-center gap-2 mb-3">
-                    <Badge variant={space.privacy === 'private' ? 'outline' : 'secondary'}>
-                      {space.privacy === 'private' ? (
+                    <Badge variant={theme.privacy === 'private' ? 'outline' : 'secondary'}>
+                      {theme.privacy === 'private' ? (
                         <>
                           <Lock className="w-3 h-3 mr-1" />
                           Private
@@ -373,49 +373,49 @@ const ProblemSpacesPage = () => {
                         </>
                       )}
                     </Badge>
-                    {space.outputType && (
+                    {theme.outputType && (
                       <Badge variant="outline" className="flex items-center gap-1">
-                        {getOutputTypeIcon(space.outputType)}
-                        {space.outputType}
+                        {getOutputTypeIcon(theme.outputType)}
+                        {theme.outputType}
                       </Badge>
                     )}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
-                    {space.description || 'No description'}
+                    {theme.description || 'No description'}
                   </p>
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className="font-medium">{space.insightIds?.length || 0}</span>
-                      <span>{(space.insightIds?.length || 0) === 1 ? 'insight' : 'insights'}</span>
+                      <span className="font-medium">{theme.insightIds?.length || 0}</span>
+                      <span>{(theme.insightIds?.length || 0) === 1 ? 'insight' : 'insights'}</span>
                     </div>
-                    {space.contributors && space.contributors.length > 0 && (
+                    {theme.contributors && theme.contributors.length > 0 && (
                       <div className="flex items-center gap-2">
                         <div className="flex -space-x-2">
-                          {space.contributors.slice(0, 3).map((contributorId, idx) => (
+                          {theme.contributors.slice(0, 3).map((contributorId, idx) => (
                             <Avatar key={idx} className="w-6 h-6 border-2 border-background">
                               <AvatarFallback className="text-xs">
                                 {contributorId.substring(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                           ))}
-                          {space.contributors.length > 3 && (
+                          {theme.contributors.length > 3 && (
                             <Avatar className="w-6 h-6 border-2 border-background">
                               <AvatarFallback className="text-xs">
-                                +{space.contributors.length - 3}
+                                +{theme.contributors.length - 3}
                               </AvatarFallback>
                             </Avatar>
                           )}
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          {space.contributors.length} {space.contributors.length === 1 ? 'contributor' : 'contributors'}
+                          {theme.contributors.length} {theme.contributors.length === 1 ? 'contributor' : 'contributors'}
                         </span>
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Clock className="w-3 h-3" />
-                      Updated {formatDate(space.updatedAt || space.createdAt)}
+                      Updated {formatDate(theme.updatedAt || theme.createdAt)}
                     </div>
                   </div>
                 </CardContent>
@@ -428,4 +428,5 @@ const ProblemSpacesPage = () => {
   );
 };
 
-export default ProblemSpacesPage;
+export default ThemesPage;
+

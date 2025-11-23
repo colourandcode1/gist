@@ -5,7 +5,7 @@ import QuickStats from '@/components/Dashboard/QuickStats';
 import QuickActions from '@/components/Dashboard/QuickActions';
 import RecentActivity from '@/components/Dashboard/RecentActivity';
 import ActivityChart from '@/components/Dashboard/ActivityChart';
-import { getSessions, getProjects, getProblemSpaces, getAllNuggets } from '@/lib/firestoreUtils';
+import { getSessions, getProjects, getThemes, getAllNuggets } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Building2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -20,11 +20,11 @@ const DashboardPage = () => {
     sessionsThisMonth: 0,
     totalInsights: 0,
     activeProjects: 0,
-    activeProblemSpaces: 0
+    activeThemes: 0
   });
   const [recentSessions, setRecentSessions] = useState([]);
   const [recentProjects, setRecentProjects] = useState([]);
-  const [recentProblemSpaces, setRecentProblemSpaces] = useState([]);
+  const [recentThemes, setRecentThemes] = useState([]);
   const [allSessions, setAllSessions] = useState([]);
   const [allNuggets, setAllNuggets] = useState([]);
 
@@ -57,10 +57,10 @@ const DashboardPage = () => {
     setIsLoading(true);
     try {
       // Fetch all data in parallel
-      let [sessions, projects, problemSpaces, nuggets] = await Promise.all([
+      let [sessions, projects, themes, nuggets] = await Promise.all([
         getSessions(currentUser.uid),
         getProjects(currentUser.uid),
-        getProblemSpaces(currentUser.uid),
+        getThemes(currentUser.uid),
         getAllNuggets(currentUser.uid)
       ]);
 
@@ -68,7 +68,7 @@ const DashboardPage = () => {
       if (selectedWorkspaceId) {
         sessions = sessions.filter(s => s.workspaceId === selectedWorkspaceId);
         projects = projects.filter(p => p.workspaceId === selectedWorkspaceId);
-        problemSpaces = problemSpaces.filter(ps => ps.workspaceId === selectedWorkspaceId);
+        themes = themes.filter(t => t.workspaceId === selectedWorkspaceId);
         // Filter nuggets by sessions in the workspace
         const workspaceSessionIds = new Set(sessions.map(s => s.id));
         nuggets = nuggets.filter(n => workspaceSessionIds.has(n.session_id));
@@ -90,14 +90,14 @@ const DashboardPage = () => {
       }).length;
 
       const activeProjects = projects.filter(project => project.status === 'active').length;
-      const activeProblemSpaces = problemSpaces.filter(ps => ps.privacy !== 'archived').length;
+      const activeThemes = themes.filter(t => t.privacy !== 'archived').length;
 
       setStats({
         sessionsThisWeek,
         sessionsThisMonth,
         totalInsights: nuggets.length,
         activeProjects,
-        activeProblemSpaces
+        activeThemes
       });
 
       // Get recent items (sorted by updatedAt or createdAt, most recent first)
@@ -113,7 +113,7 @@ const DashboardPage = () => {
         return dateB - dateA;
       });
 
-      const sortedProblemSpaces = [...problemSpaces].sort((a, b) => {
+      const sortedThemes = [...themes].sort((a, b) => {
         const dateA = new Date(a.updatedAt || a.createdAt || 0);
         const dateB = new Date(b.updatedAt || b.createdAt || 0);
         return dateB - dateA;
@@ -121,7 +121,7 @@ const DashboardPage = () => {
 
       setRecentSessions(sortedSessions.slice(0, 5));
       setRecentProjects(sortedProjects.slice(0, 5));
-      setRecentProblemSpaces(sortedProblemSpaces.slice(0, 5));
+      setRecentThemes(sortedThemes.slice(0, 5));
       setAllSessions(sessions);
       setAllNuggets(nuggets);
     } catch (error) {
@@ -212,7 +212,7 @@ const DashboardPage = () => {
           <RecentActivity
             recentSessions={recentSessions}
             recentProjects={recentProjects}
-            recentProblemSpaces={recentProblemSpaces}
+            recentThemes={recentThemes}
           />
         </div>
       </div>

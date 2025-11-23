@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-export const ProblemSpaceSettingsTab = ({
-  problemSpace,
+export const ThemeSettingsTab = ({
+  theme,
   canEdit,
   currentUser,
   onPrivacyChange
@@ -20,14 +20,14 @@ export const ProblemSpaceSettingsTab = ({
             <div>
               <p className="font-medium">Privacy</p>
               <p className="text-sm text-muted-foreground">
-                {problemSpace.privacy === 'private' 
-                  ? 'Only you can view and edit this problem space'
+                {theme.privacy === 'private' 
+                  ? 'Only you can view and edit this theme'
                   : 'Team members can view and contribute'}
               </p>
             </div>
-            {canEdit && problemSpace.userId === currentUser?.uid && (
+            {canEdit && theme.userId === currentUser?.uid && (
               <Switch
-                checked={problemSpace.privacy === 'team'}
+                checked={theme.privacy === 'team'}
                 onCheckedChange={(checked) => onPrivacyChange(checked ? 'team' : 'private')}
               />
             )}
@@ -41,7 +41,7 @@ export const ProblemSpaceSettingsTab = ({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Output type: {problemSpace.outputType || 'Not set'}
+            Output type: {theme.outputType || 'Not set'}
           </p>
         </CardContent>
       </Card>
@@ -51,9 +51,9 @@ export const ProblemSpaceSettingsTab = ({
           <CardTitle>Contributors</CardTitle>
         </CardHeader>
         <CardContent>
-          {problemSpace.contributors && problemSpace.contributors.length > 0 ? (
+          {theme.contributors && theme.contributors.length > 0 ? (
             <div className="flex -space-x-2">
-              {problemSpace.contributors.map((contributorId, idx) => (
+              {theme.contributors.map((contributorId, idx) => (
                 <Avatar key={idx} className="w-10 h-10 border-2 border-background">
                   <AvatarFallback>
                     {contributorId.substring(0, 2).toUpperCase()}

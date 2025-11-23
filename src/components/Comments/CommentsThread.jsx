@@ -10,7 +10,7 @@ import { getComments, updateComment, deleteComment } from '@/lib/firestoreUtils'
 import { getUserProfile } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
-const CommentsThread = ({ problemSpaceId, insightId = null }) => {
+const CommentsThread = ({ themeId, insightId = null }) => {
   const { currentUser } = useAuth();
   const [comments, setComments] = useState([]);
   const [userProfiles, setUserProfiles] = useState({});
@@ -20,15 +20,15 @@ const CommentsThread = ({ problemSpaceId, insightId = null }) => {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    if (problemSpaceId) {
+    if (themeId) {
       loadComments();
     }
-  }, [problemSpaceId, insightId]);
+  }, [themeId, insightId]);
 
   const loadComments = async () => {
     setIsLoading(true);
     try {
-      const commentsData = await getComments(problemSpaceId, insightId);
+      const commentsData = await getComments(themeId, insightId);
       setComments(commentsData);
 
       // Load user profiles for all comment authors
@@ -163,7 +163,7 @@ const CommentsThread = ({ problemSpaceId, insightId = null }) => {
         <Card>
           <CardContent className="pt-6">
             <CommentForm
-              problemSpaceId={problemSpaceId}
+              themeId={themeId}
               insightId={insightId}
               onCommentAdded={() => {
                 setShowForm(false);

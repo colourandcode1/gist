@@ -5,21 +5,21 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { getActivities, getUserProfile } from '@/lib/firestoreUtils';
 
-const ActivityFeed = ({ problemSpaceId }) => {
+const ActivityFeed = ({ themeId }) => {
   const [activities, setActivities] = useState([]);
   const [userProfiles, setUserProfiles] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (problemSpaceId) {
+    if (themeId) {
       loadActivities();
     }
-  }, [problemSpaceId]);
+  }, [themeId]);
 
   const loadActivities = async () => {
     setIsLoading(true);
     try {
-      const activitiesData = await getActivities(problemSpaceId);
+      const activitiesData = await getActivities(themeId);
       setActivities(activitiesData);
 
       // Load user profiles for all activity authors
@@ -81,7 +81,7 @@ const ActivityFeed = ({ problemSpaceId }) => {
         return <Plus className="w-4 h-4" />;
       case 'comment':
         return <MessageSquare className="w-4 h-4" />;
-      case 'problem_space_updated':
+      case 'theme_updated':
         return <Edit className="w-4 h-4" />;
       case 'project_changed':
         return <FolderOpen className="w-4 h-4" />;
@@ -96,7 +96,7 @@ const ActivityFeed = ({ problemSpaceId }) => {
         return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300';
       case 'comment':
         return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300';
-      case 'problem_space_updated':
+      case 'theme_updated':
         return 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300';
       case 'project_changed':
         return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300';

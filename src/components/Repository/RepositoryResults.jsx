@@ -15,7 +15,7 @@ export const RepositoryResults = ({
   toggleNuggetSelection,
   handleNuggetClick,
   handleWatchClick,
-  handleBulkAddToProblemSpace,
+  handleBulkAddToTheme,
   toggleSelectAll,
   userOrganization,
   userProfile,
@@ -68,10 +68,10 @@ export const RepositoryResults = ({
               {selectedNuggets.size > 0 && (
                 <Button
                   size="sm"
-                  onClick={handleBulkAddToProblemSpace}
+                  onClick={handleBulkAddToTheme}
                 >
                   <Target className="w-4 h-4 mr-2" />
-                  Add to Problem Space ({selectedNuggets.size})
+                  Add to Theme ({selectedNuggets.size})
                 </Button>
               )}
             </>
@@ -105,9 +105,9 @@ export const RepositoryResults = ({
               isSelected={isSelected}
               onNuggetClick={handleNuggetClick}
               onWatchClick={handleWatchClick}
-              onAddToProblemSpace={() => {
+              onAddToTheme={() => {
                 // This will be handled by the parent component
-                handleBulkAddToProblemSpace();
+                handleBulkAddToTheme();
               }}
             />
           </div>

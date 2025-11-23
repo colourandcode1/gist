@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ActivityFeed from '@/components/ActivityFeed';
 
-export const ProblemSpaceOverviewTab = ({
-  problemSpace,
+export const ThemeOverviewTab = ({
+  theme,
   isEditing,
   editData,
   setEditData,
@@ -38,7 +38,7 @@ export const ProblemSpaceOverviewTab = ({
             />
           ) : (
             <p className="text-foreground whitespace-pre-wrap">
-              {problemSpace.problemStatement || 'No problem statement defined'}
+              {theme.problemStatement || 'No problem statement defined'}
             </p>
           )}
         </CardContent>
@@ -85,8 +85,8 @@ export const ProblemSpaceOverviewTab = ({
             </div>
           ) : (
             <div className="space-y-2">
-              {problemSpace.keyQuestions && problemSpace.keyQuestions.length > 0 ? (
-                problemSpace.keyQuestions.map((question, index) => (
+              {theme.keyQuestions && theme.keyQuestions.length > 0 ? (
+                theme.keyQuestions.map((question, index) => (
                   <Badge key={index} variant="secondary" className="mr-2">
                     {question}
                   </Badge>
@@ -105,9 +105,9 @@ export const ProblemSpaceOverviewTab = ({
           <CardTitle>Linked Projects</CardTitle>
         </CardHeader>
         <CardContent>
-          {problemSpace.linkedProjects && problemSpace.linkedProjects.length > 0 ? (
+          {theme.linkedProjects && theme.linkedProjects.length > 0 ? (
             <div className="space-y-2">
-              {problemSpace.linkedProjects.map((projectId) => {
+              {theme.linkedProjects.map((projectId) => {
                 const project = projects.find(p => p.id === projectId);
                 return project ? (
                   <Button
@@ -130,20 +130,20 @@ export const ProblemSpaceOverviewTab = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{problemSpace.insightIds?.length || 0}</div>
+            <div className="text-2xl font-bold">{theme.insightIds?.length || 0}</div>
             <p className="text-sm text-muted-foreground">Total Insights</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{problemSpace.contributors?.length || 1}</div>
+            <div className="text-2xl font-bold">{theme.contributors?.length || 1}</div>
             <p className="text-sm text-muted-foreground">Contributors</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">
-              {problemSpace.linkedProjects?.length || 0}
+              {theme.linkedProjects?.length || 0}
             </div>
             <p className="text-sm text-muted-foreground">Linked Projects</p>
           </CardContent>
@@ -156,7 +156,7 @@ export const ProblemSpaceOverviewTab = ({
           <CardTitle>Recent Activity</CardTitle>
         </CardHeader>
         <CardContent>
-          <ActivityFeed problemSpaceId={problemSpace.id} />
+          <ActivityFeed themeId={theme.id} />
         </CardContent>
       </Card>
     </div>

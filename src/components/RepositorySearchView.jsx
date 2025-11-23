@@ -77,35 +77,35 @@ const RepositorySearchView = ({ onNavigate }) => {
     }
   };
 
-  const handleBulkAddToProblemSpace = async () => {
+  const handleBulkAddToTheme = async () => {
     if (selectedNuggets.size === 0) return;
 
     // Import dynamically to avoid circular dependencies
-    const { getProblemSpaces, addInsightToProblemSpace } = await import('@/lib/firestoreUtils');
-    const problemSpaces = await getProblemSpaces(currentUser.uid);
+    const { getThemes, addInsightToTheme } = await import('@/lib/firestoreUtils');
+    const themes = await getThemes(currentUser.uid);
     
-    if (problemSpaces.length === 0) {
-      if (window.confirm('No problem spaces found. Would you like to create one?')) {
-        // Navigate to create problem space
+    if (themes.length === 0) {
+      if (window.confirm('No themes found. Would you like to create one?')) {
+        // Navigate to create theme
         if (onNavigate) {
-          onNavigate('/problem-spaces');
+          onNavigate('/themes');
         }
       }
       return;
     }
 
     // Simple selection - in a real app, you'd show a dialog
-    const selectedSpace = problemSpaces[0];
+    const selectedTheme = themes[0];
     
     try {
       for (const insightId of selectedNuggets) {
-        await addInsightToProblemSpace(selectedSpace.id, insightId, currentUser.uid);
+        await addInsightToTheme(selectedTheme.id, insightId, currentUser.uid);
       }
-      alert(`Added ${selectedNuggets.size} insight(s) to "${selectedSpace.name}"`);
+      alert(`Added ${selectedNuggets.size} insight(s) to "${selectedTheme.name}"`);
       setSelectedNuggets(new Set());
     } catch (error) {
       console.error('Error adding insights:', error);
-      alert('Failed to add insights to problem space');
+      alert('Failed to add insights to theme');
     }
   };
 
@@ -177,7 +177,7 @@ const RepositorySearchView = ({ onNavigate }) => {
             toggleNuggetSelection={toggleNuggetSelection}
             handleNuggetClick={handleNuggetClick}
             handleWatchClick={handleWatchClick}
-            handleBulkAddToProblemSpace={handleBulkAddToProblemSpace}
+            handleBulkAddToTheme={handleBulkAddToTheme}
             toggleSelectAll={toggleSelectAll}
             userOrganization={userOrganization}
             userProfile={userProfile}

@@ -3,37 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-export const ProjectProblemSpacesTab = ({ problemSpaces, nuggets }) => {
+export const ProjectThemesTab = ({ themes, nuggets }) => {
   const navigate = useNavigate();
 
-  const getInsightCount = (problemSpace) => {
+  const getInsightCount = (theme) => {
     const projectInsightIds = nuggets.map(n => `${n.session_id}:${n.id}`);
-    return problemSpace.insightIds?.filter(id => projectInsightIds.includes(id)).length || 0;
+    return theme.insightIds?.filter(id => projectInsightIds.includes(id)).length || 0;
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Problem Spaces Using Project Insights</h3>
+        <h3 className="text-lg font-semibold">Themes Using Project Insights</h3>
       </div>
-      {problemSpaces.length === 0 ? (
+      {themes.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">No problem spaces are using insights from this project</p>
+            <p className="text-muted-foreground mb-4">No themes are using insights from this project</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          {problemSpaces.map((ps) => (
-            <Card key={ps.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/problem-spaces/${ps.id}`)}>
+          {themes.map((theme) => (
+            <Card key={theme.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/themes/${theme.id}`)}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-foreground">{ps.name}</h4>
-                    <p className="text-sm text-muted-foreground">{ps.description || 'No description'}</p>
+                    <h4 className="font-medium text-foreground">{theme.name}</h4>
+                    <p className="text-sm text-muted-foreground">{theme.description || 'No description'}</p>
                   </div>
                   <Badge variant="outline">
-                    {getInsightCount(ps)} insights from this project
+                    {getInsightCount(theme)} insights from this project
                   </Badge>
                 </div>
               </CardContent>

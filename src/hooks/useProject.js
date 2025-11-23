@@ -6,7 +6,7 @@ import {
   deleteProject,
   getSessionsByProject, 
   getAllNuggets,
-  getProblemSpaces
+  getThemes
 } from '@/lib/firestoreUtils';
 
 export const useProject = (id, currentUser) => {
@@ -14,7 +14,7 @@ export const useProject = (id, currentUser) => {
   const [project, setProject] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [nuggets, setNuggets] = useState([]);
-  const [problemSpaces, setProblemSpaces] = useState([]);
+  const [themes, setThemes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadProjectData = async () => {
@@ -31,23 +31,23 @@ export const useProject = (id, currentUser) => {
       setProject(projectData);
 
       // Load related data
-      const [sessionsData, nuggetsData, allProblemSpaces] = await Promise.all([
+      const [sessionsData, nuggetsData, allThemes] = await Promise.all([
         getSessionsByProject(id, currentUser.uid),
         getAllNuggets(currentUser.uid, null, id),
-        getProblemSpaces(currentUser.uid)
+        getThemes(currentUser.uid)
       ]);
 
       setSessions(sessionsData);
       setNuggets(nuggetsData);
 
-      // Filter problem spaces that use insights from this project
-      const relevantProblemSpaces = allProblemSpaces.filter(ps => {
+      // Filter themes that use insights from this project
+      const relevantThemes = allThemes.filter(t => {
         // Check if any insight IDs match nuggets from this project
         const projectInsightIds = nuggetsData.map(n => `${n.session_id}:${n.id}`);
-        return ps.insightIds?.some(insightId => projectInsightIds.includes(insightId));
+        return t.insightIds?.some(insightId => projectInsightIds.includes(insightId));
       });
 
-      setProblemSpaces(relevantProblemSpaces);
+      setThemes(relevantThemes);
     } catch (error) {
       console.error('Error loading project data:', error);
     } finally {
@@ -87,7 +87,7 @@ export const useProject = (id, currentUser) => {
     project,
     sessions,
     nuggets,
-    problemSpaces,
+    themes,
     isLoading,
     loadProjectData,
     handleArchive,

@@ -22,7 +22,7 @@ export const createComment = async (commentData, userId) => {
     }
 
     const commentPayload = {
-      problemSpaceId: commentData.problemSpaceId,
+      themeId: commentData.themeId,
       insightId: commentData.insightId || null, // Optional: comment on specific insight
       userId,
       content: commentData.content,
@@ -39,13 +39,13 @@ export const createComment = async (commentData, userId) => {
   }
 };
 
-// Get comments for a problem space (and optionally a specific insight)
-export const getComments = async (problemSpaceId, insightId = null) => {
+// Get comments for a theme (and optionally a specific insight)
+export const getComments = async (themeId, insightId = null) => {
   try {
-    // Fetch all comments for the problem space
+    // Fetch all comments for the theme
     const q = query(
       collection(db, 'comments'),
-      where('problemSpaceId', '==', problemSpaceId),
+      where('themeId', '==', themeId),
       orderBy('createdAt', 'asc')
     );
 

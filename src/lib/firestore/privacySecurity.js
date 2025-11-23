@@ -52,7 +52,7 @@ export const getPrivacySecuritySettings = async (userId, teamId = null) => {
         nuggets: { enabled: true, days: 730 },
         sessionRecordings: { enabled: true, days: 90 },
         auditLogs: { enabled: true, days: 2555 },
-        problemSpaces: { enabled: false, days: 0 }
+        themes: { enabled: false, days: 0 }
       },
       dataResidency: {
         region: 'us-east-1'
@@ -62,7 +62,7 @@ export const getPrivacySecuritySettings = async (userId, teamId = null) => {
         allowedIPs: [],
         sessionTimeout: 30,
         twoFactorAuth: false,
-        problemSpaceSharing: 'team'
+        themeSharing: 'team'
       }
     };
   } catch (error) {

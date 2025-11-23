@@ -13,7 +13,7 @@ import {
 } from '@/lib/firestoreUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
-const ShareDialog = ({ problemSpaceId, onClose }) => {
+const ShareDialog = ({ themeId, onClose }) => {
   const { currentUser } = useAuth();
   const [shareLinks, setShareLinks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,15 +28,15 @@ const ShareDialog = ({ problemSpaceId, onClose }) => {
   });
 
   useEffect(() => {
-    if (problemSpaceId && currentUser) {
+    if (themeId && currentUser) {
       loadShareLinks();
     }
-  }, [problemSpaceId, currentUser]);
+  }, [themeId, currentUser]);
 
   const loadShareLinks = async () => {
     setIsLoading(true);
     try {
-      const links = await getShareLinks(problemSpaceId, currentUser.uid);
+      const links = await getShareLinks(themeId, currentUser.uid);
       setShareLinks(links);
     } catch (error) {
       console.error('Error loading share links:', error);
@@ -56,10 +56,10 @@ const ShareDialog = ({ problemSpaceId, onClose }) => {
         permission: newLinkData.permission
       };
 
-      const result = await createShareLink(problemSpaceId, shareData, currentUser.uid);
+      const result = await createShareLink(themeId, shareData, currentUser.uid);
       if (result.success) {
         // Generate the full share URL
-        const shareUrl = `${window.location.origin}/problem-spaces/${problemSpaceId}?share=${result.shareToken}`;
+        const shareUrl = `${window.location.origin}/themes/${themeId}?share=${result.shareToken}`;
         
         // Reset form
         setNewLinkData({
@@ -88,7 +88,7 @@ const ShareDialog = ({ problemSpaceId, onClose }) => {
   };
 
   const handleCopyLink = async (shareToken) => {
-    const shareUrl = `${window.location.origin}/problem-spaces/${problemSpaceId}?share=${shareToken}`;
+    const shareUrl = `${window.location.origin}/themes/${themeId}?share=${shareToken}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopiedId(shareToken);
@@ -274,7 +274,7 @@ const ShareDialog = ({ problemSpaceId, onClose }) => {
                             </div>
                             <div className="flex items-center gap-2">
                               <Input
-                                value={`${window.location.origin}/problem-spaces/${problemSpaceId}?share=${link.shareToken}`}
+                                value={`${window.location.origin}/themes/${themeId}?share=${link.shareToken}`}
                                 readOnly
                                 className="text-xs font-mono"
                               />
