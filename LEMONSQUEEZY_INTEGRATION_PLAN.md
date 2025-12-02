@@ -17,9 +17,9 @@ This plan details the integration of LemonSqueezy as the payment provider for th
 1. Create LemonSqueezy account (UK-based, no business registration needed)
 2. Add UK bank account details
 3. Create products for each tier:
-   - Starter Plan ($29/month)
+   - Small Team ($49/month)
    - Team Plan ($149/month)
-   - Enterprise Plan ($349/month)
+   - Enterprise Plan ($399/month)
 4. Get API keys:
    - Store ID
    - API Key (for server-side operations)
@@ -36,9 +36,9 @@ This plan details the integration of LemonSqueezy as the payment provider for th
 ### 1.2 Create Products in LemonSqueezy Dashboard
 Create three products corresponding to our tiers:
 
-**Starter Plan**
-- Name: "Gist Starter Plan"
-- Price: $29/month (recurring)
+**Small Team Plan**
+- Name: "Gist Small Team Plan"
+- Price: $49/month (recurring)
 - Billing interval: Monthly
 - Note the Variant ID (will be used in code)
 
@@ -50,7 +50,7 @@ Create three products corresponding to our tiers:
 
 **Enterprise Plan**
 - Name: "Gist Enterprise Plan"
-- Price: $349/month (recurring)
+- Price: $399/month (recurring)
 - Billing interval: Monthly
 - Note the Variant ID
 
@@ -115,7 +115,7 @@ This file will contain:
 Map tier names to LemonSqueezy variant IDs:
 ```javascript
 export const LEMONSQUEEZY_VARIANTS = {
-  starter: 'variant_id_from_lemonsqueezy',
+  small_team: 'variant_id_from_lemonsqueezy',
   team: 'variant_id_from_lemonsqueezy',
   enterprise: 'variant_id_from_lemonsqueezy'
 };
@@ -263,12 +263,12 @@ Create functions to sync LemonSqueezy data with Firestore:
    - Verify organization tier updated
 
 2. **Subscription Upgrade**
-   - Upgrade from Starter to Team
+   - Upgrade from Small Team to Team
    - Verify tier change in Firestore
    - Verify billing updated
 
 3. **Subscription Downgrade**
-   - Downgrade from Team to Starter
+   - Downgrade from Team to Small Team
    - Verify tier change
    - Verify workspace limits enforced
 

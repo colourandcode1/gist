@@ -105,16 +105,23 @@ See [FIRESTORE_INDEXES.md](./FIRESTORE_INDEXES.md) for complete details, step-by
 
 ## User Roles
 
-The system supports three user roles:
-- **admin**: Full access
-- **researcher**: Can create and edit sessions/nuggets (default for new users)
-- **viewer**: Read-only access (not yet fully implemented)
+The system supports two base roles with an admin permission flag:
+
+- **viewer**: Read-only access - can view content but cannot create or edit
+- **member**: Full content creation and editing - can upload sessions, create nuggets, create themes, create projects, and comment
+- **admin**: Not a separate role, but a permission flag (`is_admin: true`) on the Member role. Admins have all Member permissions plus:
+  - Team management (add/remove members, change roles)
+  - Billing management
+  - Workspace permissions configuration (Enterprise tier only)
+
+**Note:** Admin is implemented as `role: 'member'` with `is_admin: true` in the user document.
 
 User roles are stored in Firestore under `users/{userId}/role`. To change a user's role:
 1. Go to Firebase Console > Firestore Database
 2. Navigate to `users` collection
 3. Find the user document
-4. Update the `role` field
+4. Update the `role` field to `'viewer'` or `'member'`
+5. For admin permissions, ensure `role` is `'member'` and set `is_admin` to `true`
 
 ## Data Migration
 
