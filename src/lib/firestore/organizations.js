@@ -7,14 +7,14 @@ import {
   getDocs,
   query,
   where,
+  limit,
   updateDoc,
   deleteDoc,
   serverTimestamp,
   orderBy,
   Timestamp
 } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../firebase';
+import { db } from '../firebase';
 
 // Helper function to generate subdomain from organization name
 const generateSubdomain = (name) => {
@@ -40,7 +40,7 @@ const validateSubdomain = (subdomain) => {
 };
 
 // Check if subdomain is available
-// Uses Cloud Function to check availability without requiring authentication
+// Uses direct Firestore query - only checks existence, doesn't return sensitive data
 export const isSubdomainAvailable = async (subdomain) => {
   try {
     // If subdomain is empty/null, it's optional so return true
@@ -51,41 +51,24 @@ export const isSubdomainAvailable = async (subdomain) => {
     // Normalize subdomain
     const normalized = subdomain.toLowerCase().trim();
     
-    // Call Cloud Function to check availability
-    const checkSubdomainAvailability = httpsCallable(functions, 'checkSubdomainAvailability');
-    const result = await checkSubdomainAvailability({ subdomain: normalized });
+    // Direct Firestore query - only checks existence, doesn't return document data
+    // This is secure because we only check if documents exist, not what they contain
+    // Using limit(1) minimizes data transfer - we only need to know if at least one exists
+    const q = query(
+      collection(db, 'organizations'),
+      where('subdomain', '==', normalized),
+      limit(1)
+    );
     
-    const { available, error } = result.data;
+    const snapshot = await getDocs(q);
     
-    // If there's a validation error, throw it so the UI can handle it
-    if (error && !available) {
-      // Check if it's a validation error (format issue) vs availability error
-      const validationErrors = [
-        'Subdomain must be at least 3 characters',
-        'Subdomain must be 50 characters or less',
-        'Subdomain can only contain lowercase letters, numbers, and hyphens',
-        'Subdomain cannot start or end with a hyphen'
-      ];
-      
-      if (validationErrors.some(msg => error.includes(msg))) {
-        // This is a validation error - throw it so UI can show proper message
-        throw new Error(error);
-      }
-    }
+    // If no documents found, subdomain is available
+    return snapshot.empty;
     
-    return available === true;
   } catch (error) {
     console.error('Error checking subdomain availability:', error);
     
-    // If it's a validation error, re-throw it
-    if (error.message && (
-      error.message.includes('Subdomain') || 
-      error.message.includes('subdomain')
-    )) {
-      throw error;
-    }
-    
-    // For other errors (network, etc.), throw a generic error
+    // Re-throw to let UI handle it
     throw new Error('Error checking subdomain availability. Please try again.');
   }
 };

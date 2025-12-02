@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateOrganization } from '@/lib/firestoreUtils';
 import { isSubdomainAvailable } from '@/lib/firestoreUtils';
@@ -18,6 +18,10 @@ const OrganizationSettings = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
 
+  // Refs for debouncing and race condition handling
+  const debounceTimerRef = useRef(null);
+  const latestRequestIdRef = useRef(0);
+
   // Initialize form with current organization data
   useEffect(() => {
     if (userOrganization) {
@@ -26,20 +30,75 @@ const OrganizationSettings = () => {
     }
   }, [userOrganization]);
 
-  // Check subdomain availability when it changes
-  const handleSubdomainChange = async (value) => {
-    setOrgSubdomain(value);
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Debounced subdomain availability check
+  const validateSubdomainDebounced = useCallback(async (value, requestId) => {
+    // Only process if this is still the latest request
+    if (requestId !== latestRequestIdRef.current) {
+      return; // Ignore outdated requests
+    }
+
+    setCheckingSubdomain(true);
     setSubdomainError('');
+
+    try {
+      const available = await isSubdomainAvailable(value);
+      
+      // Double-check this is still the latest request
+      if (requestId !== latestRequestIdRef.current) {
+        return;
+      }
+
+      if (!available) {
+        setSubdomainError('This subdomain is already taken');
+      } else {
+        setSubdomainError('');
+      }
+    } catch (error) {
+      // Only set error if this is still the latest request
+      if (requestId === latestRequestIdRef.current) {
+        console.error('Error checking subdomain:', error);
+        const errorMessage = error.message || 'Error checking subdomain availability';
+        if (errorMessage.includes('Subdomain')) {
+          setSubdomainError(errorMessage);
+        } else {
+          setSubdomainError('Unable to check subdomain availability. Please try again.');
+        }
+      }
+    } finally {
+      if (requestId === latestRequestIdRef.current) {
+        setCheckingSubdomain(false);
+      }
+    }
+  }, []);
+
+  // Handle subdomain input changes with debouncing
+  const handleSubdomainChange = useCallback((value) => {
+    setOrgSubdomain(value);
+    setSubdomainError(''); // Clear errors immediately when typing
     setSuccessMessage('');
 
-    // If empty, clear errors
+    // Cancel previous debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // If empty, clear errors and return
     if (!value || value.trim() === '') {
       return;
     }
 
     const normalized = value.toLowerCase().trim();
 
-    // Basic client-side validation
+    // Immediate client-side validation (no debounce)
     if (normalized.length < 3) {
       setSubdomainError('Subdomain must be at least 3 characters');
       return;
@@ -61,26 +120,15 @@ const OrganizationSettings = () => {
       return;
     }
 
-    setCheckingSubdomain(true);
-    try {
-      const available = await isSubdomainAvailable(normalized);
-      if (!available) {
-        setSubdomainError('This subdomain is already taken');
-      } else {
-        setSubdomainError('');
-      }
-    } catch (error) {
-      console.error('Error checking subdomain:', error);
-      const errorMessage = error.message || 'Error checking subdomain availability';
-      if (errorMessage.includes('Subdomain')) {
-        setSubdomainError(errorMessage);
-      } else {
-        setSubdomainError('Unable to check subdomain availability. Please try again.');
-      }
-    } finally {
-      setCheckingSubdomain(false);
-    }
-  };
+    // Increment request ID for race condition handling
+    latestRequestIdRef.current += 1;
+    const currentRequestId = latestRequestIdRef.current;
+
+    // Debounce API call (500ms after user stops typing)
+    debounceTimerRef.current = setTimeout(() => {
+      validateSubdomainDebounced(normalized, currentRequestId);
+    }, 500);
+  }, [userOrganization, validateSubdomainDebounced]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
