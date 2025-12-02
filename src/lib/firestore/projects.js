@@ -36,6 +36,30 @@ export const createProject = async (projectData, userId) => {
       throw new Error('User ID is required to create project');
     }
 
+    // Ensure workspaceId is set - get from user's default workspace if not provided
+    let workspaceId = projectData.workspaceId;
+    if (!workspaceId) {
+      try {
+        const { getUserProfile } = await import('./users');
+        const userProfile = await getUserProfile(userId);
+        if (userProfile?.workspaceIds && userProfile.workspaceIds.length > 0) {
+          workspaceId = userProfile.workspaceIds[0];
+        } else {
+          // If user has no workspace, try to get from organization
+          if (userProfile?.organizationId) {
+            const { getWorkspaces } = await import('./workspaces');
+            const workspaces = await getWorkspaces(userProfile.organizationId);
+            if (workspaces && workspaces.length > 0) {
+              workspaceId = workspaces[0].id;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Could not determine workspaceId for project:', error);
+        // Continue without workspaceId - Firestore rules will handle this
+      }
+    }
+
     const projectPayload = {
       name: projectData.name,
       description: projectData.description || '',
@@ -44,7 +68,7 @@ export const createProject = async (projectData, userId) => {
       status: projectData.status || 'active', // active, completed, archived
       userId, // Owner of the project
       teamId: projectData.teamId || null, // null = private, will be set when added to team
-      workspaceId: projectData.workspaceId || null, // Workspace ID for organization structure
+      workspaceId: workspaceId || null, // Workspace ID for organization structure - REQUIRED for multi-tenant isolation
       researchGoals: projectData.researchGoals || [],
       teamMembers: projectData.teamMembers || [],
       createdBy: userId,
@@ -61,8 +85,8 @@ export const createProject = async (projectData, userId) => {
   }
 };
 
-// Get all projects for a user (and optionally a team)
-export const getProjects = async (userId, teamId = null) => {
+// Get all projects for a user (and optionally a team or workspace)
+export const getProjects = async (userId, teamId = null, workspaceIds = null) => {
   try {
     if (!userId) {
       return [];
@@ -74,6 +98,15 @@ export const getProjects = async (userId, teamId = null) => {
       q = query(
         collection(db, 'projects'),
         where('teamId', '==', teamId),
+        orderBy('createdAt', 'desc')
+      );
+    } else if (workspaceIds && workspaceIds.length > 0) {
+      // Filter by workspaceIds for organization isolation
+      // Firestore 'in' query supports up to 10 values
+      const workspaceIdsToQuery = workspaceIds.slice(0, 10);
+      q = query(
+        collection(db, 'projects'),
+        where('workspaceId', 'in', workspaceIdsToQuery),
         orderBy('createdAt', 'desc')
       );
     } else {
@@ -95,6 +128,13 @@ export const getProjects = async (userId, teamId = null) => {
         return; // Skip team projects when fetching private projects
       }
       
+      // If filtering by workspaceIds, ensure project belongs to one of the workspaces
+      if (workspaceIds && workspaceIds.length > 0) {
+        if (!data.workspaceId || !workspaceIds.includes(data.workspaceId)) {
+          return; // Skip projects not in user's workspaces
+        }
+      }
+      
       projects.push({
         id: doc.id,
         ...data,
@@ -105,6 +145,39 @@ export const getProjects = async (userId, teamId = null) => {
         endDate: data.endDate?.toDate ? data.endDate.toDate().toISOString() : (data.endDate || null)
       });
     });
+    
+    // Handle case where user has more than 10 workspaces (Firestore 'in' limit)
+    if (workspaceIds && workspaceIds.length > 10) {
+      for (let i = 10; i < workspaceIds.length; i += 10) {
+        const batch = workspaceIds.slice(i, i + 10);
+        try {
+          const batchQuery = query(
+            collection(db, 'projects'),
+            where('workspaceId', 'in', batch),
+            orderBy('createdAt', 'desc')
+          );
+          const batchSnapshot = await getDocs(batchQuery);
+          batchSnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (!data.workspaceId || !workspaceIds.includes(data.workspaceId)) {
+              return;
+            }
+            if (!projects.find(p => p.id === doc.id)) {
+              projects.push({
+                id: doc.id,
+                ...data,
+                createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+                updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+                startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : (data.startDate || null),
+                endDate: data.endDate?.toDate ? data.endDate.toDate().toISOString() : (data.endDate || null)
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Error loading batch of projects:', error);
+        }
+      }
+    }
 
     return projects;
   } catch (error) {
@@ -169,7 +242,7 @@ export const getProjects = async (userId, teamId = null) => {
 };
 
 // Get projects by status
-export const getProjectsByStatus = async (userId, status, teamId = null) => {
+export const getProjectsByStatus = async (userId, status, teamId = null, workspaceIds = null) => {
   try {
     if (!userId) {
       return [];
@@ -180,6 +253,15 @@ export const getProjectsByStatus = async (userId, status, teamId = null) => {
       q = query(
         collection(db, 'projects'),
         where('teamId', '==', teamId),
+        where('status', '==', status),
+        orderBy('createdAt', 'desc')
+      );
+    } else if (workspaceIds && workspaceIds.length > 0) {
+      // Filter by workspaceIds for organization isolation
+      const workspaceIdsToQuery = workspaceIds.slice(0, 10);
+      q = query(
+        collection(db, 'projects'),
+        where('workspaceId', 'in', workspaceIdsToQuery),
         where('status', '==', status),
         orderBy('createdAt', 'desc')
       );
@@ -201,6 +283,13 @@ export const getProjectsByStatus = async (userId, status, teamId = null) => {
         return;
       }
       
+      // If filtering by workspaceIds, ensure project belongs to one of the workspaces
+      if (workspaceIds && workspaceIds.length > 0) {
+        if (!data.workspaceId || !workspaceIds.includes(data.workspaceId)) {
+          return; // Skip projects not in user's workspaces
+        }
+      }
+      
       projects.push({
         id: doc.id,
         ...data,
@@ -210,6 +299,40 @@ export const getProjectsByStatus = async (userId, status, teamId = null) => {
         endDate: data.endDate?.toDate ? data.endDate.toDate().toISOString() : (data.endDate || null)
       });
     });
+    
+    // Handle case where user has more than 10 workspaces (Firestore 'in' limit)
+    if (workspaceIds && workspaceIds.length > 10) {
+      for (let i = 10; i < workspaceIds.length; i += 10) {
+        const batch = workspaceIds.slice(i, i + 10);
+        try {
+          const batchQuery = query(
+            collection(db, 'projects'),
+            where('workspaceId', 'in', batch),
+            where('status', '==', status),
+            orderBy('createdAt', 'desc')
+          );
+          const batchSnapshot = await getDocs(batchQuery);
+          batchSnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (!data.workspaceId || !workspaceIds.includes(data.workspaceId)) {
+              return;
+            }
+            if (!projects.find(p => p.id === doc.id)) {
+              projects.push({
+                id: doc.id,
+                ...data,
+                createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+                updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+                startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : (data.startDate || null),
+                endDate: data.endDate?.toDate ? data.endDate.toDate().toISOString() : (data.endDate || null)
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Error loading batch of projects by status:', error);
+        }
+      }
+    }
 
     return projects;
   } catch (error) {

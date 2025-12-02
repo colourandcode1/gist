@@ -11,6 +11,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getOrganizationById, getOrganizationByOwner, getWorkspaces, createOrganization, createWorkspace } from '@/lib/firestoreUtils';
+import { createJoinRequest, getRequestsByUser } from '@/lib/firestoreUtils';
 import {
   canUploadSessions,
   canCreateNuggets,
@@ -133,6 +134,52 @@ export const AuthProvider = ({ children }) => {
     return profileData;
   };
 
+  // Check for approved join requests and handle them
+  const checkPendingJoinRequests = async (userId) => {
+    try {
+      const requests = await getRequestsByUser(userId);
+      const approvedRequest = requests.find(r => r.status === 'approved' && !r.processed);
+      
+      if (approvedRequest) {
+        // User has an approved request - assign them to organization
+        const { getWorkspaces } = await import('@/lib/firestoreUtils');
+        const workspaces = await getWorkspaces(approvedRequest.organizationId);
+        const defaultWorkspaceId = workspaces && workspaces.length > 0 ? workspaces[0].id : null;
+
+        await setDoc(
+          doc(db, 'users', userId),
+          {
+            organizationId: approvedRequest.organizationId,
+            workspaceIds: defaultWorkspaceId ? [defaultWorkspaceId] : [],
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
+
+        // Mark request as processed (optional - you might want to keep it for history)
+        // For now, we'll just return the organization info
+        return {
+          organizationId: approvedRequest.organizationId,
+          message: 'Your request to join has been approved!'
+        };
+      }
+      
+      // Check for pending requests
+      const pendingRequest = requests.find(r => r.status === 'pending');
+      if (pendingRequest) {
+        return {
+          hasPendingRequest: true,
+          organizationId: pendingRequest.organizationId
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error checking join requests:', error);
+      return null;
+    }
+  };
+
   // Fetch user profile from Firestore
   const fetchUserProfile = async (user) => {
     if (!user) {
@@ -160,6 +207,21 @@ export const AuthProvider = ({ children }) => {
         
         setUserProfile(migratedProfile);
         
+        // Check for approved join requests first (before checking existing organization)
+        if (!profileData.organizationId) {
+          const joinRequestResult = await checkPendingJoinRequests(user.uid);
+          if (joinRequestResult && joinRequestResult.organizationId) {
+            // User was just approved - fetch the organization
+            profileData.organizationId = joinRequestResult.organizationId;
+            // Update profile data
+            await setDoc(
+              doc(db, 'users', user.uid),
+              { organizationId: joinRequestResult.organizationId },
+              { merge: true }
+            );
+          }
+        }
+        
         // Fetch organization if user has one
         if (profileData.organizationId) {
           try {
@@ -179,44 +241,39 @@ export const AuthProvider = ({ children }) => {
             setUserWorkspaces([]);
           }
         } else {
-          // Try to find organization by owner
-          try {
-            const org = await getOrganizationByOwner(user.uid);
-            if (org) {
-              setUserOrganization(org);
-              // Update user profile with organizationId
-              await setDoc(
-                doc(db, 'users', user.uid),
-                { organizationId: org.id },
-                { merge: true }
-              );
-              // Fetch workspaces
-              const workspaces = await getWorkspaces(org.id);
-              setUserWorkspaces(workspaces);
-            } else {
-              // User doesn't have an organization - create one
-              const orgResult = await createUserOrganization(user.uid, user.email);
-              if (orgResult && orgResult.organizationId) {
-                // Fetch the newly created organization
-                const newOrg = await getOrganizationById(orgResult.organizationId);
-                if (newOrg) {
-                  setUserOrganization(newOrg);
-                  // Fetch workspaces
-                  const workspaces = await getWorkspaces(newOrg.id);
-                  setUserWorkspaces(workspaces);
-                } else {
-                  setUserOrganization(null);
-                  setUserWorkspaces([]);
-                }
+          // Check for pending requests
+          const joinRequestResult = await checkPendingJoinRequests(user.uid);
+          if (joinRequestResult && joinRequestResult.hasPendingRequest) {
+            // User has a pending request - don't create organization automatically
+            setUserOrganization(null);
+            setUserWorkspaces([]);
+            // Note: You might want to show a notification here about pending request
+          } else {
+            // Try to find organization by owner
+            try {
+              const org = await getOrganizationByOwner(user.uid);
+              if (org) {
+                setUserOrganization(org);
+                // Update user profile with organizationId
+                await setDoc(
+                  doc(db, 'users', user.uid),
+                  { organizationId: org.id },
+                  { merge: true }
+                );
+                // Fetch workspaces
+                const workspaces = await getWorkspaces(org.id);
+                setUserWorkspaces(workspaces);
               } else {
+                // User doesn't have an organization and no pending requests
+                // Don't auto-create - let them choose during signup or later
                 setUserOrganization(null);
                 setUserWorkspaces([]);
               }
+            } catch (orgError) {
+              console.error('Error fetching organization:', orgError);
+              setUserOrganization(null);
+              setUserWorkspaces([]);
             }
-          } catch (orgError) {
-            console.error('Error fetching or creating organization:', orgError);
-            setUserOrganization(null);
-            setUserWorkspaces([]);
           }
         }
       } else {
@@ -234,14 +291,18 @@ export const AuthProvider = ({ children }) => {
           await setDoc(doc(db, 'users', user.uid), newUserProfile);
           setUserProfile(newUserProfile);
           
-          // Create organization and workspace for new user
-          const orgResult = await createUserOrganization(user.uid, user.email);
-          if (orgResult && orgResult.organizationId) {
-            // Fetch the newly created organization
-            const newOrg = await getOrganizationById(orgResult.organizationId);
+          // Check for approved join requests
+          const joinRequestResult = await checkPendingJoinRequests(user.uid);
+          if (joinRequestResult && joinRequestResult.organizationId) {
+            // User was just approved - fetch the organization
+            await setDoc(
+              doc(db, 'users', user.uid),
+              { organizationId: joinRequestResult.organizationId },
+              { merge: true }
+            );
+            const newOrg = await getOrganizationById(joinRequestResult.organizationId);
             if (newOrg) {
               setUserOrganization(newOrg);
-              // Fetch workspaces
               const workspaces = await getWorkspaces(newOrg.id);
               setUserWorkspaces(workspaces);
             } else {
@@ -249,6 +310,7 @@ export const AuthProvider = ({ children }) => {
               setUserWorkspaces([]);
             }
           } else {
+            // No approved request - user needs to create or join organization
             setUserOrganization(null);
             setUserWorkspaces([]);
           }
@@ -278,15 +340,139 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Sign up function
-  const signup = async (email, password) => {
+  const signup = async (email, password, organizationData = null) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      // User profile and organization will be created automatically in fetchUserProfile
-      // Wait for profile to be fetched to ensure organization is created
-      await fetchUserProfile(userCredential.user);
-      return { success: true, user: userCredential.user };
+      const user = userCredential.user;
+
+      // Create user profile first
+      const newUserProfile = {
+        email: user.email,
+        role: 'member',
+        is_admin: false,
+        organizationId: null,
+        workspaceIds: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      try {
+        await setDoc(doc(db, 'users', user.uid), newUserProfile);
+        setUserProfile(newUserProfile);
+      } catch (profileError) {
+        console.error('Error creating user profile:', profileError);
+        // Continue anyway - profile might be created by fetchUserProfile
+      }
+
+      // Handle organization setup based on user's choice
+      if (organizationData) {
+        if (organizationData.action === 'create') {
+          // Create new organization
+          const orgResult = await createOrganization(
+            {
+              name: organizationData.name,
+              subdomain: organizationData.subdomain || null,
+              tier: 'small_team',
+              workspaceLimit: 1
+            },
+            user.uid
+          );
+
+          if (orgResult.success) {
+            // Create default workspace
+            const workspaceResult = await createWorkspace(
+              {
+                name: 'Default Workspace',
+                description: 'Default workspace for your organization'
+              },
+              user.uid,
+              orgResult.id
+            );
+
+            if (workspaceResult.success) {
+              // Update user profile with organization and workspace
+              await setDoc(
+                doc(db, 'users', user.uid),
+                {
+                  organizationId: orgResult.id,
+                  workspaceIds: [workspaceResult.id],
+                  is_admin: true, // User is admin of their own organization
+                  updatedAt: serverTimestamp()
+                },
+                { merge: true }
+              );
+
+              // Fetch organization and workspaces
+              const newOrg = await getOrganizationById(orgResult.id);
+              if (newOrg) {
+                setUserOrganization(newOrg);
+                const workspaces = await getWorkspaces(newOrg.id);
+                setUserWorkspaces(workspaces);
+              }
+            } else {
+              // Organization created but workspace failed
+              await setDoc(
+                doc(db, 'users', user.uid),
+                {
+                  organizationId: orgResult.id,
+                  is_admin: true,
+                  updatedAt: serverTimestamp()
+                },
+                { merge: true }
+              );
+              const newOrg = await getOrganizationById(orgResult.id);
+              if (newOrg) {
+                setUserOrganization(newOrg);
+                setUserWorkspaces([]);
+              }
+            }
+          } else {
+            console.error('Failed to create organization:', orgResult.error);
+            // User account created but organization failed - they can create it later
+          }
+        } else if (organizationData.action === 'join' && organizationData.organizationId) {
+          // Create join request instead of auto-joining
+          const requestResult = await createJoinRequest(
+            organizationData.organizationId,
+            user.uid,
+            user.email
+          );
+
+          if (!requestResult.success) {
+            console.error('Failed to create join request:', requestResult.error);
+            // User account created but request failed - they can request again later
+          }
+          // User profile remains without organizationId until request is approved
+        }
+      } else {
+        // No organization data provided - create default organization (backward compatibility)
+        const orgResult = await createUserOrganization(user.uid, user.email);
+        if (orgResult && orgResult.organizationId) {
+          const newOrg = await getOrganizationById(orgResult.organizationId);
+          if (newOrg) {
+            setUserOrganization(newOrg);
+            const workspaces = await getWorkspaces(newOrg.id);
+            setUserWorkspaces(workspaces);
+          }
+        }
+      }
+
+      // Refresh user profile to get latest data
+      await fetchUserProfile(user);
+      
+      return { success: true, user };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.error('Signup error:', error);
+      // Provide user-friendly error messages
+      let errorMessage = error.message;
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'An account with this email already exists.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak.';
+      }
+      return { success: false, error: errorMessage };
     }
   };
 

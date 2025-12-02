@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Users, UserPlus, Mail, Shield, Eye, Edit, X, AlertCircle, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -19,6 +20,8 @@ import { canManageTeam } from '@/lib/permissions';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useNavigate } from 'react-router-dom';
+import OrganizationRequests from './OrganizationRequests';
+import { getPendingRequests } from '@/lib/firestore/organizationRequests';
 
 const TeamManagement = () => {
   const { currentUser, userOrganization, userProfile, refreshUserProfile } = useAuth();
@@ -30,14 +33,28 @@ const TeamManagement = () => {
   const [inviteRole, setInviteRole] = useState(ROLES.MEMBER);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [activeTab, setActiveTab] = useState('members');
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   useEffect(() => {
     if (userOrganization) {
       loadOrganizationMembers();
+      loadPendingRequestsCount();
     } else {
       setIsLoading(false);
     }
-  }, [userOrganization]);
+  }, [userOrganization, currentUser]);
+
+  const loadPendingRequestsCount = async () => {
+    if (!userOrganization || !currentUser) return;
+    
+    try {
+      const requests = await getPendingRequests(userOrganization.id, currentUser.uid);
+      setPendingRequestsCount(requests.length);
+    } catch (error) {
+      console.error('Error loading pending requests count:', error);
+    }
+  };
 
   const loadOrganizationMembers = async () => {
     if (!userOrganization) return;
@@ -305,24 +322,43 @@ const TeamManagement = () => {
         </CardContent>
       </Card>
 
-      {/* Team Members */}
+      {/* Tabs for Members and Join Requests */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Organization Members
-              </CardTitle>
-              <CardDescription>Manage team member roles and permissions</CardDescription>
-            </div>
-            <Button onClick={() => setShowInviteForm(!showInviteForm)} className="flex items-center gap-2">
-              <UserPlus className="w-4 h-4" />
-              Invite Member
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="pt-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="members" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Members
+              </TabsTrigger>
+              <TabsTrigger value="requests" className="flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Join Requests
+                {pendingRequestsCount > 0 && (
+                  <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                    {pendingRequestsCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="members" className="mt-0">
+              {/* Team Members */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Organization Members
+                    </CardTitle>
+                    <CardDescription>Manage team member roles and permissions</CardDescription>
+                  </div>
+                  <Button onClick={() => setShowInviteForm(!showInviteForm)} className="flex items-center gap-2">
+                    <UserPlus className="w-4 h-4" />
+                    Invite Member
+                  </Button>
+                </div>
+                <div className="space-y-4">
           {showInviteForm && (
             <div className="p-4 border rounded-lg space-y-4 bg-muted/50">
               <div className="space-y-2">
@@ -415,6 +451,14 @@ const TeamManagement = () => {
               ))}
             </div>
           )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="requests" className="mt-0">
+              <OrganizationRequests onRequestProcessed={loadPendingRequestsCount} />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 

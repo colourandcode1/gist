@@ -81,7 +81,8 @@ export const createWorkspace = async (workspaceData, userId, organizationId) => 
       name: workspaceData.name || 'My Workspace',
       description: workspaceData.description || '',
       organizationId,
-      createdBy: userId,
+      createdBy: userId, // Immutable - for audit trail
+      ownerId: userId, // Transferable - for ownership/permissions
       permissions: workspaceData.permissions || null, // Enterprise only
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -134,21 +135,142 @@ export const updateWorkspace = async (workspaceId, updates, userId) => {
       return { success: false, error: 'Workspace not found' };
     }
 
-    // Check permissions (only creator or admin can update)
-    if (workspaceData.createdBy !== userId) {
-      // TODO: Check if user is admin of organization
-      return { success: false, error: 'Permission denied' };
+    // Check permissions (only owner or admin can update)
+    const isOwner = workspaceData.ownerId === userId;
+    const isAdmin = await checkIsAdmin(userId, workspaceData.organizationId);
+    
+    if (!isOwner && !isAdmin) {
+      return { success: false, error: 'Permission denied. Only workspace owner or organization admin can update.' };
+    }
+
+    // SECURITY: Prevent organizationId from being changed
+    // Workspaces cannot be moved between organizations
+    const { organizationId, createdBy, createdAt, ownerId, ...safeUpdates } = updates;
+    
+    // Warn if someone tries to change organizationId
+    if (organizationId !== undefined && organizationId !== workspaceData.organizationId) {
+      console.warn(`Attempt to change workspace organizationId blocked: ${workspaceId}`);
+      return { success: false, error: 'Cannot change workspace organization. Workspaces cannot be moved between organizations.' };
+    }
+
+    // Prevent createdBy from being changed (immutable audit field)
+    if (createdBy !== undefined && createdBy !== workspaceData.createdBy) {
+      console.warn(`Attempt to change workspace createdBy blocked: ${workspaceId}`);
+      return { success: false, error: 'Cannot change workspace creator. This field is immutable for audit purposes.' };
+    }
+
+    // Prevent createdAt from being changed (immutable audit field)
+    if (createdAt !== undefined) {
+      console.warn(`Attempt to change workspace createdAt blocked: ${workspaceId}`);
+      return { success: false, error: 'Cannot change workspace creation date. This field is immutable for audit purposes.' };
+    }
+
+    // Handle ownerId transfer (if provided)
+    let finalUpdates = { ...safeUpdates };
+    if (ownerId !== undefined && ownerId !== workspaceData.ownerId) {
+      // Validate new owner belongs to same organization
+      const transferResult = await validateOwnershipTransfer(workspaceId, ownerId, workspaceData.organizationId);
+      if (!transferResult.valid) {
+        return { success: false, error: transferResult.error };
+      }
+      finalUpdates.ownerId = ownerId;
     }
 
     const workspaceRef = doc(db, 'workspaces', workspaceId);
     await updateDoc(workspaceRef, {
-      ...updates,
+      ...finalUpdates,
       updatedAt: serverTimestamp()
     });
 
     return { success: true };
   } catch (error) {
     console.error('Error updating workspace:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Helper function to check if user is admin of organization
+async function checkIsAdmin(userId, organizationId) {
+  try {
+    const { getUserProfile } = await import('./users');
+    const userProfile = await getUserProfile(userId);
+    if (!userProfile) return false;
+    
+    return userProfile.organizationId === organizationId && 
+           userProfile.role === 'member' && 
+           userProfile.is_admin === true;
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return false;
+  }
+}
+
+// Validate ownership transfer
+async function validateOwnershipTransfer(workspaceId, newOwnerId, organizationId) {
+  try {
+    if (!newOwnerId) {
+      return { valid: false, error: 'New owner ID is required' };
+    }
+
+    // Get new owner's profile
+    const { getUserProfile } = await import('./users');
+    const newOwnerProfile = await getUserProfile(newOwnerId);
+    
+    if (!newOwnerProfile) {
+      return { valid: false, error: 'New owner not found' };
+    }
+
+    // CRITICAL: New owner must belong to the same organization
+    if (newOwnerProfile.organizationId !== organizationId) {
+      return { 
+        valid: false, 
+        error: 'Cannot transfer ownership to user from different organization. This would violate data isolation.' 
+      };
+    }
+
+    return { valid: true };
+  } catch (error) {
+    console.error('Error validating ownership transfer:', error);
+    return { valid: false, error: error.message };
+  }
+}
+
+// Transfer workspace ownership
+export const transferWorkspaceOwnership = async (workspaceId, newOwnerId, currentUserId) => {
+  try {
+    if (!workspaceId || !newOwnerId || !currentUserId) {
+      return { success: false, error: 'Workspace ID, new owner ID, and current user ID are required' };
+    }
+
+    const workspaceData = await getWorkspaceById(workspaceId);
+    if (!workspaceData) {
+      return { success: false, error: 'Workspace not found' };
+    }
+
+    // Check permissions (only current owner or admin can transfer)
+    const isOwner = workspaceData.ownerId === currentUserId;
+    const isAdmin = await checkIsAdmin(currentUserId, workspaceData.organizationId);
+    
+    if (!isOwner && !isAdmin) {
+      return { success: false, error: 'Permission denied. Only workspace owner or organization admin can transfer ownership.' };
+    }
+
+    // Validate transfer
+    const validation = await validateOwnershipTransfer(workspaceId, newOwnerId, workspaceData.organizationId);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    // Update ownership
+    const workspaceRef = doc(db, 'workspaces', workspaceId);
+    await updateDoc(workspaceRef, {
+      ownerId: newOwnerId,
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error transferring workspace ownership:', error);
     return { success: false, error: error.message };
   }
 };
@@ -165,9 +287,12 @@ export const deleteWorkspace = async (workspaceId, userId) => {
       return { success: false, error: 'Workspace not found' };
     }
 
-    // Check permissions (only creator or admin can delete)
-    if (workspaceData.createdBy !== userId) {
-      return { success: false, error: 'Permission denied' };
+    // Check permissions (only owner or admin can delete)
+    const isOwner = workspaceData.ownerId === userId;
+    const isAdmin = await checkIsAdmin(userId, workspaceData.organizationId);
+    
+    if (!isOwner && !isAdmin) {
+      return { success: false, error: 'Permission denied. Only workspace owner or organization admin can delete.' };
     }
 
     const workspaceRef = doc(db, 'workspaces', workspaceId);
@@ -198,9 +323,12 @@ export const setWorkspacePermissions = async (workspaceId, permissions, userId) 
       return { success: false, error: 'Workspace permissions are only available for Enterprise tier' };
     }
 
-    // Check permissions (only admin can set permissions)
-    if (workspaceData.createdBy !== userId) {
-      return { success: false, error: 'Permission denied' };
+    // Check permissions (only owner or admin can set permissions)
+    const isOwner = workspaceData.ownerId === userId;
+    const isAdmin = await checkIsAdmin(userId, workspaceData.organizationId);
+    
+    if (!isOwner && !isAdmin) {
+      return { success: false, error: 'Permission denied. Only workspace owner or organization admin can set permissions.' };
     }
 
     const workspaceRef = doc(db, 'workspaces', workspaceId);

@@ -54,6 +54,41 @@ service cloud.firestore {
              isInOrganization(get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.organizationId);
     }
     
+    // Helper function to check if user can access a theme (for comment access)
+    function canAccessTheme(themeId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/themes/$(themeId)) &&
+             (get(/databases/$(database)/documents/themes/$(themeId)).data.userId == request.auth.uid ||
+              (get(/databases/$(database)/documents/themes/$(themeId)).data.workspaceId != null &&
+               canAccessWorkspace(get(/databases/$(database)/documents/themes/$(themeId)).data.workspaceId)));
+    }
+    
+    // Helper function to check if user can access an activity's resource
+    function canAccessActivity(activityData) {
+      // Check if activity references a theme
+      if (activityData.themeId != null) {
+        return canAccessTheme(activityData.themeId);
+      }
+      // Check if activity references a project
+      if (activityData.projectId != null) {
+        return isAuthenticated() && 
+               exists(/databases/$(database)/documents/projects/$(activityData.projectId)) &&
+               (get(/databases/$(database)/documents/projects/$(activityData.projectId)).data.userId == request.auth.uid ||
+                (get(/databases/$(database)/documents/projects/$(activityData.projectId)).data.workspaceId != null &&
+                 canAccessWorkspace(get(/databases/$(database)/documents/projects/$(activityData.projectId)).data.workspaceId)));
+      }
+      // If activity only has userId, check if user is in same organization
+      if (activityData.userId != null) {
+        return isAuthenticated() &&
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               exists(/databases/$(database)/documents/users/$(activityData.userId)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId != null &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId == 
+               get(/databases/$(database)/documents/users/$(activityData.userId)).data.organizationId;
+      }
+      return false;
+    }
+    
     // Users collection - users can read/write their own profile
     match /users/{userId} {
       allow read, write: if isOwner(userId);
@@ -157,10 +192,12 @@ service cloud.firestore {
       // Users can create comments if authenticated and are members
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid &&
-                     isMember();
+                     isMember() &&
+                     canAccessTheme(request.resource.data.themeId);
       
-      // Users can read comments in their organization
-      allow read: if isAuthenticated();
+      // Users can read comments only if they can access the theme the comment belongs to
+      allow read: if isAuthenticated() && 
+                  canAccessTheme(resource.data.themeId);
       
       // Users can update/delete their own comments, or admins can update/delete any
       allow update, delete: if isAuthenticated() && 
@@ -255,8 +292,9 @@ service cloud.firestore {
       allow create: if isAuthenticated() && 
                      request.resource.data.userId == request.auth.uid;
       
-      // Users can read activities related to their resources
-      allow read: if isAuthenticated();
+      // Users can read activities only if they can access the activity's resource
+      allow read: if isAuthenticated() && 
+                  canAccessActivity(resource.data);
       
       // Users generally shouldn't update/delete activities, but admins can
       allow update, delete: if isAdmin();
@@ -269,9 +307,12 @@ service cloud.firestore {
                      request.resource.data.ownerId == request.auth.uid;
       
       // Users can read organizations they own or are members of
+      // Also allow reading by subdomain for public lookup (for join requests)
       allow read: if isAuthenticated() && 
                   (resource.data.ownerId == request.auth.uid ||
-                   (resource.data.members != null && request.auth.uid in resource.data.members));
+                   (resource.data.members != null && request.auth.uid in resource.data.members) ||
+                   // Allow reading organization by subdomain for join request flow
+                   resource.data.subdomain != null);
       
       // Only owners or admins can update organizations
       allow update: if isAuthenticated() && 
@@ -292,26 +333,50 @@ service cloud.firestore {
       // Users can create workspaces if authenticated and in the organization
       allow create: if isAuthenticated() && 
                      request.resource.data.createdBy == request.auth.uid &&
+                     request.resource.data.ownerId == request.auth.uid &&
                      isInOrganization(request.resource.data.organizationId);
       
       // Users can read workspaces in their organization
       allow read: if isAuthenticated() && 
                   canAccessWorkspace(workspaceId);
       
-      // Users can update workspaces they created, or admins can update any in their organization
+      // Users can update workspaces they own, or admins can update any in their organization
+      // SECURITY: Prevent organizationId, createdBy, and createdAt from being changed
+      // Allow ownerId to be changed (ownership transfer) but validate new owner is in same organization
       allow update: if isAuthenticated() && 
-                    (resource.data.createdBy == request.auth.uid ||
+                    (resource.data.ownerId == request.auth.uid ||
                      (isAdmin() &&
-                      canAccessWorkspace(workspaceId)));
+                      canAccessWorkspace(workspaceId))) &&
+                    // CRITICAL: Prevent workspace from being moved to different organization
+                    request.resource.data.organizationId == resource.data.organizationId &&
+                    // Prevent creator from being changed (immutable audit field)
+                    request.resource.data.createdBy == resource.data.createdBy &&
+                    // Prevent creation timestamp from being changed (immutable audit field)
+                    request.resource.data.createdAt == resource.data.createdAt &&
+                    // If ownerId is being changed, validate new owner is in same organization
+                    (request.resource.data.ownerId == resource.data.ownerId ||
+                     (request.resource.data.ownerId != null &&
+                      exists(/databases/$(database)/documents/users/$(request.resource.data.ownerId)) &&
+                      get(/databases/$(database)/documents/users/$(request.resource.data.ownerId)).data.organizationId == resource.data.organizationId));
       
-      // Users can delete workspaces they created, or admins can delete any
+      // Users can delete workspaces they own, or admins can delete any
       allow delete: if isAuthenticated() && 
-                     (resource.data.createdBy == request.auth.uid ||
+                     (resource.data.ownerId == request.auth.uid ||
                       (isAdmin() &&
                        canAccessWorkspace(workspaceId)));
       
-      // Admins can read/update/delete any workspace
-      allow read, update, delete: if isAdmin();
+      // Admins can read/update/delete any workspace (but still cannot change organizationId)
+      allow read, delete: if isAdmin();
+      allow update: if isAdmin() &&
+                     // Even admins cannot move workspaces between organizations
+                     request.resource.data.organizationId == resource.data.organizationId &&
+                     request.resource.data.createdBy == resource.data.createdBy &&
+                     request.resource.data.createdAt == resource.data.createdAt &&
+                     // Validate new owner is in same organization if ownerId is being changed
+                     (request.resource.data.ownerId == resource.data.ownerId ||
+                      (request.resource.data.ownerId != null &&
+                       exists(/databases/$(database)/documents/users/$(request.resource.data.ownerId)) &&
+                       get(/databases/$(database)/documents/users/$(request.resource.data.ownerId)).data.organizationId == resource.data.organizationId));
     }
     
     // Subscriptions collection
@@ -334,6 +399,41 @@ service cloud.firestore {
                      get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)).data.ownerId == request.auth.uid;
       
       // Admins can read/update/delete any subscription
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Organization Requests collection
+    match /organizationRequests/{requestId} {
+      // Users can create join requests for any organization
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid;
+      
+      // Users can read their own requests
+      allow read: if isAuthenticated() && 
+                  resource.data.userId == request.auth.uid;
+      
+      // Organization admins can read requests for their organization
+      allow read: if isAuthenticated() && 
+                  isInOrganization(resource.data.organizationId);
+      
+      // Users can update their own requests (to cancel)
+      // But we'll handle cancellation via delete instead
+      
+      // Organization admins can update requests for their organization (approve/reject)
+      allow update: if isAuthenticated() && 
+                    isInOrganization(resource.data.organizationId) &&
+                    // Verify user is admin or owner
+                    (get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)).data.ownerId == request.auth.uid ||
+                     (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organizationId == resource.data.organizationId &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_admin == true));
+      
+      // Users can delete their own pending requests (cancel)
+      allow delete: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid &&
+                     resource.data.status == 'pending';
+      
+      // Admins can read/update/delete any request
       allow read, update, delete: if isAdmin();
     }
   }

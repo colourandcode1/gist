@@ -21,13 +21,37 @@ export const createTheme = async (themeData, userId) => {
       throw new Error('User ID is required to create theme');
     }
 
+    // Ensure workspaceId is set - get from user's default workspace if not provided
+    let workspaceId = themeData.workspaceId;
+    if (!workspaceId) {
+      try {
+        const { getUserProfile } = await import('./users');
+        const userProfile = await getUserProfile(userId);
+        if (userProfile?.workspaceIds && userProfile.workspaceIds.length > 0) {
+          workspaceId = userProfile.workspaceIds[0];
+        } else {
+          // If user has no workspace, try to get from organization
+          if (userProfile?.organizationId) {
+            const { getWorkspaces } = await import('./workspaces');
+            const workspaces = await getWorkspaces(userProfile.organizationId);
+            if (workspaces && workspaces.length > 0) {
+              workspaceId = workspaces[0].id;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Could not determine workspaceId for theme:', error);
+        // Continue without workspaceId - Firestore rules will handle this
+      }
+    }
+
     const themePayload = {
       name: themeData.name,
       description: themeData.description || '',
       privacy: themeData.privacy || 'private', // private, team
       userId, // Owner of the theme
       teamId: themeData.teamId || null, // null = private, will be set when added to team
-      workspaceId: themeData.workspaceId || null, // Workspace ID for organization structure
+      workspaceId: workspaceId || null, // Workspace ID for organization structure - REQUIRED for multi-tenant isolation
       contributors: themeData.contributors || [userId], // Include creator as initial contributor
       outputType: themeData.outputType || null, // Optional output type
       problemStatement: themeData.problemStatement || '',
@@ -48,8 +72,8 @@ export const createTheme = async (themeData, userId) => {
   }
 };
 
-// Get all themes for a user (and optionally a team)
-export const getThemes = async (userId, teamId = null) => {
+// Get all themes for a user (and optionally a team or workspace)
+export const getThemes = async (userId, teamId = null, workspaceIds = null) => {
   try {
     if (!userId) {
       return [];
@@ -61,6 +85,15 @@ export const getThemes = async (userId, teamId = null) => {
       q = query(
         collection(db, 'themes'),
         where('teamId', '==', teamId),
+        orderBy('updatedAt', 'desc')
+      );
+    } else if (workspaceIds && workspaceIds.length > 0) {
+      // Filter by workspaceIds for organization isolation
+      // Firestore 'in' query supports up to 10 values
+      const workspaceIdsToQuery = workspaceIds.slice(0, 10);
+      q = query(
+        collection(db, 'themes'),
+        where('workspaceId', 'in', workspaceIdsToQuery),
         orderBy('updatedAt', 'desc')
       );
     } else {
@@ -83,6 +116,13 @@ export const getThemes = async (userId, teamId = null) => {
         return;
       }
       
+      // If filtering by workspaceIds, ensure theme belongs to one of the workspaces
+      if (workspaceIds && workspaceIds.length > 0) {
+        if (!data.workspaceId || !workspaceIds.includes(data.workspaceId)) {
+          return; // Skip themes not in user's workspaces
+        }
+      }
+      
       themes.push({
         id: doc.id,
         ...data,
@@ -91,9 +131,41 @@ export const getThemes = async (userId, teamId = null) => {
         updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
       });
     });
+    
+    // Handle case where user has more than 10 workspaces (Firestore 'in' limit)
+    if (workspaceIds && workspaceIds.length > 10) {
+      for (let i = 10; i < workspaceIds.length; i += 10) {
+        const batch = workspaceIds.slice(i, i + 10);
+        try {
+          const batchQuery = query(
+            collection(db, 'themes'),
+            where('workspaceId', 'in', batch),
+            orderBy('updatedAt', 'desc')
+          );
+          const batchSnapshot = await getDocs(batchQuery);
+          batchSnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (!data.workspaceId || !workspaceIds.includes(data.workspaceId)) {
+              return;
+            }
+            if (!themes.find(t => t.id === doc.id)) {
+              themes.push({
+                id: doc.id,
+                ...data,
+                createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+                updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Error loading batch of themes:', error);
+        }
+      }
+    }
 
-    // Also get themes where user is a contributor (if not team query)
-    if (!teamId) {
+    // Also get themes where user is a contributor (if not team query and not filtering by workspace)
+    // Note: Contributor themes should also be filtered by workspace for security
+    if (!teamId && (!workspaceIds || workspaceIds.length === 0)) {
       try {
         const contributorQuery = query(
           collection(db, 'themes'),

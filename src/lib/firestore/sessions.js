@@ -21,12 +21,36 @@ export const saveSession = async (sessionData, userId) => {
       throw new Error('User ID is required to save session');
     }
 
+    // Ensure workspaceId is set - get from user's default workspace if not provided
+    let workspaceId = sessionData.workspaceId;
+    if (!workspaceId) {
+      try {
+        const { getUserProfile } = await import('./users');
+        const userProfile = await getUserProfile(userId);
+        if (userProfile?.workspaceIds && userProfile.workspaceIds.length > 0) {
+          workspaceId = userProfile.workspaceIds[0];
+        } else {
+          // If user has no workspace, try to get from organization
+          if (userProfile?.organizationId) {
+            const { getWorkspaces } = await import('./workspaces');
+            const workspaces = await getWorkspaces(userProfile.organizationId);
+            if (workspaces && workspaces.length > 0) {
+              workspaceId = workspaces[0].id;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Could not determine workspaceId for session:', error);
+        // Continue without workspaceId - Firestore rules will handle this
+      }
+    }
+
     const sessionPayload = {
       ...sessionData,
       userId, // Owner of the session
       teamId: null, // null = private, will be set when added to team
       projectId: sessionData.projectId || null, // null = unassigned, will be set when added to project
-      workspaceId: sessionData.workspaceId || null, // Workspace ID for organization structure
+      workspaceId: workspaceId || null, // Workspace ID for organization structure - REQUIRED for multi-tenant isolation
       // Participant context fields (optional structured object)
       participantContext: sessionData.participantContext || null,
       createdBy: userId,
@@ -45,9 +69,9 @@ export const saveSession = async (sessionData, userId) => {
   }
 };
 
-// Get sessions for a user (and optionally a team)
+// Get sessions for a user (and optionally a team or workspace)
 // Note: excludeTranscriptContent - when true, removes transcript_content to save memory/bandwidth
-export const getSessions = async (userId, teamId = null, excludeTranscriptContent = true) => {
+export const getSessions = async (userId, teamId = null, excludeTranscriptContent = true, workspaceIds = null) => {
   try {
     if (!userId) {
       return [];
@@ -64,6 +88,15 @@ export const getSessions = async (userId, teamId = null, excludeTranscriptConten
       q = query(
         collection(db, 'sessions'),
         where('teamId', '==', teamId),
+        orderBy('createdAt', 'desc')
+      );
+    } else if (workspaceIds && workspaceIds.length > 0) {
+      // Filter by workspaceIds for organization isolation
+      // Firestore 'in' query supports up to 10 values
+      const workspaceIdsToQuery = workspaceIds.slice(0, 10);
+      q = query(
+        collection(db, 'sessions'),
+        where('workspaceId', 'in', workspaceIdsToQuery),
         orderBy('createdAt', 'desc')
       );
     } else {
@@ -90,6 +123,13 @@ export const getSessions = async (userId, teamId = null, excludeTranscriptConten
         return; // Skip team sessions when fetching private sessions
       }
       
+      // If filtering by workspaceIds, ensure session belongs to one of the workspaces
+      if (workspaceIds && workspaceIds.length > 0) {
+        if (!data.workspaceId || !workspaceIds.includes(data.workspaceId)) {
+          return; // Skip sessions not in user's workspaces
+        }
+      }
+      
       // Exclude transcript_content to save memory and bandwidth
       // It can be fetched separately when needed
       const { transcript_content, ...sessionData } = data;
@@ -104,6 +144,39 @@ export const getSessions = async (userId, teamId = null, excludeTranscriptConten
         _hasTranscript: !!transcript_content
       });
     });
+    
+    // Handle case where user has more than 10 workspaces (Firestore 'in' limit)
+    if (workspaceIds && workspaceIds.length > 10) {
+      for (let i = 10; i < workspaceIds.length; i += 10) {
+        const batch = workspaceIds.slice(i, i + 10);
+        try {
+          const batchQuery = query(
+            collection(db, 'sessions'),
+            where('workspaceId', 'in', batch),
+            orderBy('createdAt', 'desc')
+          );
+          const batchSnapshot = await getDocs(batchQuery);
+          batchSnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (!data.workspaceId || !workspaceIds.includes(data.workspaceId)) {
+              return;
+            }
+            const { transcript_content, ...sessionData } = data;
+            if (!sessions.find(s => s.id === doc.id)) {
+              sessions.push({
+                id: doc.id,
+                ...sessionData,
+                createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+                updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+                _hasTranscript: !!transcript_content
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Error loading batch of sessions:', error);
+        }
+      }
+    }
 
     return sessions;
   } catch (error) {

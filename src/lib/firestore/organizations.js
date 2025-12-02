@@ -13,7 +13,82 @@ import {
   orderBy,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../firebase';
+
+// Helper function to generate subdomain from organization name
+const generateSubdomain = (name) => {
+  if (!name) return null;
+  // Convert to lowercase, replace spaces and special chars with hyphens, remove invalid chars
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9-]/g, '-') // Replace non-alphanumeric (except hyphens) with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
+    .substring(0, 50); // Limit to 50 chars
+};
+
+// Helper function to validate subdomain
+const validateSubdomain = (subdomain) => {
+  if (!subdomain) return { valid: false, error: 'Subdomain is required' };
+  if (subdomain.length < 3) return { valid: false, error: 'Subdomain must be at least 3 characters' };
+  if (subdomain.length > 50) return { valid: false, error: 'Subdomain must be 50 characters or less' };
+  if (!/^[a-z0-9-]+$/.test(subdomain)) return { valid: false, error: 'Subdomain can only contain lowercase letters, numbers, and hyphens' };
+  if (subdomain.startsWith('-') || subdomain.endsWith('-')) return { valid: false, error: 'Subdomain cannot start or end with a hyphen' };
+  return { valid: true };
+};
+
+// Check if subdomain is available
+// Uses Cloud Function to check availability without requiring authentication
+export const isSubdomainAvailable = async (subdomain) => {
+  try {
+    // If subdomain is empty/null, it's optional so return true
+    if (!subdomain || subdomain.trim() === '') {
+      return true;
+    }
+    
+    // Normalize subdomain
+    const normalized = subdomain.toLowerCase().trim();
+    
+    // Call Cloud Function to check availability
+    const checkSubdomainAvailability = httpsCallable(functions, 'checkSubdomainAvailability');
+    const result = await checkSubdomainAvailability({ subdomain: normalized });
+    
+    const { available, error } = result.data;
+    
+    // If there's a validation error, throw it so the UI can handle it
+    if (error && !available) {
+      // Check if it's a validation error (format issue) vs availability error
+      const validationErrors = [
+        'Subdomain must be at least 3 characters',
+        'Subdomain must be 50 characters or less',
+        'Subdomain can only contain lowercase letters, numbers, and hyphens',
+        'Subdomain cannot start or end with a hyphen'
+      ];
+      
+      if (validationErrors.some(msg => error.includes(msg))) {
+        // This is a validation error - throw it so UI can show proper message
+        throw new Error(error);
+      }
+    }
+    
+    return available === true;
+  } catch (error) {
+    console.error('Error checking subdomain availability:', error);
+    
+    // If it's a validation error, re-throw it
+    if (error.message && (
+      error.message.includes('Subdomain') || 
+      error.message.includes('subdomain')
+    )) {
+      throw error;
+    }
+    
+    // For other errors (network, etc.), throw a generic error
+    throw new Error('Error checking subdomain availability. Please try again.');
+  }
+};
 
 // Create a new organization
 export const createOrganization = async (organizationData, userId) => {
@@ -22,12 +97,38 @@ export const createOrganization = async (organizationData, userId) => {
       return { success: false, error: 'User ID is required to create organization' };
     }
 
+    // Generate or validate subdomain
+    let subdomain = organizationData.subdomain;
+    if (!subdomain && organizationData.name) {
+      // Auto-generate from name
+      subdomain = generateSubdomain(organizationData.name);
+      // If generated subdomain is too short, append random chars
+      if (subdomain && subdomain.length < 3) {
+        subdomain = subdomain + '-' + Math.random().toString(36).substring(2, 5);
+      }
+    }
+
+    if (subdomain) {
+      subdomain = subdomain.toLowerCase().trim();
+      const validation = validateSubdomain(subdomain);
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+
+      // Check if subdomain is available
+      const available = await isSubdomainAvailable(subdomain);
+      if (!available) {
+        return { success: false, error: 'This subdomain is already taken. Please choose another.' };
+      }
+    }
+
     // Calculate trial end date (14 days from now)
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
     const organizationPayload = {
       name: organizationData.name || 'My Organization',
+      subdomain: subdomain || null, // Unique subdomain for organization lookup
       tier: organizationData.tier || 'small_team',
       subscriptionId: null, // Will be set when payment provider is integrated
       subscriptionStatus: 'trialing', // Start with trial
@@ -74,6 +175,40 @@ export const getOrganizationById = async (organizationId) => {
     return null;
   } catch (error) {
     console.error('Error getting organization:', error);
+    return null;
+  }
+};
+
+// Get organization by subdomain
+export const getOrganizationBySubdomain = async (subdomain) => {
+  try {
+    if (!subdomain) {
+      return null;
+    }
+
+    const normalizedSubdomain = subdomain.toLowerCase().trim();
+    const q = query(
+      collection(db, 'organizations'),
+      where('subdomain', '==', normalizedSubdomain)
+    );
+
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        trialEndsAt: data.trialEndsAt?.toDate?.()?.toISOString() || data.trialEndsAt,
+        currentPeriodStart: data.currentPeriodStart?.toDate?.()?.toISOString() || data.currentPeriodStart,
+        currentPeriodEnd: data.currentPeriodEnd?.toDate?.()?.toISOString() || data.currentPeriodEnd
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting organization by subdomain:', error);
     return null;
   }
 };
@@ -128,6 +263,26 @@ export const updateOrganization = async (organizationId, updates, userId) => {
     if (orgData.ownerId !== userId) {
       // TODO: Check if user is admin of organization
       return { success: false, error: 'Permission denied' };
+    }
+
+    // If subdomain is being updated, validate it
+    if (updates.subdomain !== undefined) {
+      const newSubdomain = updates.subdomain ? updates.subdomain.toLowerCase().trim() : null;
+      
+      if (newSubdomain) {
+        const validation = validateSubdomain(newSubdomain);
+        if (!validation.valid) {
+          return { success: false, error: validation.error };
+        }
+
+        // Check if subdomain is available (excluding current organization)
+        const existingOrg = await getOrganizationBySubdomain(newSubdomain);
+        if (existingOrg && existingOrg.id !== organizationId) {
+          return { success: false, error: 'This subdomain is already taken. Please choose another.' };
+        }
+      }
+      
+      updates.subdomain = newSubdomain;
     }
 
     const orgRef = doc(db, 'organizations', organizationId);

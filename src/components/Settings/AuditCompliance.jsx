@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getAuditLogs } from '@/lib/firestoreUtils';
 
 const AuditCompliance = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userOrganization } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [auditFilters, setAuditFilters] = useState({
     user: '',
@@ -38,6 +38,13 @@ const AuditCompliance = () => {
       return;
     }
 
+    if (!userOrganization?.id) {
+      console.warn('Cannot load audit logs: user has no organization');
+      setIsLoading(false);
+      setAuditLogs([]);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const filters = {
@@ -48,7 +55,7 @@ const AuditCompliance = () => {
         dateTo: auditFilters.dateTo
       };
 
-      const logs = await getAuditLogs(currentUser.uid, filters, 100);
+      const logs = await getAuditLogs(currentUser.uid, userOrganization.id, filters, 100);
       setAuditLogs(logs);
     } catch (error) {
       console.error('Error loading audit logs:', error);

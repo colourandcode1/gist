@@ -99,11 +99,22 @@ export const getProjectActivities = async (projectId, limit = 50) => {
 };
 
 // Get audit logs with filtering
-export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
+export const getAuditLogs = async (userId, organizationId, filters = {}, limit = 100) => {
   try {
     if (!userId) {
       return [];
     }
+
+    if (!organizationId) {
+      console.warn('getAuditLogs called without organizationId - returning empty array for security');
+      return [];
+    }
+
+    // Import functions needed for organization filtering
+    const { getSessionById } = await import('./sessions');
+    const { getProjectById } = await import('./projects');
+    const { getThemeById } = await import('./themes');
+    const { getWorkspaceById } = await import('./workspaces');
 
     // Build query based on filters
     let q = query(collection(db, 'activities'));
@@ -158,20 +169,87 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
     const auditLogs = [];
     const userIds = new Set();
 
-    // First pass: collect all logs and user IDs
+    // Helper function to check if a resource belongs to the organization
+    const resourceBelongsToOrg = async (activityData) => {
+      // Check theme activities
+      if (activityData.themeId) {
+        try {
+          const theme = await getThemeById(activityData.themeId);
+          if (!theme || !theme.workspaceId) return false;
+          const workspace = await getWorkspaceById(theme.workspaceId);
+          return workspace && workspace.organizationId === organizationId;
+        } catch (error) {
+          console.error('Error checking theme organization:', error);
+          return false;
+        }
+      }
+
+      // Check project activities
+      if (activityData.projectId) {
+        try {
+          const project = await getProjectById(activityData.projectId);
+          if (!project || !project.workspaceId) return false;
+          const workspace = await getWorkspaceById(project.workspaceId);
+          return workspace && workspace.organizationId === organizationId;
+        } catch (error) {
+          console.error('Error checking project organization:', error);
+          return false;
+        }
+      }
+
+      // Check session activities (sessions contain nuggets/insights)
+      // For session activities, we need to check the session's workspace
+      // Note: activities don't directly reference sessions, but insights do
+      // For now, if there's no themeId or projectId, we'll need to check via other means
+      // Activities related to insights would need session lookup, which is complex
+      // For security, we'll be conservative and only include activities with clear org linkage
+      
+      // If activity has userId, check if user belongs to organization
+      // This is a fallback but not as secure - prefer resource-based checks
+      if (activityData.userId) {
+        try {
+          const { getUserProfile } = await import('./users');
+          const userProfile = await getUserProfile(activityData.userId);
+          return userProfile && userProfile.organizationId === organizationId;
+        } catch (error) {
+          console.error('Error checking user organization:', error);
+          return false;
+        }
+      }
+
+      return false;
+    };
+
+    // First pass: collect all logs and filter by organization
+    const rawLogs = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      const createdAt = data.createdAt?.toDate?.() || new Date(data.createdAt);
+      rawLogs.push({
+        id: doc.id,
+        data,
+        createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt)
+      });
+    });
+
+    // Filter logs by organization and other filters
+    const filteredLogs = [];
+    for (const log of rawLogs) {
+      const data = log.data;
+      const createdAt = log.createdAt;
+      
+      // CRITICAL: Filter by organization first
+      const belongsToOrg = await resourceBelongsToOrg(data);
+      if (!belongsToOrg) continue;
       
       // Apply date range filter
       if (filters.dateFrom) {
         const dateFrom = new Date(filters.dateFrom);
-        if (createdAt < dateFrom) return;
+        if (createdAt < dateFrom) continue;
       }
       if (filters.dateTo) {
         const dateTo = new Date(filters.dateTo);
         dateTo.setHours(23, 59, 59, 999); // End of day
-        if (createdAt > dateTo) return;
+        if (createdAt > dateTo) continue;
       }
 
       // Apply action type filter
@@ -185,7 +263,7 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
         
         const types = actionTypeMap[filters.actionType] || [];
         if (types.length > 0 && !types.includes(data.type)) {
-          return;
+          continue;
         }
       }
 
@@ -200,7 +278,7 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
         
         const field = resourceFieldMap[filters.resourceType];
         if (field && !data[field] && !data[field.replace('Id', 'Id')]) {
-          return;
+          continue;
         }
       }
 
@@ -209,57 +287,60 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
         userIds.add(data.userId);
       }
 
-      // Map activity type to action and resource type
-      const actionMap = {
-        'session_created': 'Create',
-        'session_updated': 'Update',
-        'session_deleted': 'Delete',
-        'session_viewed': 'View',
-        'project_created': 'Create',
-        'project_updated': 'Update',
-        'project_deleted': 'Delete',
-        'project_viewed': 'View',
-        'theme_created': 'Create',
-        'theme_updated': 'Update',
-        'theme_deleted': 'Delete',
-        'theme_viewed': 'View',
-        'insight_added': 'Create',
-        'insight_updated': 'Update',
-        'insight_deleted': 'Delete',
-        'comment': 'Comment'
-      };
+      filteredLogs.push(log);
+    }
 
-      const resourceTypeMap = {
-        'session_created': 'Session',
-        'session_updated': 'Session',
-        'session_deleted': 'Session',
-        'session_viewed': 'Session',
-        'project_created': 'Project',
-        'project_updated': 'Project',
-        'project_deleted': 'Project',
-        'project_viewed': 'Project',
-        'theme_created': 'Theme',
-        'theme_updated': 'Theme',
-        'theme_deleted': 'Theme',
-        'theme_viewed': 'Theme',
-        'insight_added': 'Insight',
-        'insight_updated': 'Insight',
-        'insight_deleted': 'Insight',
-        'comment': 'Comment'
-      };
+    // Map activity type to action and resource type
+    const actionMap = {
+      'session_created': 'Create',
+      'session_updated': 'Update',
+      'session_deleted': 'Delete',
+      'session_viewed': 'View',
+      'project_created': 'Create',
+      'project_updated': 'Update',
+      'project_deleted': 'Delete',
+      'project_viewed': 'View',
+      'theme_created': 'Create',
+      'theme_updated': 'Update',
+      'theme_deleted': 'Delete',
+      'theme_viewed': 'View',
+      'insight_added': 'Create',
+      'insight_updated': 'Update',
+      'insight_deleted': 'Delete',
+      'comment': 'Comment'
+    };
 
-      auditLogs.push({
-        id: doc.id,
-        timestamp: createdAt.toISOString(),
-        userEmail: data.userId, // Will be updated below
-        userId: data.userId,
-        action: actionMap[data.type] || data.type,
-        resourceType: resourceTypeMap[data.type] || 'Unknown',
-        details: data.description || data.metadata?.details || '',
-        type: data.type,
-        metadata: data.metadata || {}
-      });
-    });
+    const resourceTypeMap = {
+      'session_created': 'Session',
+      'session_updated': 'Session',
+      'session_deleted': 'Session',
+      'session_viewed': 'Session',
+      'project_created': 'Project',
+      'project_updated': 'Project',
+      'project_deleted': 'Project',
+      'project_viewed': 'Project',
+      'theme_created': 'Theme',
+      'theme_updated': 'Theme',
+      'theme_deleted': 'Theme',
+      'theme_viewed': 'Theme',
+      'insight_added': 'Insight',
+      'insight_updated': 'Insight',
+      'insight_deleted': 'Insight',
+      'comment': 'Comment'
+    };
+
+    // Transform filtered logs to final format
+    const finalLogs = filteredLogs.map(log => ({
+      id: log.id,
+      timestamp: log.createdAt.toISOString(),
+      userEmail: log.data.userId, // Will be updated below
+      userId: log.data.userId,
+      action: actionMap[log.data.type] || log.data.type,
+      resourceType: resourceTypeMap[log.data.type] || 'Unknown',
+      details: log.data.description || log.data.metadata?.details || '',
+      type: log.data.type,
+      metadata: log.data.metadata || {}
+    }));
 
     // Batch fetch user profiles (limit to avoid too many requests)
     const userIdsArray = Array.from(userIds).slice(0, 50);
@@ -274,13 +355,13 @@ export const getAuditLogs = async (userId, filters = {}, limit = 100) => {
     });
 
     // Update audit logs with user emails
-    auditLogs.forEach(log => {
+    finalLogs.forEach(log => {
       if (userEmailMap[log.userId]) {
         log.userEmail = userEmailMap[log.userId];
       }
     });
 
-    return auditLogs.slice(0, limit);
+    return finalLogs.slice(0, limit);
   } catch (error) {
     console.error('Error loading audit logs:', error);
     return [];

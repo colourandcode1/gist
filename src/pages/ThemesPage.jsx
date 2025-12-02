@@ -19,7 +19,7 @@ import { canCreateThemes } from '@/lib/permissions';
 import UpgradePrompt from '@/components/UpgradePrompt';
 
 const ThemesPage = () => {
-  const { currentUser, userProfile, userOrganization } = useAuth();
+  const { currentUser, userProfile, userOrganization, userWorkspaces } = useAuth();
   const navigate = useNavigate();
   const [themes, setThemes] = useState([]);
   const [filteredThemes, setFilteredThemes] = useState([]);
@@ -41,7 +41,10 @@ const ThemesPage = () => {
 
     setIsLoading(true);
     try {
-      const spaces = await getThemes(currentUser.uid);
+      // Get workspaceIds for organization filtering
+      const workspaceIds = userWorkspaces?.map(w => w.id) || [];
+      
+      const spaces = await getThemes(currentUser.uid, null, workspaceIds.length > 0 ? workspaceIds : null);
       
       // Apply filters
       let filtered = spaces;

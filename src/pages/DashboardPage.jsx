@@ -56,15 +56,21 @@ const DashboardPage = () => {
 
     setIsLoading(true);
     try {
-      // Fetch all data in parallel
+      // Get workspaceIds for organization filtering
+      const workspaceIds = userWorkspaces?.map(w => w.id) || [];
+      const workspaceIdsToQuery = selectedWorkspaceId 
+        ? [selectedWorkspaceId] 
+        : workspaceIds;
+
+      // Fetch all data in parallel with organization filtering
       let [sessions, projects, themes, nuggets] = await Promise.all([
-        getSessions(currentUser.uid),
-        getProjects(currentUser.uid),
-        getThemes(currentUser.uid),
+        getSessions(currentUser.uid, null, true, workspaceIdsToQuery.length > 0 ? workspaceIdsToQuery : null),
+        getProjects(currentUser.uid, null, workspaceIdsToQuery.length > 0 ? workspaceIdsToQuery : null),
+        getThemes(currentUser.uid, null, workspaceIdsToQuery.length > 0 ? workspaceIdsToQuery : null),
         getAllNuggets(currentUser.uid)
       ]);
 
-      // Filter by workspace if one is selected
+      // Additional filter by workspace if one is selected (for client-side filtering)
       if (selectedWorkspaceId) {
         sessions = sessions.filter(s => s.workspaceId === selectedWorkspaceId);
         projects = projects.filter(p => p.workspaceId === selectedWorkspaceId);

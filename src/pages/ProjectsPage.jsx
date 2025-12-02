@@ -19,7 +19,7 @@ import { canCreateProjects, canEditNuggets } from '@/lib/permissions';
 import UpgradePrompt from '@/components/UpgradePrompt';
 
 const ProjectsPage = () => {
-  const { currentUser, userProfile, userOrganization } = useAuth();
+  const { currentUser, userProfile, userOrganization, userWorkspaces } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
@@ -41,11 +41,14 @@ const ProjectsPage = () => {
 
     setIsLoading(true);
     try {
+      // Get workspaceIds for organization filtering
+      const workspaceIds = userWorkspaces?.map(w => w.id) || [];
+      
       let loadedProjects;
       if (statusFilter === 'all') {
-        loadedProjects = await getProjects(currentUser.uid);
+        loadedProjects = await getProjects(currentUser.uid, null, workspaceIds.length > 0 ? workspaceIds : null);
       } else {
-        loadedProjects = await getProjectsByStatus(currentUser.uid, statusFilter);
+        loadedProjects = await getProjectsByStatus(currentUser.uid, statusFilter, null, workspaceIds.length > 0 ? workspaceIds : null);
       }
 
       // Enrich projects with session and insight counts

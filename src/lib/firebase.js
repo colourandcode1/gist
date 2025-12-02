@@ -2,6 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 // Firebase config - these values should be replaced with your actual Firebase project config
 // You can find these in your Firebase Console > Project Settings > General > Your apps
@@ -22,6 +23,9 @@ export const auth = getAuth(app);
 
 // Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app);
+
+// Initialize Cloud Functions and get a reference to the service
+export const functions = getFunctions(app);
 
 export default app;
 

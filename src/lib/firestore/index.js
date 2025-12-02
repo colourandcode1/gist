@@ -107,6 +107,8 @@ export {
   createOrganization,
   getOrganizationById,
   getOrganizationByOwner,
+  getOrganizationBySubdomain,
+  isSubdomainAvailable,
   updateOrganization,
   updateOrganizationTier,
   getOrganizationMembers
@@ -119,6 +121,7 @@ export {
   getWorkspaceById,
   updateWorkspace,
   deleteWorkspace,
+  transferWorkspaceOwnership,
   setWorkspacePermissions,
   getWorkspacePermissions,
   getWorkspaceMembers,
@@ -134,4 +137,15 @@ export {
   updateSubscription,
   updateSubscriptionStatus
 } from './subscriptions';
+
+// Organization Requests
+export {
+  createJoinRequest,
+  getPendingRequests,
+  getRequestsByUser,
+  approveRequest,
+  rejectRequest,
+  cancelRequest,
+  getRequestById
+} from './organizationRequests';
 

@@ -3,6 +3,7 @@ import { useSearchParams, useLocation } from 'react-router-dom';
 import NavigationHeader from '@/components/NavigationHeader';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import ProfileSettings from '@/components/Settings/ProfileSettings';
 import TeamManagement from '@/components/Settings/TeamManagement';
 import ResearchConfiguration from '@/components/Settings/ResearchConfiguration';
@@ -11,21 +12,44 @@ import Integrations from '@/components/Settings/Integrations';
 import AuditCompliance from '@/components/Settings/AuditCompliance';
 import Billing from '@/components/Settings/Billing';
 import { useAuth } from '@/contexts/AuthContext';
+import { getPendingRequests } from '@/lib/firestore/organizationRequests';
 import { User, Users, Settings as SettingsIcon, Shield, Plug, FileText, CreditCard } from 'lucide-react';
 
 const SettingsPage = () => {
-  const { currentUser, userProfile, isAdmin } = useAuth();
+  const { currentUser, userProfile, isAdmin, userOrganization } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const tabFromUrl = searchParams.get('tab') || 'profile';
   const [activeTab, setActiveTab] = useState(tabFromUrl);
   const highlightDisplayName = location.state?.highlightDisplayName || false;
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   // Sync URL param changes with active tab state
   useEffect(() => {
     const tab = searchParams.get('tab') || 'profile';
     setActiveTab(tab);
   }, [searchParams]);
+
+  // Load pending requests count for admin users
+  useEffect(() => {
+    const loadPendingRequestsCount = async () => {
+      if (isAdmin() && userOrganization && currentUser) {
+        try {
+          const requests = await getPendingRequests(userOrganization.id, currentUser.uid);
+          setPendingRequestsCount(requests.length);
+        } catch (error) {
+          console.error('Error loading pending requests count:', error);
+        }
+      } else {
+        setPendingRequestsCount(0);
+      }
+    };
+
+    loadPendingRequestsCount();
+    // Refresh count every 30 seconds
+    const interval = setInterval(loadPendingRequestsCount, 30000);
+    return () => clearInterval(interval);
+  }, [isAdmin, userOrganization, currentUser]);
 
   // Update URL when tab changes
   const handleTabChange = (value) => {
@@ -65,6 +89,11 @@ const SettingsPage = () => {
               <TabsTrigger value="team" className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 <span className="hidden sm:inline">Team</span>
+                {pendingRequestsCount > 0 && (
+                  <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                    {pendingRequestsCount}
+                  </Badge>
+                )}
               </TabsTrigger>
             )}
             <TabsTrigger value="research" className="flex items-center gap-2">
