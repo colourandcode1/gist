@@ -123,7 +123,9 @@ const UserMenu = () => {
               )}
             </div>
             <p className="text-xs leading-none text-muted-foreground capitalize">
-              {userProfile?.role || 'member'}
+              {userProfile?.role === 'member' && userProfile?.is_admin === true 
+                ? 'Admin' 
+                : (userProfile?.role || 'member')}
             </p>
           </div>
         </DropdownMenuItem>
