@@ -1,8 +1,9 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import OrganizationSetupModal from '@/components/OrganizationSetupModal';
 
 const ProtectedRoute = ({ children, requiredRole = null, requiredRoles = null, requireAdmin = false }) => {
-  const { currentUser, userProfile, loading, isAdmin } = useAuth();
+  const { currentUser, userProfile, userOrganization, loading, isAdmin } = useAuth();
 
   if (loading) {
     return (
@@ -31,7 +32,17 @@ const ProtectedRoute = ({ children, requiredRole = null, requiredRoles = null, r
     return <Navigate to="/" replace />;
   }
 
-  return children;
+  // Show organization setup modal if user doesn't have an organization
+  const needsOrganizationSetup = !userOrganization && userProfile;
+
+  return (
+    <>
+      {needsOrganizationSetup && <OrganizationSetupModal />}
+      <div className={needsOrganizationSetup ? 'pointer-events-none opacity-50' : ''}>
+        {children}
+      </div>
+    </>
+  );
 };
 
 export default ProtectedRoute;

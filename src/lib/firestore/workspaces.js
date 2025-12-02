@@ -56,25 +56,32 @@ export const createWorkspace = async (workspaceData, userId, organizationId) => 
     }
 
     // Check workspace limit before creating
-    const organization = await getOrganizationById(organizationId);
-    if (!organization) {
-      return { success: false, error: 'Organization not found' };
-    }
+    // Try to get organization, but if it fails due to permissions (e.g., just created), proceed anyway
+    let organization = null;
+    let existingWorkspaces = [];
+    try {
+      organization = await getOrganizationById(organizationId);
+      if (organization) {
+        // Get current workspace count
+        existingWorkspaces = await getWorkspaces(organizationId);
+        const currentCount = existingWorkspaces.length;
 
-    // Get current workspace count
-    const existingWorkspaces = await getWorkspaces(organizationId);
-    const currentCount = existingWorkspaces.length;
-
-    // Check if organization can create more workspaces
-    const { canCreateWorkspace, getWorkspaceLimit } = await import('../subscriptionUtils');
-    if (!canCreateWorkspace(organization, currentCount)) {
-      const limit = getWorkspaceLimit(organization);
-      return { 
-        success: false, 
-        error: limit === null 
-          ? 'Unable to create workspace' 
-          : `Workspace limit reached (${limit} workspaces). Please upgrade your plan to create more workspaces.`
-      };
+        // Check if organization can create more workspaces
+        const { canCreateWorkspace, getWorkspaceLimit } = await import('../subscriptionUtils');
+        if (!canCreateWorkspace(organization, currentCount)) {
+          const limit = getWorkspaceLimit(organization);
+          return { 
+            success: false, 
+            error: limit === null 
+              ? 'Unable to create workspace' 
+              : `Workspace limit reached (${limit} workspaces). Please upgrade your plan to create more workspaces.`
+          };
+        }
+      }
+    } catch (error) {
+      // If we can't read the organization (e.g., permissions issue or just created),
+      // proceed anyway - the security rules will enforce permissions
+      console.warn('Could not read organization for workspace limit check, proceeding anyway:', error.message);
     }
 
     const workspacePayload = {

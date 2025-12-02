@@ -340,12 +340,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Sign up function
-  const signup = async (email, password, organizationData = null) => {
+  const signup = async (email, password) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Create user profile first
+      // Create user profile - user will set up organization via modal after signup
       const newUserProfile = {
         email: user.email,
         role: 'member',
@@ -359,102 +359,11 @@ export const AuthProvider = ({ children }) => {
       try {
         await setDoc(doc(db, 'users', user.uid), newUserProfile);
         setUserProfile(newUserProfile);
+        setUserOrganization(null);
+        setUserWorkspaces([]);
       } catch (profileError) {
         console.error('Error creating user profile:', profileError);
         // Continue anyway - profile might be created by fetchUserProfile
-      }
-
-      // Handle organization setup based on user's choice
-      if (organizationData) {
-        if (organizationData.action === 'create') {
-          // Create new organization
-          const orgResult = await createOrganization(
-            {
-              name: organizationData.name,
-              subdomain: organizationData.subdomain || null,
-              tier: 'small_team',
-              workspaceLimit: 1
-            },
-            user.uid
-          );
-
-          if (orgResult.success) {
-            // Create default workspace
-            const workspaceResult = await createWorkspace(
-              {
-                name: 'Default Workspace',
-                description: 'Default workspace for your organization'
-              },
-              user.uid,
-              orgResult.id
-            );
-
-            if (workspaceResult.success) {
-              // Update user profile with organization and workspace
-              await setDoc(
-                doc(db, 'users', user.uid),
-                {
-                  organizationId: orgResult.id,
-                  workspaceIds: [workspaceResult.id],
-                  is_admin: true, // User is admin of their own organization
-                  updatedAt: serverTimestamp()
-                },
-                { merge: true }
-              );
-
-              // Fetch organization and workspaces
-              const newOrg = await getOrganizationById(orgResult.id);
-              if (newOrg) {
-                setUserOrganization(newOrg);
-                const workspaces = await getWorkspaces(newOrg.id);
-                setUserWorkspaces(workspaces);
-              }
-            } else {
-              // Organization created but workspace failed
-              await setDoc(
-                doc(db, 'users', user.uid),
-                {
-                  organizationId: orgResult.id,
-                  is_admin: true,
-                  updatedAt: serverTimestamp()
-                },
-                { merge: true }
-              );
-              const newOrg = await getOrganizationById(orgResult.id);
-              if (newOrg) {
-                setUserOrganization(newOrg);
-                setUserWorkspaces([]);
-              }
-            }
-          } else {
-            console.error('Failed to create organization:', orgResult.error);
-            // User account created but organization failed - they can create it later
-          }
-        } else if (organizationData.action === 'join' && organizationData.organizationId) {
-          // Create join request instead of auto-joining
-          const requestResult = await createJoinRequest(
-            organizationData.organizationId,
-            user.uid,
-            user.email
-          );
-
-          if (!requestResult.success) {
-            console.error('Failed to create join request:', requestResult.error);
-            // User account created but request failed - they can request again later
-          }
-          // User profile remains without organizationId until request is approved
-        }
-      } else {
-        // No organization data provided - create default organization (backward compatibility)
-        const orgResult = await createUserOrganization(user.uid, user.email);
-        if (orgResult && orgResult.organizationId) {
-          const newOrg = await getOrganizationById(orgResult.organizationId);
-          if (newOrg) {
-            setUserOrganization(newOrg);
-            const workspaces = await getWorkspaces(newOrg.id);
-            setUserWorkspaces(workspaces);
-          }
-        }
       }
 
       // Refresh user profile to get latest data

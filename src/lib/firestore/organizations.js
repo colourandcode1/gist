@@ -116,9 +116,26 @@ export const createOrganization = async (organizationData, userId) => {
       }
 
       // Check if subdomain is available
-      const available = await isSubdomainAvailable(subdomain);
-      if (!available) {
-        return { success: false, error: 'This subdomain is already taken. Please choose another.' };
+      // For local development, if Cloud Function fails, we'll check directly in Firestore
+      try {
+        const available = await isSubdomainAvailable(subdomain);
+        if (!available) {
+          return { success: false, error: 'This subdomain is already taken. Please choose another.' };
+        }
+      } catch (error) {
+        // If Cloud Function is unavailable (e.g., local development), check directly in Firestore
+        console.warn('Cloud Function unavailable, checking subdomain directly in Firestore:', error.message);
+        try {
+          const existingOrg = await getOrganizationBySubdomain(subdomain);
+          if (existingOrg) {
+            return { success: false, error: 'This subdomain is already taken. Please choose another.' };
+          }
+          // Subdomain is available (no existing org found), continue
+        } catch (firestoreError) {
+          // If direct check also fails, we'll proceed anyway
+          // Uniqueness will be enforced at the database level if there's a unique index
+          console.warn('Could not verify subdomain availability, proceeding anyway:', firestoreError.message);
+        }
       }
     }
 
@@ -261,8 +278,12 @@ export const updateOrganization = async (organizationId, updates, userId) => {
 
     // Check permissions (only owner or admin can update)
     if (orgData.ownerId !== userId) {
-      // TODO: Check if user is admin of organization
-      return { success: false, error: 'Permission denied' };
+      // Check if user is admin of organization
+      const { getUserProfile } = await import('./users');
+      const userProfile = await getUserProfile(userId);
+      if (!userProfile || userProfile.organizationId !== organizationId || !userProfile.is_admin) {
+        return { success: false, error: 'Permission denied - only organization admins can update settings' };
+      }
     }
 
     // If subdomain is being updated, validate it

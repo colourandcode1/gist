@@ -11,9 +11,10 @@ import PrivacySecurity from '@/components/Settings/PrivacySecurity';
 import Integrations from '@/components/Settings/Integrations';
 import AuditCompliance from '@/components/Settings/AuditCompliance';
 import Billing from '@/components/Settings/Billing';
+import OrganizationSettings from '@/components/Settings/OrganizationSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPendingRequests } from '@/lib/firestore/organizationRequests';
-import { User, Users, Settings as SettingsIcon, Shield, Plug, FileText, CreditCard } from 'lucide-react';
+import { User, Users, Settings as SettingsIcon, Shield, Plug, FileText, CreditCard, Building2 } from 'lucide-react';
 
 const SettingsPage = () => {
   const { currentUser, userProfile, isAdmin, userOrganization } = useAuth();
@@ -86,6 +87,12 @@ const SettingsPage = () => {
               <span className="hidden sm:inline">Profile</span>
             </TabsTrigger>
             {isUserAdmin && (
+              <TabsTrigger value="organization" className="flex items-center gap-2">
+                <Building2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Organization</span>
+              </TabsTrigger>
+            )}
+            {isUserAdmin && (
               <TabsTrigger value="team" className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 <span className="hidden sm:inline">Team</span>
@@ -127,6 +134,12 @@ const SettingsPage = () => {
           <TabsContent value="profile">
             <ProfileSettings highlightDisplayName={highlightDisplayName} />
           </TabsContent>
+
+          {isUserAdmin && (
+            <TabsContent value="organization">
+              <OrganizationSettings />
+            </TabsContent>
+          )}
 
           {isUserAdmin && (
             <TabsContent value="team">
