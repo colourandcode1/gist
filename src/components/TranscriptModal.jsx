@@ -261,7 +261,11 @@ const TranscriptModal = ({ isOpen, onClose, nugget, sessionData, onEditInAnalysi
       />
       
       {/* Modal */}
-      <div className="relative bg-background border border-border rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] mx-4 flex flex-col" style={{ zIndex: 2 }}>
+      <div 
+        className="relative bg-background border border-border rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] mx-4 flex flex-col" 
+        style={{ zIndex: 2 }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex-1">
@@ -298,7 +302,8 @@ const TranscriptModal = ({ isOpen, onClose, nugget, sessionData, onEditInAnalysi
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (typeof onEditInAnalysis === 'function') onEditInAnalysis();
               }}
             >

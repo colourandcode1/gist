@@ -17,7 +17,14 @@ const RepositoryPage = () => {
       }
     } else if (viewOrPath?.view === 'analysis') {
       // For analysis view, navigate to upload with prefill
-      navigate('/', { state: { prefill: viewOrPath } });
+      // Send state in the structure that SimplifiedUpload expects
+      navigate('/', { 
+        state: { 
+          view: 'analysis',
+          session: viewOrPath.session,
+          prefill: viewOrPath.prefill 
+        } 
+      });
     } else if (viewOrPath?.view === 'repository') {
       navigate('/repository');
     } else if (viewOrPath?.view === 'upload') {
