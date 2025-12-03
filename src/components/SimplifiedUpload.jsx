@@ -181,9 +181,6 @@ const SimplifiedUpload = () => {
     fetchProject();
   }, [projectIdFromUrl]);
 
-
-  const estimatedNuggets = sessionData.transcriptContent ? Math.floor(sessionData.transcriptContent.length / 500) : 0;
-
   if (currentView === 'analysis') {
     return (
       <TranscriptAnalysisView 
@@ -287,7 +284,6 @@ const SimplifiedUpload = () => {
               handleQuickPaste={handleQuickPaste}
               showPreview={showPreview}
               setShowPreview={setShowPreview}
-              estimatedNuggets={estimatedNuggets}
               handleStartAnalysis={handleStartAnalysis}
               canStartAnalysis={canStartAnalysis()}
               isSavingSession={isSavingSession}

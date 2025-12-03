@@ -21,12 +21,16 @@ const TranscriptUpload = ({
   handleQuickPaste,
   showPreview,
   setShowPreview,
-  estimatedNuggets,
   handleStartAnalysis,
   canStartAnalysis,
   isSavingSession,
   showSaveSuccess
 }) => {
+  // Helper function to count words in transcript
+  const countWords = (text) => {
+    if (!text || !text.trim()) return 0;
+    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  };
   const handleFileUpload = async (file) => {
     setIsProcessing(true);
     setUploadMethod('upload');
@@ -151,8 +155,7 @@ const TranscriptUpload = ({
           <CardTitle>Transcript</CardTitle>
           {sessionData.transcriptContent && (
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>{sessionData.transcriptContent.length} characters</span>
-              <span>~{estimatedNuggets} potential insights</span>
+              <span>{countWords(sessionData.transcriptContent)} words</span>
             </div>
           )}
         </div>
@@ -291,22 +294,18 @@ const TranscriptUpload = ({
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-3 text-center bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+            <div className="grid grid-cols-2 gap-3 text-center bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
               <div>
                 <div className="text-lg font-bold text-green-800 dark:text-green-200">
-                  {sessionData.transcriptContent ? Math.floor(sessionData.transcriptContent.length / 100) / 10 : 0}k
+                  {sessionData.transcriptContent ? countWords(sessionData.transcriptContent) : 0}
                 </div>
-                <div className="text-xs text-green-600 dark:text-green-400">characters</div>
+                <div className="text-xs text-green-600 dark:text-green-400">words</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-green-800 dark:text-green-200">
                   {sessionData.transcriptContent ? (sessionData.transcriptContent.match(/\[.*?\]/g) || []).length : 0}
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-400">timestamps</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-green-800 dark:text-green-200">~{estimatedNuggets}</div>
-                <div className="text-xs text-green-600 dark:text-green-400">insights</div>
               </div>
             </div>
           </div>
