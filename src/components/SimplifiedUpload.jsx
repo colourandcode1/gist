@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowRight, Play } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import NavigationHeader from './NavigationHeader';
@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const SimplifiedUpload = () => {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const projectIdFromUrl = searchParams.get('projectId');
   const { currentUser, userWorkspaces } = useAuth();
 
@@ -180,6 +181,21 @@ const SimplifiedUpload = () => {
     };
     fetchProject();
   }, [projectIdFromUrl]);
+
+  // Handle navigation state from SessionDetailPage
+  useEffect(() => {
+    if (location.state && location.state.view === 'analysis' && location.state.session) {
+      // Only navigate if we're not already in analysis view with this session
+      if (currentView !== 'analysis' || sessionData.id !== location.state.session.id) {
+        handleNavigate({
+          view: 'analysis',
+          session: location.state.session,
+          prefill: location.state.prefill || null
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   if (currentView === 'analysis') {
     return (

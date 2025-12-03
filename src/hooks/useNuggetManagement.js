@@ -24,6 +24,15 @@ export const useNuggetManagement = (sessionData, prefill) => {
     tags: []
   });
 
+  // Initialize nuggets from sessionData if it's an existing session with nuggets
+  useEffect(() => {
+    if (sessionData?.id && sessionData?.nuggets && Array.isArray(sessionData.nuggets) && sessionData.nuggets.length > 0 && nuggets.length === 0) {
+      // Only initialize if nuggets array is empty (first load)
+      setNuggets(sessionData.nuggets);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionData?.id, sessionData?.nuggets]);
+
   // Pre-fill state when coming from repository edit flow
   useEffect(() => {
     if (prefill) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Download, Trash2, Save, X, Search, Plus, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Edit, Download, Trash2, Save, X, Search, Plus, MoreVertical, Sparkles } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -132,6 +132,34 @@ const SessionDetailPage = () => {
     } else {
       alert(`Failed to delete insight: ${result.error}`);
     }
+  };
+
+  const handleAnalyzeTranscript = () => {
+    if (!session) return;
+
+    // Format session data to match analysis view format
+    const formattedSession = {
+      id: session.id,
+      title: session.title,
+      sessionDate: session.session_date || new Date(session.createdAt).toISOString().split('T')[0],
+      participantName: session.participant_info?.name || '',
+      recordingUrl: session.recording_url || '',
+      transcriptContent: session.transcript_content || '',
+      sessionType: session.session_type || 'user_interview',
+      projectId: session.projectId || null,
+      participantContext: session.participantContext || null,
+      // Include existing nuggets so they appear in the analysis view
+      nuggets: nuggets || []
+    };
+
+    // Navigate to upload page with analysis view state
+    navigate('/', {
+      state: {
+        view: 'analysis',
+        session: formattedSession,
+        prefill: null
+      }
+    });
   };
 
   const filteredNuggets = nuggets.filter(nugget => {
@@ -291,6 +319,7 @@ const SessionDetailPage = () => {
               editMode={editMode}
               setEditMode={setEditMode}
               onSave={handleSaveTranscript}
+              onAnalyze={handleAnalyzeTranscript}
             />
           </TabsContent>
 
@@ -318,7 +347,7 @@ const SessionDetailPage = () => {
 };
 
 // Transcript Tab Component
-const SessionTranscriptTab = ({ session, transcript, editedTranscript, setEditedTranscript, editMode, setEditMode, onSave }) => {
+const SessionTranscriptTab = ({ session, transcript, editedTranscript, setEditedTranscript, editMode, setEditMode, onSave, onAnalyze }) => {
   const { userProfile } = useAuth();
   const canEdit = canUploadSessions(userProfile?.role, userProfile?.is_admin);
 
@@ -344,10 +373,16 @@ const SessionTranscriptTab = ({ session, transcript, editedTranscript, setEdited
                   </Button>
                 </>
               ) : (
-                <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Transcript
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={onAnalyze}>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Analyze Transcript
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Transcript
+                  </Button>
+                </>
               )}
             </div>
           )}
